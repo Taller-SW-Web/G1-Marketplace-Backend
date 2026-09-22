@@ -75,23 +75,6 @@ flowchart LR
 | **Testing & Calidad** | Jest, Supertest, Playwright, Gherkin BDD |
 
 ---
-
-## 📂 Estructura del Repositorio
-
-```text
-Multichannel-Marketplace/
-├── Arquitectura de la Aplicación/    # Diagramas C4, contratos y plan de arquitectura
-├── Diagrama de Procesos/             # Flujos y procesos de negocio
-├── Especificación de Requisitos/     # Épicas, matriz de trazabilidad y reglas de negocio
-├── SPECS/                            # Especificaciones técnicas detalladas (SDD por Épica)
-│   ├── README.md                     # Metodología y catálogo maestro de SPECS
-│   └── SPEC-01 a SPEC-08             # Documentos SDD de cada módulo
-├── Wireframes y Prototipo/           # Navegación y especificación de pantallas
-└── README.md                         # Portada principal del repositorio
-```
-
----
-
 ## 📋 Convenciones y Contribución
 
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
