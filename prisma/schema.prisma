@@ -1,0 +1,174 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// TIPOS ENUMERADOS (PostgreSQL ENUMs)
+// ==========================================
+
+enum CartState {
+  ACTIVE
+  MERGED
+  CHECKED_OUT
+  ABANDONED
+
+  @@map("cart_state")
+}
+
+enum CheckoutOperationState {
+  PREPARING
+  PREPARED
+  SUBMITTED
+  SUCCEEDED
+  FAILED
+
+  @@map("checkout_operation_state")
+}
+
+enum PostDeliveryPromptState {
+  ELIGIBLE
+  SHOWN
+  DISMISSED
+  SUBMITTED
+
+  @@map("post_delivery_prompt_state")
+}
+
+enum NotificationDeliveryType {
+  ORDER_CONFIRMATION
+  SHIPMENT_UPDATE
+
+  @@map("notification_delivery_type")
+}
+
+enum NotificationDeliveryState {
+  PENDING
+  SENT
+  FAILED
+  SUPPRESSED
+
+  @@map("notification_delivery_state")
+}
+
+// ==========================================
+// MODELOS RELACIONALES
+// ==========================================
+
+model Cart {
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId           String?                   @map("customer_id") @db.Uuid
+  anonymousSessionHash String?                   @map("anonymous_session_hash") @db.VarChar(128)
+  state                CartState                 @default(ACTIVE)
+  mergedIntoCartId     String?                   @map("merged_into_cart_id") @db.Uuid
+  currency             String                    @default("PEN") @db.Char(3)
+  version              Int                       @default(0)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mergedAt             DateTime?                 @map("merged_at") @db.Timestamptz(6)
+  checkedOutAt         DateTime?                 @map("checked_out_at") @db.Timestamptz(6)
+
+  // Relaciones internas
+  mergedIntoCart       Cart?                     @relation("CartMerge", fields: [mergedIntoCartId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  mergedCarts          Cart[]                    @relation("CartMerge")
+  items                CartItem[]
+  checkoutOperations   CheckoutOperation[]
+
+  @@index([mergedIntoCartId], map: "carts_merged_into_cart_idx")
+  @@map("carts")
+}
+
+model CartItem {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cartId            String    @map("cart_id") @db.Uuid
+  sku               String    @db.VarChar(100)
+  productId         String?   @map("product_id") @db.VarChar(100)
+  variantId         String?   @map("variant_id") @db.VarChar(100)
+  quantity          Int       @default(1)
+  unitPriceSnapshot Decimal?  @map("unit_price_snapshot") @db.Decimal(12, 2)
+  priceVersion      String?   @map("price_version") @db.VarChar(100)
+  quotedAt          DateTime? @map("quoted_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relación con carrito
+  cart              Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([cartId, sku], map: "cart_items_cart_sku_uk")
+  @@index([productId], map: "cart_items_product_id_idx")
+  @@index([variantId], map: "cart_items_variant_id_idx")
+  @@map("cart_items")
+}
+
+model WishlistItem {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  productId  String   @map("product_id") @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([customerId, productId], map: "wishlist_items_customer_product_uk")
+  @@index([customerId, createdAt(sort: Desc)], map: "wishlist_items_customer_created_idx")
+  @@map("wishlist_items")
+}
+
+model CheckoutOperation {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId         String                 @map("customer_id") @db.Uuid
+  cartId             String                 @map("cart_id") @db.Uuid
+  idempotencyKey     String                 @map("idempotency_key") @db.VarChar(255)
+  requestFingerprint String                 @map("request_fingerprint") @db.Char(64)
+  state              CheckoutOperationState @default(PREPARING)
+  externalOrderId    String?                @map("external_order_id") @db.VarChar(100)
+  failureCode        String?                @map("failure_code") @db.VarChar(100)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt        DateTime?              @map("completed_at") @db.Timestamptz(6)
+
+  // Relación con carrito
+  cart               Cart                   @relation(fields: [cartId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([customerId, idempotencyKey], map: "checkout_operations_customer_idempotency_uk")
+  @@index([cartId, createdAt(sort: Desc)], map: "checkout_operations_cart_created_idx")
+  @@index([state, createdAt], map: "checkout_operations_state_created_idx")
+  @@index([externalOrderId], map: "checkout_operations_external_order_idx")
+  @@map("checkout_operations")
+}
+
+model PostDeliveryPrompt {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId          String                  @map("customer_id") @db.Uuid
+  externalOrderId     String                  @map("external_order_id") @db.VarChar(100)
+  deliveryConfirmedAt DateTime                @map("delivery_confirmed_at") @db.Timestamptz(6)
+  state               PostDeliveryPromptState @default(ELIGIBLE)
+  eligibleAt          DateTime                @default(now()) @map("eligible_at") @db.Timestamptz(6)
+  shownAt             DateTime?               @map("shown_at") @db.Timestamptz(6)
+  dismissedAt         DateTime?               @map("dismissed_at") @db.Timestamptz(6)
+  submittedAt         DateTime?               @map("submitted_at") @db.Timestamptz(6)
+
+  @@unique([customerId, externalOrderId], map: "post_delivery_prompts_customer_order_uk")
+  @@index([customerId, state, eligibleAt(sort: Desc)], map: "post_delivery_prompts_customer_state_idx")
+  @@map("post_delivery_prompts")
+}
+
+model NotificationDelivery {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalOrderId         String                    @map("external_order_id") @db.VarChar(100)
+  customerId              String                    @map("customer_id") @db.Uuid
+  type                    NotificationDeliveryType
+  eventKey                String                    @map("event_key") @db.VarChar(255)
+  recipientEmailEncrypted Bytes                     @map("recipient_email_encrypted")
+  payloadVersion          String                    @map("payload_version") @db.VarChar(50)
+  state                   NotificationDeliveryState @default(PENDING)
+  providerMessageId       String?                   @map("provider_message_id") @db.VarChar(255)
+  attemptCount            Int                       @default(0) @map("attempt_count")
+  lastAttemptAt           DateTime?                 @map("last_attempt_at") @db.Timestamptz(6)
+  sentAt                  DateTime?                 @map("sent_at") @db.Timestamptz(6)
+  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([type, eventKey], map: "notification_deliveries_type_event_uk")
+  @@index([externalOrderId, createdAt(sort: Desc)], map: "notification_deliveries_order_idx")
+  @@map("notification_deliveries")
+}

@@ -1,0 +1,27 @@
+{
+  "name": "g1-marketplace-backend",
+  "version": "1.0.0",
+  "description": "Backend Marketplace Multicanal - NestJS & Prisma ORM",
+  "main": "src/server.js",
+  "scripts": {
+    "build": "prisma generate",
+    "start": "node src/server.js",
+    "start:prod": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:resolve": "prisma migrate resolve --applied 0_init",
+    "prisma:pull": "prisma db pull",
+    "prisma:studio": "prisma studio",
+    "prisma:validate": "prisma validate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

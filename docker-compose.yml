@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketplace_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-marketplace_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Persistencia de los datos en volumen nombrado
+      - postgres_data:/var/lib/postgresql/data
+      # Ejecuta db.sql automáticamente la primera vez que se inicia el contenedor
+      - ./database/db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+  # Gestor visual web para consultar tablas y registros en http://localhost:8080
+  adminer:
+    image: adminer:latest
+    container_name: marketplace_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
