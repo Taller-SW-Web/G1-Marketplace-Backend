@@ -13,8 +13,7 @@ services:
     plan: free
     region: oregon
     buildCommand: npm install && npm run build
-    preDeployCommand: npm run prisma:deploy
-    startCommand: npm run start:prod
+    startCommand: npm run prisma:deploy && npm run start:prod
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
