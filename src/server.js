@@ -5,10 +5,11 @@ const prisma = new PrismaClient();
 const PORT = process.env.PORT || 10000;
 
 const server = http.createServer(async (req, res) => {
-  // Configurar cabeceras CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Configurar cabeceras CORS con origen concreto
+  const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -20,34 +21,22 @@ const server = http.createServer(async (req, res) => {
     try {
       // Verificar conectividad real con la base de datos PostgreSQL
       await prisma.$queryRaw`SELECT 1`;
-      
-      // Contar tablas locales
-      const [cartCount, wishlistCount] = await Promise.all([
-        prisma.cart.count(),
-        prisma.wishlistItem.count(),
-      ]);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'UP',
         service: 'g1-marketplace-backend',
-        environment: process.env.NODE_ENV || 'development',
-        database: {
-          connected: true,
-          carts: cartCount,
-          wishlistItems: wishlistCount,
-        },
+        database: 'connected',
         timestamp: new Date().toISOString()
       }, null, 2));
     } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      console.error('[Healthcheck Error]:', error.message);
+
+      res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'DOWN',
         service: 'g1-marketplace-backend',
-        database: {
-          connected: false,
-          error: error.message
-        },
+        database: 'disconnected',
         timestamp: new Date().toISOString()
       }, null, 2));
     }
