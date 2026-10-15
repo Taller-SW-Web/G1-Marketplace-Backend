@@ -75,6 +75,36 @@ flowchart LR
 | **Testing & Calidad** | Jest, Supertest, Playwright, Gherkin BDD |
 
 ---
+
+## Backend NestJS
+
+El servidor del backend usa NestJS con TypeScript, Express y Prisma. Node.js 22 es la versión base (`.node-version`). Las rutas `/` y `/health` comprueban la disponibilidad de PostgreSQL; `/ready` es alias de readiness y `/live` verifica el proceso sin consultar la base de datos. Render usa `/live` como health check para no reiniciar el servicio durante una interrupción de PostgreSQL.
+
+### Desarrollo local
+
+1. Instala Node.js 22 y PostgreSQL local (o inicia el servicio PostgreSQL de `docker-compose.yml`).
+2. Copia `.env.example` a `.env` y ajusta `DATABASE_URL` y `CORS_ORIGINS` según tu entorno.
+3. Instala y compila:
+
+   ```bash
+   npm ci
+   npm run build
+   ```
+
+4. Ejecuta el servidor y las pruebas:
+
+   ```bash
+   npm run start:dev
+   npm test
+   npm run test:e2e
+   ```
+
+Las pruebas Jest usan SWC para transformar TypeScript; el build de producción NestJS usa `tsc`.
+
+`DATABASE_URL` es obligatorio al arrancar. `CORS_ORIGINS` acepta orígenes separados por coma; en Render debe configurarse en el dashboard antes de permitir llamadas desde el frontend. Las migraciones siguen gestionándose con `prisma migrate deploy` durante el arranque del servicio; este setup no cambia el esquema ni las migraciones.
+
+---
+
 ## 📋 Convenciones y Contribución
 
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
