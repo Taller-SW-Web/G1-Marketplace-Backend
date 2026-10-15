@@ -103,6 +103,12 @@ Las pruebas Jest usan SWC para transformar TypeScript; el build de producción N
 
 `DATABASE_URL` es obligatorio al arrancar. `CORS_ORIGINS` acepta orígenes separados por coma; en Render debe configurarse en el dashboard antes de permitir llamadas desde el frontend. Las migraciones siguen gestionándose con `prisma migrate deploy` durante el arranque del servicio; este setup no cambia el esquema ni las migraciones.
 
+### F-028 — historial de pedidos (corte local H3)
+
+El endpoint `GET /api/v1/orders/me?page=0&pageSize=10` se puede ejecutar localmente con una fixture sintética. Para habilitarla, establece `ORDERS_SOURCE=mock` y selecciona un principal fijo del servidor con `ORDERS_MOCK_CUSTOMER_ID=customer-demo-001` (también existen `customer-demo-002` y `customer-demo-empty`). No se acepta identidad del cliente por header/query/body; en particular, `clienteId` no es un parámetro válido. Sin fuente/principal configurados, el endpoint responde no disponible; `mock` se rechaza en producción. Las respuestas llevan `X-Orders-Source` y `Cache-Control: no-store`.
+
+Este modo no valida JWT y no integra Ventas; el principal fijo sólo permite renderizar una cuenta sintética de demostración y no representa autenticación ni una prueba de autorización real. No se guardan pedidos en Prisma. La integración I-03 con `GET /api/v1/pedidos/me` queda pendiente de homologación y prueba autorizada.
+
 ---
 
 ## 📋 Convenciones y Contribución

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
+import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 function validateEnvironment(config: Record<string, unknown>) {
@@ -29,7 +30,20 @@ function validateEnvironment(config: Record<string, unknown>) {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  return { ...config, PORT: port, CORS_ORIGINS: corsOrigins };
+  const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
+  if (!['mock', 'unconfigured'].includes(ordersSource)) {
+    throw new Error('ORDERS_SOURCE must be mock or unconfigured');
+  }
+  if (ordersSource === 'mock' && config.NODE_ENV === 'production') {
+    throw new Error('ORDERS_SOURCE=mock is not allowed in production');
+  }
+
+  return {
+    ...config,
+    PORT: port,
+    CORS_ORIGINS: corsOrigins,
+    ORDERS_SOURCE: ordersSource,
+  };
 }
 
 @Module({
@@ -40,6 +54,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     }),
     PrismaModule,
     HealthModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
