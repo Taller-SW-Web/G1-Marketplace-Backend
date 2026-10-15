@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -11,16 +11,41 @@ async function bootstrap(): Promise<void> {
   const corsOrigins = config.get<string[]>('CORS_ORIGINS', []);
 
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-customer-id'],
-    credentials: true,
+    origin: corsOrigins.length > 0 ? corsOrigins : false,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
   });
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: (errors) => {
+        const fieldNames = new Set<string>();
+        const visit = (items: typeof errors): void => {
+          for (const item of items) {
+            fieldNames.add(item.property);
+            if (item.children?.length) visit(item.children);
+          }
+        };
+        visit(errors);
+        const addressFields = new Set([
+          'label', 'street', 'district', 'province', 'department', 'reference', 'phone',
+          'customerId', 'userId',
+        ]);
+        const contactFields = new Set([
+          'fullName', 'documentType', 'documentNumber', 'email', 'contact',
+        ]);
+        let code = 'REQUEST_VALIDATION_ERROR';
+        if ([...fieldNames].some((field) => contactFields.has(field))) {
+          code = 'CONTACT_VALIDATION_ERROR';
+        } else if (fieldNames.has('cartVersion')) {
+          code = 'CART_VERSION_REQUIRED';
+        } else if ([...fieldNames].some((field) => addressFields.has(field))) {
+          code = 'ADDRESS_VALIDATION_ERROR';
+        }
+        return new BadRequestException({ error: { code, fields: [...fieldNames] } });
+      },
     }),
   );
   app.useGlobalFilters(new NotFoundFilter());
