@@ -1,5 +1,6 @@
 const http = require('http');
 const { PrismaClient } = require('@prisma/client');
+const { handleProductDetail } = require('./catalog/controllers/product-detail.controller');
 
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 10000;
@@ -13,6 +14,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // ─── BFF Catálogo: GET /api/v1/catalog/products/:slug (F-011 MOCK) ───
+  try {
+    const handled = await handleProductDetail(req, res);
+    if (handled) return;
+  } catch (err) {
+    console.error('[BFF Catalog] Error no manejado');
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Error interno del servidor' }));
     return;
   }
 
