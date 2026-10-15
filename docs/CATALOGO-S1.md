@@ -24,8 +24,8 @@ npm run build
 - `GET /api/v1/catalog/home`: categorías activas y `featuredProducts: []` mientras G-FEATURED permanezca abierto.
 - `GET /api/v1/catalog/products?q=running&page=0&pageSize=24`: búsqueda normalizada de 2–120 caracteres. Consulta vacía equivale al catálogo.
 - `page` entero no negativo; `pageSize` de 1 a 48. Salida: `data` y `page(number,size,totalElements,totalPages)`.
-- `categoryIds` permite únicamente un ID en este corte, correspondiente a `categoriaId` singular del candidato G6. La selección múltiple, marcas y rango de precio de F-008 siguen pendientes.
-- `sort=NAME_ASC|NAME_DESC` está preparado en validación/adaptador; la UI completa de F-009 sigue pendiente.
+- `categoryIds` permite únicamente un ID en este corte, correspondiente a `categoriaId` singular del candidato G6. Este corte de inicio/búsqueda no ofrece selección múltiple, marcas ni rango de precio.
+- `sort=NAME_ASC|NAME_DESC` está preparado en validación/adaptador; no hay selector de orden en la UI de este corte.
 - Parámetros desconocidos, duplicados y filtros administrativos se rechazan antes del proveedor.
 - `X-Catalog-Source: MOCK|REAL|UNCONFIGURED` y `Cache-Control: no-store` permiten clasificar evidencia.
 - Errores públicos 400/503 con `code`, `title`, `status` y `requestId`. 401/403/429/5xx del proveedor no cierran la sesión del visitante: se convierten en catálogo no disponible.

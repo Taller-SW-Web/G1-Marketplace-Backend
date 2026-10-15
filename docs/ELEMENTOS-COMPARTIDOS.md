@@ -21,7 +21,7 @@ const query = parseQuery(new URLSearchParams('q=running&page=0&pageSize=24'));
 
 Se admiten q, page, pageSize, categoryIds y sort. q vacío elimina búsqueda; si tiene texto se normaliza y requiere 2–120 caracteres. PageSize es 1–48 y page es entero desde cero; la implementación añade un límite técnico de 1 000 000 para page, pendiente de revisión como guardia local. Parámetros desconocidos/duplicados se rechazan.
 
-CategoryIds sólo permite un ID en este corte, mapeado a `categoriaId` singular de G6. No representa F-008 completo. Sort sólo admite NAME_ASC/DESC, mapeado a NOMBRE_ASC/DESC; no ordenar localmente una página incompleta.
+CategoryIds sólo permite un ID en este corte, mapeado a `categoriaId` singular de G6. No ofrece un panel de filtros completo en esta entrega. Sort sólo admite NAME_ASC/DESC, mapeado a NOMBRE_ASC/DESC; no ordenar localmente una página incompleta.
 
 ## Contrato común de errores
 
