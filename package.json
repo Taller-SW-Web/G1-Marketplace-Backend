@@ -7,6 +7,7 @@
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test": "jest --runInBand && npm run test:mock-auth",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
