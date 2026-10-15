@@ -1,63 +1,27 @@
-const http = require('http');
-const { PrismaClient } = require('@prisma/client');
+const http = require("node:http");
+const { createApp } = require("./app");
 
-const prisma = new PrismaClient();
-const PORT = process.env.PORT || 10000;
-
-const server = http.createServer(async (req, res) => {
-  // Configurar cabeceras CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
+// Catalog reads do not depend on Marketplace's database or copy G6 catalog data.
+let prisma;
+async function healthCheck() {
+  if (!prisma) {
+    const { PrismaClient } = require("@prisma/client");
+    prisma = new PrismaClient();
   }
+  await prisma.$queryRaw`SELECT 1`;
+}
 
-  if (req.url === '/' || req.url === '/health') {
-    try {
-      // Verificar conectividad real con la base de datos PostgreSQL
-      await prisma.$queryRaw`SELECT 1`;
-      
-      // Contar tablas locales
-      const [cartCount, wishlistCount] = await Promise.all([
-        prisma.cart.count(),
-        prisma.wishlistItem.count(),
-      ]);
+const server = http.createServer(createApp({ healthCheck }));
+const port = Number(process.env.PORT || 10000);
+server.listen(port, process.env.HOST || "0.0.0.0", () =>
+  console.info(`Marketplace BFF listening on port ${port}`),
+);
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'UP',
-        service: 'g1-marketplace-backend',
-        environment: process.env.NODE_ENV || 'development',
-        database: {
-          connected: true,
-          carts: cartCount,
-          wishlistItems: wishlistCount,
-        },
-        timestamp: new Date().toISOString()
-      }, null, 2));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'DOWN',
-        service: 'g1-marketplace-backend',
-        database: {
-          connected: false,
-          error: error.message
-        },
-        timestamp: new Date().toISOString()
-      }, null, 2));
-    }
-  } else {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Ruta no encontrada' }));
-  }
-});
-
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor Marketplace Backend escuchando en http://localhost:${PORT}`);
-  console.log(`🩺 Health check disponible en http://localhost:${PORT}/health`);
-});
+async function shutdown() {
+  server.close(async () => {
+    await prisma?.$disconnect();
+    process.exit(0);
+  });
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

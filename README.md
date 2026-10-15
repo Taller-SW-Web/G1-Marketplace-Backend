@@ -1,3 +1,15 @@
+<!-- CATALOGO-S1 -->
+# Inicio y búsqueda — corte local de Giuliano
+
+Consultar [ejecución, pruebas, contrato y pendientes del catálogo](docs/CATALOGO-S1.md).
+Consultar [elementos compartidos, contratos y ejemplos de uso](docs/ELEMENTOS-COMPARTIDOS.md).
+
+Este avance MOCK no acredita integración real ni cierre de H3. Las asignaciones vigentes están en G1-Marketplace-SPECS/SPECS/RESPONSABILIDADES-PUNTA-A-PUNTA.md.
+
+---
+
+## Documentación histórica (reparto y stack preliminares)
+
 # 🛒 Canal Marketplace Multicanal
 
 > **Taller de Software Web — Grupo 1 (G1)**  

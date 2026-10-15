@@ -13,7 +13,8 @@
     "prisma:resolve": "prisma migrate resolve --applied 0_init",
     "prisma:pull": "prisma db pull",
     "prisma:studio": "prisma studio",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "test": "node --test"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
