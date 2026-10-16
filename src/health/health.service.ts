@@ -1,19 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ReadinessResult {
   httpStatus: number;
   body: {
     status: 'UP' | 'DOWN';
-    service: string;
-    environment: string;
-    database: {
-      connected: boolean;
-      carts?: number;
-      wishlistItems?: number;
-    };
-    timestamp: string;
   };
 }
 
@@ -23,25 +14,16 @@ export class HealthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
   ) {}
 
   async checkReadiness(): Promise<ReadinessResult> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      const [carts, wishlistItems] = await Promise.all([
-        this.prisma.cart.count(),
-        this.prisma.wishlistItem.count(),
-      ]);
 
       return {
         httpStatus: 200,
         body: {
           status: 'UP',
-          service: 'g1-marketplace-backend',
-          environment: this.config.get<string>('NODE_ENV', 'development'),
-          database: { connected: true, carts, wishlistItems },
-          timestamp: new Date().toISOString(),
         },
       };
     } catch {
@@ -51,10 +33,6 @@ export class HealthService {
         httpStatus: 503,
         body: {
           status: 'DOWN',
-          service: 'g1-marketplace-backend',
-          environment: this.config.get<string>('NODE_ENV', 'development'),
-          database: { connected: false },
-          timestamp: new Date().toISOString(),
         },
       };
     }
