@@ -72,6 +72,13 @@ export class MarketplaceGateway {
     return this.request('get', `http://sales.mock/orders/${encodeURIComponent(orderId)}`);
   }
 
+  getOrderByIdempotencyKey(idempotencyKey: string): Promise<SalesOrder> {
+    return this.request(
+      'get',
+      `http://sales.mock/orders/by-idempotency-key/${encodeURIComponent(idempotencyKey)}`,
+    );
+  }
+
   private async request<T>(
     method: 'get' | 'post',
     url: string,

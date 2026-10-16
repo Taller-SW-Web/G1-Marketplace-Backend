@@ -254,6 +254,22 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       return [201, { data: order }];
     });
 
+    this.adapter!.onGet(/sales\.mock\/orders\/by-idempotency-key\/([^/]+)$/).reply((config) => {
+      const scenario = this.config.get<string>('MOCK_SALES_SCENARIO');
+      if (scenario === 'STATUS_TIMEOUT' || scenario === 'UNAVAILABLE') {
+        const timedOut = scenario === 'STATUS_TIMEOUT';
+        return [
+          timedOut ? 504 : 503,
+          { error: { code: timedOut ? 'SALES_STATUS_TIMEOUT' : 'SALES_UNAVAILABLE' } },
+        ];
+      }
+
+      const key = decodeURIComponent(config.url?.split('/').pop() ?? '');
+      const order = this.orders.get(key);
+      if (!order) return [404, { error: { code: 'ORDER_NOT_FOUND' } }];
+      return [200, { data: this.resolveSalesOutcome(key, order) }];
+    });
+
     this.adapter!.onGet(/sales\.mock\/orders\/([^/]+)$/).reply((config) => {
       if (
         this.config.get<string>('MOCK_SALES_SCENARIO') === 'STATUS_TIMEOUT' ||
@@ -269,18 +285,21 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       const key = this.orderKeysById.get(orderId);
       const order = key ? this.orders.get(key) : undefined;
       if (!order) return [404, { error: { code: 'ORDER_NOT_FOUND' } }];
-
-      const outcome = this.config.get<string>('MOCK_SALES_OUTCOME', 'PENDING');
-      const status: SalesOrder['estado'] =
-        outcome === 'PAID' ? 'PAGADO' : outcome === 'REJECTED' ? 'ANULADO' : 'CREADO';
-      const resolvedOrder: SalesOrder = {
-        ...order,
-        estado: status,
-        ...(status === 'ANULADO' ? { failureCode: 'PAGO_NO_COMPLETADO' } : {}),
-      };
-      this.orders.set(key!, resolvedOrder);
-      return [200, { data: resolvedOrder }];
+      return [200, { data: this.resolveSalesOutcome(key!, order) }];
     });
+  }
+
+  private resolveSalesOutcome(idempotencyKey: string, order: SalesOrder): SalesOrder {
+    const outcome = this.config.get<string>('MOCK_SALES_OUTCOME', 'PENDING');
+    const status: SalesOrder['estado'] =
+      outcome === 'PAID' ? 'PAGADO' : outcome === 'REJECTED' ? 'ANULADO' : 'CREADO';
+    const resolvedOrder: SalesOrder = {
+      ...order,
+      estado: status,
+      ...(status === 'ANULADO' ? { failureCode: 'PAGO_NO_COMPLETADO' } : {}),
+    };
+    this.orders.set(idempotencyKey, resolvedOrder);
+    return resolvedOrder;
   }
 
   private subjectFromAuthorization(value: unknown): string {

@@ -121,6 +121,10 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     const retried = await gateway.createOrder(input);
     expect(retried.pedidoId).toMatch(/^PED-\d{4}-\d{5}$/);
     expect(await gateway.getOrder(retried.pedidoId)).toMatchObject({ estado: 'CREADO' });
+    expect(await gateway.getOrderByIdempotencyKey(input.idempotencyKey)).toMatchObject({
+      pedidoId: retried.pedidoId,
+      estado: 'CREADO',
+    });
   });
 
   it('returns an empty-address fixture and maps mocked timeouts to provider errors', async () => {
