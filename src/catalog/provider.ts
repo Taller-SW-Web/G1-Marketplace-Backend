@@ -24,20 +24,26 @@ export function projectProduct(product: unknown, mediaHosts: Set<string>): Produ
   if (
     !validText(product_id) || !validText(name) || !validText(categoria_id) ||
     !validText(marca_id) || !validText(slug) ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 120 ||
-    !Array.isArray(images) || images.length === 0 || !validText(images[0])
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 120
   ) throw invalidProvider('INVALID_PRODUCT');
   if (status && status !== 'ACTIVO') throw invalidProvider('INELIGIBLE_PRODUCT');
 
-  let imageUrl: URL;
-  try { imageUrl = new URL(images[0]); }
-  catch { throw invalidProvider('INVALID_PRODUCT_IMAGE'); }
-  if (imageUrl.protocol !== 'https:' || imageUrl.username || imageUrl.password || !mediaHosts.has(imageUrl.hostname)) {
-    throw invalidProvider('UNAPPROVED_MEDIA_HOST');
+  // G6 permits omitted images or an empty array. Preserve the product and page totals.
+  let image: ProductCardDTO['image'] = null;
+  if (images !== undefined && !Array.isArray(images)) throw invalidProvider('INVALID_PRODUCT_IMAGE');
+  if (Array.isArray(images) && images.length > 0) {
+    if (!validText(images[0])) throw invalidProvider('INVALID_PRODUCT_IMAGE');
+    let imageUrl: URL;
+    try { imageUrl = new URL(images[0]); }
+    catch { throw invalidProvider('INVALID_PRODUCT_IMAGE'); }
+    if (imageUrl.protocol !== 'https:' || imageUrl.username || imageUrl.password || !mediaHosts.has(imageUrl.hostname)) {
+      throw invalidProvider('UNAPPROVED_MEDIA_HOST');
+    }
+    image = { url: imageUrl.href, alt: name };
   }
   return {
     productId: product_id, slug, name, categoryId: categoria_id, brandId: marca_id,
-    image: { url: imageUrl.href, alt: name },
+    image,
   };
 }
 

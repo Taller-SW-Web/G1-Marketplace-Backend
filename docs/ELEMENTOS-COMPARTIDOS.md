@@ -1,6 +1,6 @@
 # Elementos compartidos del catálogo NestJS
 
-Versión documental 0.2.0 · 15/10/2026 · En revisión. Giuliano desarrolla el bloque; Sebastian y Leonidas revisan. Estas utilidades se comparten dentro de catálogo, sin atribuirles ownership de auth, checkout o inventario.
+Versión documental 0.2.1 · 16/10/2026 · En revisión. Giuliano desarrolla el bloque; Sebastian y Leonidas revisan. Estas utilidades se comparten dentro de catálogo, sin atribuirles ownership de auth, checkout o inventario.
 
 ## Módulo y contratos
 
@@ -42,6 +42,12 @@ CORS sigue la configuración compartida: sin cabecera de concesión para orígen
 
 La migración cambia imports internos de require/createApp a módulos TypeScript e inyección NestJS. Los consumidores HTTP mantienen rutas, DTO, cabeceras y códigos de validación/proveedor. La guía anterior 0.1.0 describe el handler retirado; no debe usarse para nuevos consumidores.
 
-Pruebas: [catalog.spec.ts](../src/catalog/catalog.spec.ts) conserva 32 casos de dominio/proveedor; el baseline agrega sus 2 casos unitarios de HealthService. [catalog.e2e-spec.ts](../test/catalog.e2e-spec.ts) prueba 13 casos HTTP del AppModule compuesto y el baseline conserva 6 casos HTTP de health. El total es 34 unitarios y 19 HTTP. Consultar [CATALOGO-S1.md](CATALOGO-S1.md) para comandos, configuración y límites.
+Pruebas: [catalog.spec.ts](../src/catalog/catalog.spec.ts) cubre 38 casos de dominio/proveedor; el baseline agrega sus 2 casos unitarios de HealthService. [catalog.e2e-spec.ts](../test/catalog.e2e-spec.ts) prueba 13 casos HTTP del AppModule compuesto y el baseline conserva 6 casos HTTP de health. El total del corte de imagen opcional es 40 unitarios y 19 HTTP. Consultar [CATALOGO-S1.md](CATALOGO-S1.md) para comandos, configuración y límites.
 
 Para extender fuera del catálogo, acordar semántica/ownership con el dueño y Leonidas antes de extraer una biblioteca común. Esta entrega no completa O-010 ni implementa autorización del visitante, Pricing o Inventario. Se trabaja y publica únicamente en la rama individual; revisión humana y PR manual pendientes.
+
+## Imagen de producto opcional — 16/10/2026
+
+`ProductCardDTO.image` es `{ url: string; alt: string } | null`. El adaptador de G6 acepta `images` omitido o `[]` y devuelve `image: null`, sin retirar el producto ni alterar total/paginación. El Frontend decide la presentación mediante su placeholder local; el Backend no inventa una URL de imagen del proveedor.
+
+Las imágenes presentes siguen requiriendo array válido, primera URL no vacía, HTTPS, ausencia de credenciales y hostname permitido. `images: null`, tipos incorrectos, URLs inseguras y productos inválidos siguen dando error; `image: null` es la representación pública de ausencia, no un permiso para omitir validaciones. Los consumidores directos del DTO deben manejar null; imagen nula se cubre en Frontend y se mantiene el handoff por slug/returnTo a Sebastian.

@@ -202,8 +202,26 @@ test("timeout and invalid JSON are errors", async () => {
     code: "CATALOG_UNAVAILABLE",
   });
 });
+test.each([
+  { label: "omitted", images: undefined },
+  { label: "empty", images: [] },
+])("$label provider images preserve the card and pagination with image null", async ({ images }) => {
+  const provider = createRealProvider(env, async () => Response.json(pagePayload([
+    { ...product, product_id: "without-image", images }, product,
+  ])));
+  const result = await provider.search(parse("q=polo"));
+  expect(result.data).toHaveLength(2);
+  expect(result.data[0]).toMatchObject({ productId: "without-image", name: product.name, image: null });
+  expect(result.data[1].image).toEqual({ url: "https://images.example/p1.jpg", alt: product.name });
+  expect(result.page).toEqual({ number: 0, size: 24, totalElements: 2, totalPages: 1 });
+});
+
 for (const overrides of [
-  { images: [] },
+  { images: null },
+  { images: "https://images.example/p1.jpg" },
+  { images: [""] },
+  { images: ["javascript:alert(1)"] },
+  { images: ["https://user:pass@images.example/x"] },
   { images: ["http://images.example/x"] },
   { images: ["https://evil.example/x"] },
   { slug: "../admin" },

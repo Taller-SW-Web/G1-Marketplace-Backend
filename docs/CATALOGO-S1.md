@@ -71,3 +71,7 @@ No subir tokens a Git ni al navegador. La bandera de aprobación por sí sola no
 La [guía de elementos compartidos](ELEMENTOS-COMPARTIDOS.md) documenta imports, inyección y límites. Sebastian revisa el bloque; Leonidas revisa la adaptación a NestJS y el contrato; Andrés coordina entorno/CORS/Render. Diego/Jim verifican evidencias y aceptación. Ficha y retorno siguen en el bloque de Sebastian.
 
 La rama publicada es `feat/s1-f006-f007-catalogo`. No se cambia main/develop ni se abren PR; Giuliano los preparará manualmente. El frontend conserva sus DTO y diseño, y sus pruebas ahora compilan/inician el Backend NestJS con configuración MOCK explícita.
+
+## Ajuste de imagen opcional — 16/10/2026
+
+Por solicitud de Giuliano, G6 puede omitir `images` o enviar `[]`: el adaptador conserva la tarjeta y emite `image: null`. Marketplace muestra un placeholder local, manteniendo todos los productos y metadatos de página. Una imagen proporcionada conserva las validaciones de medios; valores mal formados o inseguros mantienen 503. El contrato candidato G6 no cambia de versión/SHA y la integración REAL sigue pendiente.

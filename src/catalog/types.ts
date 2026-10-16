@@ -13,7 +13,7 @@ export interface ProductCardDTO {
   name: string;
   categoryId: string;
   brandId: string;
-  image: { url: string; alt: string };
+  image: { url: string; alt: string } | null;
 }
 
 export interface HomeDTO {
