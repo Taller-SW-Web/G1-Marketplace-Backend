@@ -5,65 +5,17 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
+import { OptionalAuthGuard } from '../security/optional-auth.guard';
+import { AuthenticatedRequest } from '../security/auth.types';
 import * as crypto from 'crypto';
-
-interface RequestLike {
-  headers: Record<string, string | string[] | undefined>;
-}
 
 interface ResponseLike {
   setHeader(name: string, value: string): void;
   status(code: number): unknown;
-}
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Extraer y validar customerId desde el encabezado Authorization (JWT o Bearer mock)
- * Garantiza alineación con Checkout sin confiar en x-customer-id arbitrarios
- */
-export function extractCustomerIdFromAuth(
-  authHeader?: string | string[],
-): string | undefined {
-  if (!authHeader || typeof authHeader !== 'string') return undefined;
-  if (!authHeader.startsWith('Bearer ')) return undefined;
-
-  const token = authHeader.slice(7).trim();
-  if (!token) return undefined;
-
-  // 1. Si el token es directamente un UUID (ej. usuario mock 11111111-1111-4111-8111-111111111111)
-  if (UUID_REGEX.test(token)) {
-    return token;
-  }
-
-  // 2. Si el token contiene un UUID (ej. mock-token-11111111-1111-4111-8111-111111111111)
-  const match = token.match(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
-  );
-  if (match && UUID_REGEX.test(match[0])) {
-    return match[0];
-  }
-
-  // 3. Si el token es un JWT estructurado (header.payload.signature)
-  const parts = token.split('.');
-  if (parts.length >= 2) {
-    try {
-      const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
-      const payload = JSON.parse(payloadJson);
-      const sub = payload.sub || payload.customerId;
-      if (typeof sub === 'string' && UUID_REGEX.test(sub)) {
-        return sub;
-      }
-    } catch {
-      // Ignorar JWTs malformados
-    }
-  }
-
-  return undefined;
 }
 
 function parseSessionCookie(cookieHeader?: string | string[]): string | null {
@@ -73,17 +25,18 @@ function parseSessionCookie(cookieHeader?: string | string[]): string | null {
 }
 
 @Controller(['api/v1/carts', 'api/cart'])
+@UseGuards(OptionalAuthGuard)
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
   private resolveSession(
-    req: RequestLike,
+    req: AuthenticatedRequest,
     res: ResponseLike,
   ): { sessionHash?: string; customerId?: string } {
-    // 1. Extraer customerId únicamente desde el token autenticado (sub del JWT)
-    const customerId = extractCustomerIdFromAuth(req.headers['authorization']);
+    // 1. Obtener customerId directamente desde el principal autenticado (validado criptográficamente por AuthGuard)
+    const customerId = req.user?.sub;
 
-    // 2. Manejo de sesión anónima si no hay autenticación
+    // 2. Manejo de sesión anónima si no hay usuario autenticado
     let sessionHash = parseSessionCookie(req.headers['cookie']);
 
     if (!customerId && !sessionHash) {
@@ -100,7 +53,7 @@ export class CartController {
   @Post(['current/items', 'items'])
   async addItem(
     @Body() body: AddCartItemDto,
-    @Req() req: RequestLike,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: ResponseLike,
   ) {
     const { sessionHash, customerId } = this.resolveSession(req, res);
@@ -120,7 +73,7 @@ export class CartController {
 
   @Get(['current', ''])
   async getCart(
-    @Req() req: RequestLike,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: ResponseLike,
   ) {
     const { sessionHash, customerId } = this.resolveSession(req, res);

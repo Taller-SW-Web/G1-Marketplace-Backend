@@ -30,7 +30,18 @@ function validateEnvironment(config: Record<string, unknown>) {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  return { ...config, PORT: port, CORS_ORIGINS: corsOrigins };
+  const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const useMocksValue = String(config.USE_MOCKS ?? 'true').toLowerCase();
+
+  return {
+    ...config,
+    PORT: port,
+    CORS_ORIGINS: corsOrigins,
+    NODE_ENV: nodeEnv,
+    USE_MOCKS: useMocksValue === 'true',
+    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
+    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
+  };
 }
 
 @Module({
