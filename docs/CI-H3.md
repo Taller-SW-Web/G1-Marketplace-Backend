@@ -2,7 +2,7 @@
 
 El workflow `.github/workflows/h3.yml` se ejecuta al push a `feat/s1-f006-f007-catalogo` o manualmente sobre esa rama. No despliega, no abre PR y no escribe main/develop. Usa `contents: read`, acciones fijadas por SHA, Node 22.18.0 y lockfiles. No necesita credenciales de Productos ni otras cuentas del grupo.
 
-Backend ejecuta build, tipado, 34 pruebas unitarias, 19 HTTP, validación Prisma, migraciones sobre PostgreSQL 16 desechable y smoke del ejecutable compilado con readiness real. Ninguna migración apunta al entorno del equipo. Localmente el smoke usa una URL sintética sin BD y espera readiness 503.
+Backend ejecuta build, tipado, pruebas unitarias y HTTP, validación Prisma, migraciones sobre PostgreSQL 16 desechable y smoke del ejecutable compilado con readiness real. Ninguna migración apunta al entorno del equipo. Localmente el smoke usa una URL sintética sin BD y espera readiness 503.
 
 Frontend ejecuta lint, componentes, build/E2E y tipado. Obtiene Backend público en una carpeta hermana por el SHA explícito del workflow. Usa Chromium en Linux y conserva Edge local; actualizar ese SHA requiere revisar el cambio y repetir pruebas. Los E2E usan MOCK, sin BD disponible ni conexión a G6. Las respuestas de error/vacío de casos específicos se interceptan deliberadamente desde el navegador; el recorrido normal pasa por Next y Nest compilados.
 
