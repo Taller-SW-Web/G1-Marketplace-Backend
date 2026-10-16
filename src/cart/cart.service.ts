@@ -49,6 +49,24 @@ export class CartService {
         where: { customerId, state: CartState.ACTIVE },
         include: { items: true },
       });
+
+      if (!cart && sessionHash) {
+        const anonCart = await tx.cart.findFirst({
+          where: {
+            anonymousSessionHash: sessionHash,
+            customerId: null,
+            state: CartState.ACTIVE,
+          },
+          include: { items: true },
+        });
+        if (anonCart) {
+          cart = await tx.cart.update({
+            where: { id: anonCart.id },
+            data: { customerId },
+            include: { items: true },
+          });
+        }
+      }
     } else if (sessionHash) {
       cart = await tx.cart.findFirst({
         where: { anonymousSessionHash: sessionHash, state: CartState.ACTIVE },
@@ -183,6 +201,12 @@ export class CartService {
         where: { customerId, state: CartState.ACTIVE },
         include: { items: true },
       });
+      if (!cart && sessionHash) {
+        cart = await this.prisma.cart.findFirst({
+          where: { anonymousSessionHash: sessionHash, state: CartState.ACTIVE },
+          include: { items: true },
+        });
+      }
     } else if (sessionHash) {
       cart = await this.prisma.cart.findFirst({
         where: { anonymousSessionHash: sessionHash, state: CartState.ACTIVE },

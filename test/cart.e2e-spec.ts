@@ -100,4 +100,53 @@ describe('CartController (e2e)', () => {
       .send({ quantity: 1 })
       .expect(400);
   });
+
+  it('POST /api/v1/carts/current/items with Bearer token associates cart to mock customerId', async () => {
+    const mockPrincipal = '11111111-1111-4111-8111-111111111111';
+    mockCartService.addItemToCart.mockResolvedValue({
+      status: 201,
+      code: 'ITEM_CREATED',
+      data: {
+        cartId: 'cart-mock-user',
+        version: 1,
+        items: [{ sku: 'INKA-RUNNER-42', quantity: 1 }],
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/carts/current/items')
+      .set('Authorization', `Bearer ${mockPrincipal}`)
+      .send({ sku: 'INKA-RUNNER-42', quantity: 1 })
+      .expect(201);
+
+    expect(mockCartService.addItemToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: mockPrincipal,
+        sku: 'INKA-RUNNER-42',
+      }),
+    );
+    expect(res.body.status).toBe('ITEM_CREATED');
+  });
+
+  it('GET /api/v1/carts/current with Bearer token queries cart for sub principal', async () => {
+    const mockPrincipal = '11111111-1111-4111-8111-111111111111';
+    mockCartService.getCurrentCart.mockResolvedValue({
+      cartId: 'cart-mock-user',
+      version: 1,
+      items: [{ sku: 'INKA-RUNNER-42', quantity: 1 }],
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/carts/current')
+      .set('Authorization', `Bearer ${mockPrincipal}`)
+      .expect(200);
+
+    expect(mockCartService.getCurrentCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: mockPrincipal,
+      }),
+    );
+    expect(res.body.data.cartId).toBe('cart-mock-user');
+    expect(res.body.data.version).toBe(1);
+  });
 });
