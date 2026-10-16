@@ -236,7 +236,7 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       let order = this.orders.get(idempotencyKey);
       if (!order) {
         order = {
-          pedidoId: `PED-MOCK-${String(this.nextOrder++).padStart(5, '0')}`,
+          pedidoId: `PED-${new Date().getFullYear()}-${String(this.nextOrder++).padStart(5, '0')}`,
           estado: 'CREADO',
           total: body.total,
           createdAt: new Date().toISOString(),

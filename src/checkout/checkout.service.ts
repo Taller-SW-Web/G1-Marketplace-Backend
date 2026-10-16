@@ -12,8 +12,10 @@ import { CreateDeliveryAddressDto } from './dto/delivery-address.dto';
 import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from './dto/quote.dto';
 import {
   CheckoutOperationView,
+  CheckoutOperationStatusView,
   CheckoutQuote,
   DeliveryAddress,
+  QuoteLine,
   SalesOrder,
 } from './checkout.types';
 import { MarketplaceGateway } from './external/marketplace.gateway';
@@ -21,6 +23,8 @@ import { ProviderError } from './external/provider-error';
 import { QuotesService } from './quotes.service';
 
 const IDEMPOTENCY_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IDEMPOTENCY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SALES_ORDER_ID = /^PED-\d{4}-\d{5}$/;
 
 interface ApiResult<T> {
   status: number;
@@ -28,16 +32,17 @@ interface ApiResult<T> {
 }
 
 interface PreparedContext {
+  quoteId: string;
   cartVersion: number;
   addressId: string;
   expiresAt: number;
   total: CheckoutQuote['total'];
+  lines: QuoteLine[];
+  revalidatedAt?: string;
 }
 
 @Injectable()
 export class CheckoutService {
-  private readonly preparedContexts = new Map<string, PreparedContext>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: MarketplaceGateway,
@@ -127,44 +132,37 @@ export class CheckoutService {
     input: PrepareCheckoutDto,
     idempotencyKey: string | undefined,
   ): Promise<CheckoutOperationView> {
-    this.assertIdempotencyKey(idempotencyKey);
+    this.assertIdempotencyKey(idempotencyKey, false);
     if (!input.simulationConfirmed) this.fail(400, 'SIMULATION_NOT_CONFIRMED');
-    const quote = this.quotes.get(customerId, input.quoteId);
-    if (!quote) this.fail(409, 'QUOTE_EXPIRED');
-    if (quote.cartVersion !== input.cartVersion) this.fail(409, 'CART_CHANGED');
-
-    const cart = await this.findActiveCart(customerId);
-    if (!cart) this.fail(409, 'CART_NOT_FOUND');
-    if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
-    const fingerprint = this.fingerprint({
-      quoteId: input.quoteId,
-      cartId: cart.id,
-      cartVersion: cart.version,
-      addressId: quote.addressId,
-      simulationConfirmed: input.simulationConfirmed,
-    });
-
     let operation = await this.prisma.checkoutOperation.findUnique({
       where: {
         customerId_idempotencyKey: { customerId, idempotencyKey: idempotencyKey! },
       },
     });
+    let context: PreparedContext | null = null;
+
     if (operation) {
-      if (
-        (operation.state === CheckoutOperationState.PREPARING ||
-          operation.state === CheckoutOperationState.PREPARED) &&
-        operation.requestFingerprint !== fingerprint
-      ) this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
       if (operation.state === CheckoutOperationState.FAILED) {
         this.fail(409, operation.failureCode ?? 'PREPARATION_FAILED');
       }
-      if (operation.state !== CheckoutOperationState.PREPARING) {
-        if (operation.state === CheckoutOperationState.PREPARED) {
-          this.rememberPreparedContext(operation.id, cart.version, quote);
-        }
+      if (operation.state !== CheckoutOperationState.PREPARING &&
+          operation.state !== CheckoutOperationState.PREPARED) {
         return this.operationView(operation);
       }
+      context = this.readPreparedContext(operation);
+      if (!context) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
+      if (operation.requestFingerprint !== this.preparationFingerprint(operation.cartId, context, input)) {
+        this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
+      }
     } else {
+      const quote = this.quotes.get(customerId, input.quoteId);
+      if (!quote) this.fail(409, 'QUOTE_EXPIRED');
+      if (quote.cartVersion !== input.cartVersion) this.fail(409, 'CART_CHANGED');
+      const cart = await this.findActiveCart(customerId);
+      if (!cart) this.fail(409, 'CART_NOT_FOUND');
+      if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
+      context = this.createPreparedContext(quote, cart.version);
+      const fingerprint = this.preparationFingerprint(cart.id, context, input);
       try {
         operation = await this.prisma.checkoutOperation.create({
           data: {
@@ -173,6 +171,7 @@ export class CheckoutService {
             idempotencyKey: idempotencyKey!,
             requestFingerprint: fingerprint,
             state: CheckoutOperationState.PREPARING,
+            ...this.preparedContextData(context),
           },
         });
       } catch (error) {
@@ -182,38 +181,50 @@ export class CheckoutService {
             customerId_idempotencyKey: { customerId, idempotencyKey: idempotencyKey! },
           },
         });
-        if (
-          !operation ||
-          ((operation.state === CheckoutOperationState.PREPARING ||
-            operation.state === CheckoutOperationState.PREPARED) &&
-            operation.requestFingerprint !== fingerprint)
-        ) {
+        if (!operation) {
           this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
         }
         if (operation.state === CheckoutOperationState.FAILED) {
           this.fail(409, operation.failureCode ?? 'PREPARATION_FAILED');
         }
-        if (operation.state !== CheckoutOperationState.PREPARING) {
-          if (operation.state === CheckoutOperationState.PREPARED) {
-            this.rememberPreparedContext(operation.id, cart.version, quote);
-          }
+        if (operation.state !== CheckoutOperationState.PREPARING &&
+            operation.state !== CheckoutOperationState.PREPARED) {
           return this.operationView(operation);
+        }
+        context = this.readPreparedContext(operation);
+        if (!context) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
+        if (operation.requestFingerprint !== this.preparationFingerprint(operation.cartId, context, input)) {
+          this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
         }
       }
     }
 
-    let revalidation: { available: boolean; revalidatedAt: string };
-    try {
-      revalidation = await this.gateway.revalidate(quote.lines);
-    } catch (error) {
+    if (!operation || !context) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
+    if (context.expiresAt <= Date.now()) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
-        data: {
-          state: CheckoutOperationState.FAILED,
-          failureCode: 'REVALIDATION_UNAVAILABLE',
-          completedAt: new Date(),
-        },
+        data: { state: CheckoutOperationState.FAILED, failureCode: 'QUOTE_EXPIRED', completedAt: new Date() },
       });
+      this.fail(409, 'QUOTE_EXPIRED');
+    }
+    if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
+
+    const cart = await this.prisma.cart.findFirst({
+      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
+    });
+    if (!cart || cart.version !== context.cartVersion) {
+      await this.prisma.checkoutOperation.update({
+        where: { id: operation.id },
+        data: { state: CheckoutOperationState.FAILED, failureCode: 'REVALIDATION_CHANGED', completedAt: new Date() },
+      });
+      this.fail(409, 'REVALIDATION_CHANGED');
+    }
+
+    let revalidation: { available: boolean; revalidatedAt: string };
+    try {
+      revalidation = await this.gateway.revalidate(context.lines);
+    } catch (error) {
+      // Preserve PREPARING so the same idempotency key can retry after provider recovery.
       this.throwProviderError(error, 'REVALIDATION_UNAVAILABLE');
     }
     if (!revalidation.available) {
@@ -229,25 +240,27 @@ export class CheckoutService {
     }
 
     const latestCart = await this.prisma.cart.findFirst({
-      where: { id: cart.id, customerId, state: 'ACTIVE' },
+      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
     });
-    if (!latestCart || latestCart.version !== input.cartVersion) {
+    if (!latestCart || latestCart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
         data: {
           state: CheckoutOperationState.FAILED,
-          failureCode: 'CART_CHANGED',
+          failureCode: 'REVALIDATION_CHANGED',
           completedAt: new Date(),
         },
       });
-      this.fail(409, 'CART_CHANGED');
+      this.fail(409, 'REVALIDATION_CHANGED');
     }
 
     operation = await this.prisma.checkoutOperation.update({
       where: { id: operation.id },
-      data: { state: CheckoutOperationState.PREPARED },
+      data: {
+        state: CheckoutOperationState.PREPARED,
+        revalidatedAt: new Date(revalidation.revalidatedAt),
+      },
     });
-    this.rememberPreparedContext(operation.id, cart.version, quote);
     return this.operationView(operation, revalidation.revalidatedAt);
   }
 
@@ -256,19 +269,32 @@ export class CheckoutService {
     input: { checkoutOperationId: string; contact: CheckoutContactDto },
     idempotencyKey: string | undefined,
   ): Promise<ApiResult<CheckoutOperationView>> {
-    this.assertIdempotencyKey(idempotencyKey);
+    this.assertIdempotencyKey(idempotencyKey, true);
     let operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: input.checkoutOperationId, customerId },
     });
     if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    const context = this.readPreparedContext(operation);
 
     const requestFingerprint = this.fingerprint({
       checkoutOperationId: operation.id,
       idempotencyKey,
       contact: input.contact,
     });
+    const hasOrderSubmission = Boolean(
+      operation.orderIdempotencyKey ||
+      operation.externalOrderId ||
+      operation.state === CheckoutOperationState.SUBMITTED ||
+      operation.state === CheckoutOperationState.SUCCEEDED,
+    );
+    if (
+      hasOrderSubmission &&
+      (operation.requestFingerprint !== requestFingerprint ||
+        (operation.orderIdempotencyKey && operation.orderIdempotencyKey !== idempotencyKey))
+    ) {
+      this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
+    }
     if (operation.state === CheckoutOperationState.PREPARED) {
-      const context = this.preparedContexts.get(operation.id);
       if (!context) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
       if (context.expiresAt <= Date.now()) {
         await this.prisma.checkoutOperation.update({
@@ -298,16 +324,11 @@ export class CheckoutService {
     }
 
     if (operation.state === CheckoutOperationState.FAILED) {
-      return { status: 200, data: this.operationView(operation) };
+      this.fail(409, operation.failureCode ?? 'ORDER_NOT_COMPLETED');
     }
     if (operation.state === CheckoutOperationState.SUCCEEDED) {
-      return { status: 200, data: this.operationView(operation) };
-    }
-    if (
-      operation.state === CheckoutOperationState.SUBMITTED &&
-      operation.requestFingerprint !== requestFingerprint
-    ) {
-      this.fail(409, 'IDEMPOTENCY_KEY_REUSED');
+      if (!operation.externalOrderId) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
+      return this.refreshOrder(operation);
     }
     if (
       operation.state !== CheckoutOperationState.PREPARED &&
@@ -318,7 +339,7 @@ export class CheckoutService {
     if (
       operation.state === CheckoutOperationState.SUBMITTED &&
       !operation.externalOrderId &&
-      !this.preparedContexts.has(operation.id)
+      !context
     ) {
       this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
     }
@@ -335,6 +356,7 @@ export class CheckoutService {
           data: {
             state: CheckoutOperationState.SUBMITTED,
             requestFingerprint,
+            orderIdempotencyKey: idempotencyKey,
           },
         });
       } catch (error) {
@@ -355,14 +377,15 @@ export class CheckoutService {
       try {
         createdOrder = await this.gateway.createOrder({
           checkoutOperationId: operation.id,
-          // Operation UUID is stable across retries and serves as Sales idempotency key.
-          idempotencyKey: operation.id,
+          // Persist the client key for safe replay; use operation UUID only for legacy submissions.
+          idempotencyKey: operation.orderIdempotencyKey ?? operation.id,
           contact: input.contact,
-          total: this.preparedContexts.get(operation.id)!.total,
+          total: context!.total,
         });
       } catch (error) {
         this.throwProviderError(error, 'ORDER_CREATION_PENDING');
       }
+      this.assertValidSalesOrder(createdOrder);
       operation = await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
         data: { externalOrderId: createdOrder.pedidoId },
@@ -376,7 +399,7 @@ export class CheckoutService {
   async getOperation(
     customerId: string,
     operationId: string,
-  ): Promise<ApiResult<CheckoutOperationView>> {
+  ): Promise<ApiResult<CheckoutOperationStatusView>> {
     const operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: operationId, customerId },
     });
@@ -386,12 +409,13 @@ export class CheckoutService {
       this.fail(409, 'ORDER_NOT_SUBMITTED');
     }
     if (operation.state === CheckoutOperationState.SUBMITTED && operation.externalOrderId) {
-      return this.refreshOrder(operation);
+      const result = await this.refreshOrder(operation);
+      return { status: result.status, data: this.operationStatusView(result.data) };
     }
     if (operation.state === CheckoutOperationState.SUBMITTED) {
       return {
         status: 202,
-        data: { ...this.operationView(operation), recoveryRequired: true },
+        data: this.operationStatusView({ ...this.operationView(operation), recoveryRequired: true }),
       };
     }
     if (
@@ -403,19 +427,37 @@ export class CheckoutService {
         const order = await this.gateway.getOrder(operation.externalOrderId);
         return {
           status: 200,
-          data: {
+          data: this.operationStatusView({
             ...this.operationView(operation),
             orderId: order.pedidoId,
             orderState: order.estado,
             total: order.total,
             createdAt: order.createdAt,
-          },
+          }),
         };
-      } catch {
-        // Final operation state was persisted only after an authoritative Sales response.
+      } catch (error) {
+        // Never return a final success without the authoritative Sales order fields required by F-027.
+        this.throwProviderError(error, 'SALES_UNAVAILABLE');
       }
     }
-    return { status: 200, data: this.operationView(operation) };
+    return { status: 200, data: this.operationStatusView(this.operationView(operation)) };
+  }
+
+  private operationStatusView(operation: CheckoutOperationView): CheckoutOperationStatusView {
+    const order = operation.orderId && operation.orderState && operation.total && operation.createdAt
+      ? {
+          orderId: operation.orderId,
+          state: operation.orderState,
+          total: operation.total,
+          createdAt: operation.createdAt,
+        }
+      : undefined;
+    return {
+      state: operation.state,
+      ...(order ? { order } : {}),
+      ...(operation.failureCode ? { failureCode: operation.failureCode } : {}),
+      ...(operation.recoveryRequired ? { recoveryRequired: true } : {}),
+    };
   }
 
   private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>): Promise<ApiResult<CheckoutOperationView>> {
@@ -440,6 +482,7 @@ export class CheckoutService {
         },
       };
     }
+    this.assertValidSalesOrder(order);
 
     if (order.estado === 'PAGADO') {
       const updated = await this.prisma.checkoutOperation.update({
@@ -501,31 +544,122 @@ export class CheckoutService {
     });
   }
 
-  private rememberPreparedContext(
-    operationId: string,
-    cartVersion: number,
-    quote: CheckoutQuote,
-  ): void {
-    this.preparedContexts.set(operationId, {
+  private createPreparedContext(quote: CheckoutQuote, cartVersion: number): PreparedContext {
+    return {
+      quoteId: quote.quoteId,
       cartVersion,
       addressId: quote.addressId,
       expiresAt: Date.parse(quote.expiresAt),
       total: quote.total,
+      lines: quote.lines,
+    };
+  }
+
+  private preparedContextData(context: PreparedContext) {
+    return {
+      preparedQuoteId: context.quoteId,
+      preparedCartVersion: context.cartVersion,
+      preparedAddressId: context.addressId,
+      preparedExpiresAt: new Date(context.expiresAt),
+      preparedTotalAmount: context.total.amount,
+      preparedTotalCurrency: context.total.currency,
+      preparedLines: context.lines as unknown as Prisma.InputJsonValue,
+    };
+  }
+
+  private readPreparedContext(operation: {
+    preparedQuoteId?: string | null;
+    preparedCartVersion?: number | null;
+    preparedAddressId?: string | null;
+    preparedExpiresAt?: Date | null;
+    preparedTotalAmount?: Prisma.Decimal | number | null;
+    preparedTotalCurrency?: string | null;
+    preparedLines?: Prisma.JsonValue | null;
+    revalidatedAt?: Date | null;
+  }): PreparedContext | null {
+    const lines = operation.preparedLines;
+    const totalAmount = Number(operation.preparedTotalAmount);
+    if (
+      !operation.preparedQuoteId ||
+      operation.preparedCartVersion === null || operation.preparedCartVersion === undefined ||
+      !operation.preparedAddressId ||
+      !operation.preparedExpiresAt ||
+      !Number.isFinite(operation.preparedExpiresAt.getTime()) ||
+      operation.preparedTotalAmount === null || operation.preparedTotalAmount === undefined ||
+      !Number.isFinite(totalAmount) || totalAmount < 0 ||
+      operation.preparedTotalCurrency !== 'PEN' ||
+      !Array.isArray(lines) ||
+      lines.length === 0 ||
+      !lines.every((line) => typeof line === 'object' && line !== null &&
+        'sku' in line && typeof line.sku === 'string' && line.sku.trim().length > 0 &&
+        'quantity' in line && typeof line.quantity === 'number' &&
+        Number.isInteger(line.quantity) && line.quantity > 0)
+    ) return null;
+    return {
+      quoteId: operation.preparedQuoteId,
+      cartVersion: operation.preparedCartVersion,
+      addressId: operation.preparedAddressId,
+      expiresAt: operation.preparedExpiresAt.getTime(),
+      total: {
+        amount: totalAmount,
+        currency: operation.preparedTotalCurrency,
+      },
+      lines: lines.map((line) => ({
+        sku: (line as { sku: string }).sku,
+        quantity: (line as { quantity: number }).quantity,
+      })),
+      ...(operation.revalidatedAt ? { revalidatedAt: operation.revalidatedAt.toISOString() } : {}),
+    };
+  }
+
+  private preparationFingerprint(
+    cartId: string,
+    context: PreparedContext,
+    input: PrepareCheckoutDto,
+  ): string {
+    return this.fingerprint({
+      quoteId: context.quoteId,
+      cartId,
+      cartVersion: context.cartVersion,
+      addressId: context.addressId,
+      simulationConfirmed: input.simulationConfirmed,
+      requestedQuoteId: input.quoteId,
+      requestedCartVersion: input.cartVersion,
     });
   }
 
   private assertValidQuote(quote: CheckoutQuote, code: string): void {
     const expiresAt = Date.parse(quote.expiresAt);
+    const validMoney = (money: { amount: number; currency: string } | undefined) =>
+      Boolean(money && Number.isFinite(money.amount) && money.amount >= 0 && money.currency === 'PEN');
     if (
       !quote.quoteId ||
       !Number.isFinite(expiresAt) ||
       expiresAt <= Date.now() ||
-      !Number.isFinite(quote.total?.amount) ||
-      !Number.isFinite(quote.subtotal?.amount) ||
-      !Number.isFinite(quote.shipping?.amount) ||
-      !Array.isArray(quote.lines)
+      !quote.addressId?.trim() ||
+      !Number.isInteger(quote.cartVersion) || quote.cartVersion < 0 ||
+      !validMoney(quote.total) ||
+      !validMoney(quote.subtotal) ||
+      !validMoney(quote.discount) ||
+      !validMoney(quote.shipping) ||
+      !Number.isFinite(quote.shipping?.estimatedDays) || quote.shipping.estimatedDays < 0 ||
+      !Array.isArray(quote.lines) || quote.lines.length === 0 ||
+      !quote.lines.every((line) => Boolean(line.sku?.trim()) && Number.isInteger(line.quantity) && line.quantity > 0)
     ) {
       this.fail(503, code);
+    }
+  }
+
+  private assertValidSalesOrder(order: SalesOrder): void {
+    if (
+      !order ||
+      typeof order.pedidoId !== 'string' || !SALES_ORDER_ID.test(order.pedidoId) ||
+      !['CREADO', 'PAGADO', 'ANULADO'].includes(order.estado) ||
+      !Number.isFinite(order.total?.amount) || order.total.amount < 0 ||
+      order.total.currency !== 'PEN' ||
+      typeof order.createdAt !== 'string' || !Number.isFinite(Date.parse(order.createdAt))
+    ) {
+      this.fail(503, 'SALES_UNAVAILABLE');
     }
   }
 
@@ -540,8 +674,11 @@ export class CheckoutService {
     });
   }
 
-  private assertIdempotencyKey(value: string | undefined): asserts value is string {
-    if (!value || !IDEMPOTENCY_UUID_V4.test(value)) {
+  private assertIdempotencyKey(
+    value: string | undefined,
+    requireV4: boolean,
+  ): asserts value is string {
+    if (!value || !(requireV4 ? IDEMPOTENCY_UUID_V4 : IDEMPOTENCY_UUID).test(value)) {
       this.fail(400, 'IDEMPOTENCY_KEY_REQUIRED');
     }
   }
@@ -551,6 +688,7 @@ export class CheckoutService {
     state: CheckoutOperationState;
     externalOrderId: string | null;
     failureCode: string | null;
+    revalidatedAt?: Date | null;
   }, revalidatedAt?: string): CheckoutOperationView & { simulationConsent?: string; revalidatedAt?: string } {
     const state =
       operation.state === CheckoutOperationState.PREPARING ? 'PREPARED' : operation.state;
@@ -560,7 +698,12 @@ export class CheckoutService {
       ...(operation.externalOrderId ? { orderId: operation.externalOrderId } : {}),
       ...(operation.failureCode ? { failureCode: operation.failureCode } : {}),
       ...(operation.state === CheckoutOperationState.PREPARED
-        ? { simulationConsent: 'RECORDED', ...(revalidatedAt ? { revalidatedAt } : {}) }
+        ? {
+            simulationConsent: 'RECORDED',
+            ...((revalidatedAt ?? operation.revalidatedAt?.toISOString())
+              ? { revalidatedAt: revalidatedAt ?? operation.revalidatedAt!.toISOString() }
+              : {}),
+          }
         : {}),
     };
   }
@@ -575,7 +718,14 @@ export class CheckoutService {
 
   private throwProviderError(error: unknown, fallbackCode: string): never {
     if (!(error instanceof ProviderError)) {
+      if (fallbackCode === 'ORDER_CREATION_PENDING') this.fail(409, fallbackCode);
       throw new ServiceUnavailableException({ error: { code: fallbackCode } });
+    }
+    if (fallbackCode === 'ORDER_CREATION_PENDING' && error.status >= 500) {
+      this.fail(409, 'ORDER_CREATION_PENDING');
+    }
+    if (fallbackCode === 'ADDRESS_SERVICE_UNAVAILABLE' && error.status >= 400 && error.status < 500) {
+      this.fail(400, 'ADDRESS_VALIDATION_ERROR');
     }
     const maps: Record<string, { status: number; code: string }> = {
       ADDRESS_SERVICE_UNAVAILABLE: { status: 503, code: 'ADDRESS_SERVICE_UNAVAILABLE' },
@@ -590,7 +740,7 @@ export class CheckoutService {
       REVALIDATION_UNAVAILABLE: { status: 503, code: 'REVALIDATION_UNAVAILABLE' },
       REVALIDATION_TIMEOUT: { status: 503, code: 'REVALIDATION_UNAVAILABLE' },
       SALES_UNAVAILABLE: { status: 503, code: 'SALES_UNAVAILABLE' },
-      SALES_TIMEOUT: { status: 503, code: 'ORDER_CREATION_PENDING' },
+      SALES_TIMEOUT: { status: 409, code: 'ORDER_CREATION_PENDING' },
       SALES_STATUS_TIMEOUT: { status: 503, code: 'SALES_UNAVAILABLE' },
     };
     const mapped = maps[error.code];

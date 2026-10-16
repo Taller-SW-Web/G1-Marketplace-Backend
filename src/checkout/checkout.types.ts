@@ -38,7 +38,7 @@ export interface CheckoutQuote {
 
 export interface CheckoutContact {
   fullName: string;
-  documentType: 'DNI' | 'CE' | 'PASSPORT';
+  documentType: 'DNI' | 'RUC' | 'CE' | 'PASAPORTE';
   documentNumber: string;
   phone: string;
   email: string;
@@ -59,6 +59,19 @@ export interface CheckoutOperationView {
   orderState?: SalesOrder['estado'];
   total?: Money;
   createdAt?: string;
+  revalidatedAt?: string;
+  failureCode?: string;
+  recoveryRequired?: boolean;
+}
+
+export interface CheckoutOperationStatusView {
+  state: CheckoutOperationView['state'];
+  order?: {
+    orderId: string;
+    state: SalesOrder['estado'];
+    total: Money;
+    createdAt: string;
+  };
   failureCode?: string;
   recoveryRequired?: boolean;
 }

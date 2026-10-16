@@ -122,6 +122,15 @@ model CheckoutOperation {
   idempotencyKey     String                 @map("idempotency_key") @db.VarChar(255)
   requestFingerprint String                 @map("request_fingerprint") @db.Char(64)
   state              CheckoutOperationState @default(PREPARING)
+  preparedQuoteId    String?                @map("prepared_quote_id") @db.VarChar(100)
+  preparedCartVersion Int?                  @map("prepared_cart_version")
+  preparedAddressId  String?                @map("prepared_address_id") @db.VarChar(100)
+  preparedExpiresAt  DateTime?               @map("prepared_expires_at") @db.Timestamptz(6)
+  preparedTotalAmount Decimal?              @map("prepared_total_amount") @db.Decimal(12, 2)
+  preparedTotalCurrency String?             @map("prepared_total_currency") @db.Char(3)
+  preparedLines      Json?                  @map("prepared_lines") @db.JsonB
+  revalidatedAt      DateTime?               @map("revalidated_at") @db.Timestamptz(6)
+  orderIdempotencyKey String?                @map("order_idempotency_key") @db.VarChar(255)
   externalOrderId    String?                @map("external_order_id") @db.VarChar(100)
   failureCode        String?                @map("failure_code") @db.VarChar(100)
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -131,6 +140,7 @@ model CheckoutOperation {
   cart               Cart                   @relation(fields: [cartId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([customerId, idempotencyKey], map: "checkout_operations_customer_idempotency_uk")
+  @@unique([customerId, orderIdempotencyKey], map: "checkout_operations_customer_order_idempotency_uk")
   @@index([cartId, createdAt(sort: Desc)], map: "checkout_operations_cart_created_idx")
   @@index([state, createdAt], map: "checkout_operations_state_created_idx")
   @@index([externalOrderId], map: "checkout_operations_external_order_idx")

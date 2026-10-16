@@ -16,8 +16,8 @@ export class CheckoutContactDto {
   @MaxLength(120)
   fullName!: string;
 
-  @IsIn(['DNI', 'CE', 'PASSPORT'])
-  documentType!: 'DNI' | 'CE' | 'PASSPORT';
+  @IsIn(['DNI', 'RUC', 'CE', 'PASAPORTE'])
+  documentType!: 'DNI' | 'RUC' | 'CE' | 'PASAPORTE';
 
   @IsString()
   @MinLength(5)

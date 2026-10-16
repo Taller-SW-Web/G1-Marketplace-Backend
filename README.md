@@ -118,3 +118,7 @@ Las pruebas Jest usan SWC para transformar TypeScript; el build de producción N
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
 2. **Branching:** Cada integrante trabaja sobre ramas asociadas a su módulo (e.g. `feat/SPEC-0X-nombre-historia`).
 3. **Definition of Done:** Cada entrega debe cumplir con los criterios de aceptación BDD, tipado estricto, manejo de errores HTTP y cobertura de pruebas estipulada en su SPEC.
+
+## Configuración de autenticación en Render
+
+El servicio requiere `AUTH_ISSUER` y `AUTH_JWKS_URL` como variables de entorno. En `render.yaml` quedan marcadas como `sync: false`: deben configurarse con los valores del issuer y el endpoint JWKS entregados por Seguridad/Ops; no usar los valores locales de `.env.example` en producción. El despliegue falla de forma cerrada si faltan o no corresponden al token recibido.

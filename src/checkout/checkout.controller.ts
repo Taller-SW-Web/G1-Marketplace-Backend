@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -103,7 +104,14 @@ export class CheckoutController {
   @Get('operations/:operationId')
   async getOperation(
     @Req() request: AuthenticatedRequest,
-    @Param('operationId', new ParseUUIDPipe()) operationId: string,
+    @Param(
+      'operationId',
+      new ParseUUIDPipe({
+        exceptionFactory: () => new BadRequestException({
+          error: { code: 'INVALID_OPERATION_ID' },
+        }),
+      }),
+    ) operationId: string,
     @Res({ passthrough: true }) response: StatusResponse,
   ) {
     const result = await this.checkout.getOperation(this.customerId(request), operationId);

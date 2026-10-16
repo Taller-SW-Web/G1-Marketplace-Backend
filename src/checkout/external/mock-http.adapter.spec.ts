@@ -119,7 +119,7 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     };
     await expect(gateway.createOrder(input)).rejects.toBeInstanceOf(ProviderError);
     const retried = await gateway.createOrder(input);
-    expect(retried.pedidoId).toBe('PED-MOCK-00001');
+    expect(retried.pedidoId).toMatch(/^PED-\d{4}-\d{5}$/);
     expect(await gateway.getOrder(retried.pedidoId)).toMatchObject({ estado: 'CREADO' });
   });
 
