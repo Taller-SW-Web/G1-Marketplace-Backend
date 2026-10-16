@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProductDetailModule } from './catalog/product-detail.module';
 
 function validateEnvironment(config: Record<string, unknown>) {
   const port = Number(config.PORT ?? 10000);
@@ -40,6 +41,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     }),
     PrismaModule,
     HealthModule,
+    ProductDetailModule,
   ],
 })
 export class AppModule {}

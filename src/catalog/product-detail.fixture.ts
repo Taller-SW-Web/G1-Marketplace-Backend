@@ -8,11 +8,13 @@
  * @see SPECS/contrato-api/F-011-detalle-producto.md · Gate I-01
  */
 
+import type { ProductDetailResponseDTO } from './product-detail.dto';
+
 /**
  * Producto MOCK estándar con specs y galería.
  * Slug: 'zapatillas-running-aero-x'
  */
-const MOCK_PRODUCT_SIMPLE = {
+export const MOCK_PRODUCT_SIMPLE: ProductDetailResponseDTO = {
   data: {
     productId: 'PRD-MOCK-001',
     slug: 'zapatillas-running-aero-x',
@@ -25,7 +27,7 @@ const MOCK_PRODUCT_SIMPLE = {
     ],
     media: [
       { mediaId: 'MED-001', type: 'IMAGE', url: 'https://placehold.co/600x400', alt: 'Vista frontal [MOCK]', displayOrder: 1 },
-      { mediaId: 'MED-002', type: 'IMAGE', url: 'https://placehold.co/600x400', alt: 'Vista lateral [MOCK]', displayOrder: 2 },
+      { mediaId: 'MED-002', type: 'IMAGE', url: 'https://placehold.co/600x400?text=2', alt: 'Vista lateral [MOCK]', displayOrder: 2 },
     ],
   },
   meta: { source: 'MOCK', retrievedAt: new Date().toISOString() },
@@ -35,7 +37,7 @@ const MOCK_PRODUCT_SIMPLE = {
  * Producto MOCK sin especificaciones técnicas.
  * Slug especial: 'producto-sin-specs-mock'
  */
-const MOCK_PRODUCT_NO_SPECS = {
+export const MOCK_PRODUCT_NO_SPECS: ProductDetailResponseDTO = {
   ...MOCK_PRODUCT_SIMPLE,
   data: { ...MOCK_PRODUCT_SIMPLE.data, technicalSpecifications: [] },
 };
@@ -47,8 +49,3 @@ const MOCK_PRODUCT_NO_SPECS = {
 //   'producto-error-504-mock'     → responde 504
 //   'producto-sin-specs-mock'     → specs vacías
 // ─────────────────────────────────────────────────────────────
-
-module.exports = {
-  MOCK_PRODUCT_SIMPLE,
-  MOCK_PRODUCT_NO_SPECS,
-};
