@@ -16,3 +16,6 @@ postgres_data/
 # IDE
 .vscode/
 .idea/
+
+# Local sanitized security reports and downloaded tools
+.local-security/
