@@ -1,5 +1,7 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Corte backend H3 de Diego:** [guía de ejecución y contrato](docs/H3-DIEGO-USO.md) y [evidencia local](docs/evidencias/h3/diego-backend.md). El archivo `PLAN-H3-DIEGO-BACKEND.md` es una guía local no versionada. Favoritos F-036/F-038: identidad y elegibilidad MOCK; persistencia PostgreSQL real local. Integración externa y revisión pendientes. El catálogo vigente F-001–F-040 y su reparto están en el repositorio SPECS; las referencias SPEC-01–SPEC-08 de las secciones históricas siguientes no gobiernan el reparto actual.
+
 > **Taller de Software Web — Grupo 1 (G1)**  
 > Plataforma e-commerce multicanal orientada a microservicios desarrollada bajo la metodología **Spec-Driven Development (SDD)**.
 

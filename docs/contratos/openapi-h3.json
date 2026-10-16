@@ -1,0 +1,299 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Marketplace H3 — Favoritos",
+    "version": "0.1.0",
+    "description": "Corte local de Diego. Identidad/elegibilidad MOCK, PostgreSQL real local. Sin integración Seguridad/Productos homologada. No hay GET de favoritos."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:10000",
+      "description": "Sandbox local, no producción"
+    }
+  ],
+  "paths": {
+    "/api/v1/wishlist/items": {
+      "post": {
+        "operationId": "saveWishlistItem",
+        "summary": "F-036: guardar favorito propio",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WishlistItem"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ya existente; no altera createdAt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistItem"
+                },
+                "example": {
+                  "productId": "PRD-1"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistItem"
+                },
+                "example": {
+                  "productId": "PRD-1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o producto inválido: INVALID_REQUEST / INVALID_PRODUCT_ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INVALID_REQUEST",
+                  "message": "Cuerpo o producto inválido: INVALID_REQUEST / INVALID_PRODUCT_ID"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Autenticación requerida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "UNAUTHORIZED",
+                  "message": "Autenticación requerida"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Producto no disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "PRODUCT_NOT_AVAILABLE",
+                  "message": "Producto no disponible"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servicio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servicio"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Catálogo no disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "CATALOG_UNAVAILABLE",
+                  "message": "Catálogo no disponible"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wishlist/items/{productId}": {
+      "delete": {
+        "operationId": "removeWishlistItem",
+        "summary": "F-038: eliminar favorito propio, sin consultar catálogo",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "Sin espacios exteriores ni caracteres de control. Referencia textual, no SKU."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado o ya ausente; sin cuerpo"
+          },
+          "400": {
+            "description": "Identificador inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INVALID_PRODUCT_ID",
+                  "message": "Identificador inválido"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Autenticación requerida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "UNAUTHORIZED",
+                  "message": "Autenticación requerida"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servicio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servicio"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "PostgreSQL disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "status": "UP"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL no disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "status": "DOWN"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "WishlistItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productId"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "PRD-1",
+            "description": "Sin espacios exteriores ni caracteres de control; conserva capitalización."
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "UP",
+              "DOWN"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

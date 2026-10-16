@@ -1,0 +1,32 @@
+
+> g1-marketplace-backend@1.0.0 test
+> npm run test:unit && npm run test:e2e
+
+
+> g1-marketplace-backend@1.0.0 test:unit
+> jest --runInBand
+
+[Nest] 5776  - 16/10/2026, 2:11:19 p. m.    WARN [HealthService] Readiness check failed: database unavailable
+node.exe :
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+Test Suites: 3 passed, 3 total
+Tests:       22 passed, 22 total
+Snapshots:   0 total
+Time:        1.248 s
+Ran all test suites.
+
+> g1-marketplace-backend@1.0.0 test:e2e
+> jest --config ./test/jest-e2e.json --runInBand
+
+[Nest] 7752  - 16/10/2026, 2:11:22 p. m.   ERROR [ApiErrorFilter] Request failed: internal error
+
+Test Suites: 2 passed, 2 total
+Tests:       36 passed, 36 total
+Snapshots:   0 total
+Time:        1.723 s, estimated 2 s
+Ran all test suites.
