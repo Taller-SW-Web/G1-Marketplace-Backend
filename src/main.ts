@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { corsOptions } from './http/cors-options';
 import { NotFoundFilter } from './http/not-found.filter';
 import { validationExceptionFactory } from './http/validation-exception.factory';
 
@@ -11,11 +12,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const corsOrigins = config.get<string[]>('CORS_ORIGINS', []);
 
-  app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : false,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
-  });
+  app.enableCors(corsOptions(corsOrigins));
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
