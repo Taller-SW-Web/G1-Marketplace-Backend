@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import AxiosMockAdapter from 'axios-mock-adapter';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { CheckoutQuote, DeliveryAddress, Money, SalesOrder } from '../checkout.types';
 
 interface AddressInput {
@@ -30,6 +30,7 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
   private adapter?: AxiosMockAdapter;
   private readonly addresses = new Map<string, DeliveryAddress[]>();
   private readonly orders = new Map<string, SalesOrder>();
+  private readonly orderFingerprints = new Map<string, string>();
   private readonly orderKeysById = new Map<string, string>();
   private readonly firstTimeoutKeys = new Set<string>();
   private nextAddress = 3;
@@ -233,7 +234,17 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
         total: Money;
       };
       const idempotencyKey = String(config.headers?.['Idempotency-Key'] ?? '');
-      let order = this.orders.get(idempotencyKey);
+      const scope = this.idempotencyScope(config.headers?.['X-Mock-Idempotency-Scope']);
+      if (!scope || !idempotencyKey) {
+        return [400, { error: { code: 'IDEMPOTENCY_KEY_REQUIRED' } }];
+      }
+      const scopedKey = this.scopedOrderKey(scope, idempotencyKey);
+      const fingerprint = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+      let order = this.orders.get(scopedKey);
+      const previousFingerprint = this.orderFingerprints.get(scopedKey);
+      if (order && previousFingerprint !== fingerprint) {
+        return [409, { error: { code: 'IDEMPOTENCY_KEY_REUSED' } }];
+      }
       if (!order) {
         order = {
           pedidoId: `PED-${new Date().getFullYear()}-${String(this.nextOrder++).padStart(5, '0')}`,
@@ -241,14 +252,15 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
           total: body.total,
           createdAt: new Date().toISOString(),
         };
-        this.orders.set(idempotencyKey, order);
-        this.orderKeysById.set(order.pedidoId, idempotencyKey);
+        this.orders.set(scopedKey, order);
+        this.orderFingerprints.set(scopedKey, fingerprint);
+        this.orderKeysById.set(order.pedidoId, scopedKey);
       }
       if (
         this.config.get<string>('MOCK_SALES_SCENARIO') === 'POST_TIMEOUT' &&
-        !this.firstTimeoutKeys.has(idempotencyKey)
+        !this.firstTimeoutKeys.has(scopedKey)
       ) {
-        this.firstTimeoutKeys.add(idempotencyKey);
+        this.firstTimeoutKeys.add(scopedKey);
         return [504, { error: { code: 'SALES_TIMEOUT' } }];
       }
       return [201, { data: order }];
@@ -265,9 +277,12 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       }
 
       const key = decodeURIComponent(config.url?.split('/').pop() ?? '');
-      const order = this.orders.get(key);
+      const scope = this.idempotencyScope(config.headers?.['X-Mock-Idempotency-Scope']);
+      if (!scope) return [404, { error: { code: 'ORDER_NOT_FOUND' } }];
+      const scopedKey = this.scopedOrderKey(scope, key);
+      const order = this.orders.get(scopedKey);
       if (!order) return [404, { error: { code: 'ORDER_NOT_FOUND' } }];
-      return [200, { data: this.resolveSalesOutcome(key, order) }];
+      return [200, { data: this.resolveSalesOutcome(scopedKey, order) }];
     });
 
     this.adapter!.onGet(/sales\.mock\/orders\/([^/]+)$/).reply((config) => {
@@ -289,7 +304,7 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private resolveSalesOutcome(idempotencyKey: string, order: SalesOrder): SalesOrder {
+  private resolveSalesOutcome(scopedKey: string, order: SalesOrder): SalesOrder {
     const outcome = this.config.get<string>('MOCK_SALES_OUTCOME', 'PENDING');
     const status: SalesOrder['estado'] =
       outcome === 'PAID' ? 'PAGADO' : outcome === 'REJECTED' ? 'ANULADO' : 'CREADO';
@@ -298,8 +313,16 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       estado: status,
       ...(status === 'ANULADO' ? { failureCode: 'PAGO_NO_COMPLETADO' } : {}),
     };
-    this.orders.set(idempotencyKey, resolvedOrder);
+    this.orders.set(scopedKey, resolvedOrder);
     return resolvedOrder;
+  }
+
+  private idempotencyScope(value: unknown): string | null {
+    return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value) ? value : null;
+  }
+
+  private scopedOrderKey(scope: string, idempotencyKey: string): string {
+    return `${scope}:${idempotencyKey}`;
   }
 
   private subjectFromAuthorization(value: unknown): string {

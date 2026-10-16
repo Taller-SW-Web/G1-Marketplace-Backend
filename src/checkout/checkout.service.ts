@@ -43,6 +43,8 @@ interface PreparedContext {
 
 @Injectable()
 export class CheckoutService {
+  private readonly customerContextLocks = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: MarketplaceGateway,
@@ -64,9 +66,11 @@ export class CheckoutService {
   ): Promise<DeliveryAddress> {
     try {
       const address = await this.gateway.createAddress(accessToken, input);
-      this.quotes.invalidate(customerId);
-      await this.invalidatePreparedOperations(customerId);
-      return address;
+      return await this.withCustomerContextLock(customerId, async () => {
+        this.quotes.invalidate(customerId);
+        await this.invalidatePreparedOperations(customerId);
+        return address;
+      });
     } catch (error) {
       this.throwProviderError(error, 'ADDRESS_SERVICE_UNAVAILABLE');
     }
@@ -104,8 +108,10 @@ export class CheckoutService {
     }
     this.assertValidQuote(quote, 'QUOTE_UNAVAILABLE');
 
-    await this.invalidatePreparedOperations(customerId);
-    return this.quotes.replace(customerId, quote);
+    return this.withCustomerContextLock(customerId, async () => {
+      await this.invalidatePreparedOperations(customerId);
+      return this.quotes.replace(customerId, quote);
+    });
   }
 
   async applyBenefit(customerId: string, input: ApplyBenefitDto): Promise<CheckoutQuote> {
@@ -123,8 +129,10 @@ export class CheckoutService {
       this.throwProviderError(error, 'BENEFITS_UNAVAILABLE');
     }
     this.assertValidQuote(nextQuote, 'BENEFITS_UNAVAILABLE');
-    await this.invalidatePreparedOperations(customerId);
-    return this.quotes.replace(customerId, nextQuote);
+    return this.withCustomerContextLock(customerId, async () => {
+      await this.invalidatePreparedOperations(customerId);
+      return this.quotes.replace(customerId, nextQuote);
+    });
   }
 
   async prepare(
@@ -161,18 +169,24 @@ export class CheckoutService {
       const cart = await this.findActiveCart(customerId);
       if (!cart) this.fail(409, 'CART_NOT_FOUND');
       if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
-      context = this.createPreparedContext(quote, cart.version);
-      const fingerprint = this.preparationFingerprint(cart.id, context, input);
+      const preparedContext = this.createPreparedContext(quote, cart.version);
+      context = preparedContext;
+      const fingerprint = this.preparationFingerprint(cart.id, preparedContext, input);
       try {
-        operation = await this.prisma.checkoutOperation.create({
-          data: {
-            customerId,
-            cartId: cart.id,
-            idempotencyKey: idempotencyKey!,
-            requestFingerprint: fingerprint,
-            state: CheckoutOperationState.PREPARING,
-            ...this.preparedContextData(context),
-          },
+        operation = await this.withCustomerContextLock(customerId, async () => {
+          if (!this.quotes.get(customerId, preparedContext.quoteId)) {
+            this.fail(409, 'QUOTE_EXPIRED');
+          }
+          return this.prisma.checkoutOperation.create({
+            data: {
+              customerId,
+              cartId: cart.id,
+              idempotencyKey: idempotencyKey!,
+              requestFingerprint: fingerprint,
+              state: CheckoutOperationState.PREPARING,
+              ...this.preparedContextData(preparedContext),
+            },
+          });
         });
       } catch (error) {
         if (!this.isUniqueConstraintError(error)) throw error;
@@ -254,12 +268,33 @@ export class CheckoutService {
       this.fail(409, 'REVALIDATION_CHANGED');
     }
 
-    operation = await this.prisma.checkoutOperation.update({
-      where: { id: operation.id },
-      data: {
-        state: CheckoutOperationState.PREPARED,
-        revalidatedAt: new Date(revalidation.revalidatedAt),
-      },
+    operation = await this.withCustomerContextLock(customerId, async () => {
+      const finalized = await this.prisma.checkoutOperation.updateMany({
+        where: {
+          id: operation!.id,
+          customerId,
+          state: CheckoutOperationState.PREPARING,
+          preparedQuoteId: context!.quoteId,
+          preparedCartVersion: context!.cartVersion,
+        },
+        data: {
+          state: CheckoutOperationState.PREPARED,
+          revalidatedAt: new Date(revalidation.revalidatedAt),
+        },
+      });
+      if (!finalized.count) {
+        const latest = await this.prisma.checkoutOperation.findUnique({ where: { id: operation!.id } });
+        if (
+          latest?.state === CheckoutOperationState.PREPARED &&
+          latest.preparedQuoteId === context!.quoteId &&
+          latest.preparedCartVersion === context!.cartVersion
+        ) return latest;
+        this.fail(409, 'REVALIDATION_CHANGED');
+      }
+
+      const prepared = await this.prisma.checkoutOperation.findUnique({ where: { id: operation!.id } });
+      if (!prepared) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
+      return prepared;
     });
     return this.operationView(operation, revalidation.revalidatedAt);
   }
@@ -376,6 +411,7 @@ export class CheckoutService {
       let createdOrder: SalesOrder;
       try {
         createdOrder = await this.gateway.createOrder({
+          customerId,
           checkoutOperationId: operation.id,
           // Persist the client key for safe replay; use operation UUID only for legacy submissions.
           idempotencyKey: operation.orderIdempotencyKey ?? operation.id,
@@ -462,7 +498,7 @@ export class CheckoutService {
     try {
       order = operation.externalOrderId
         ? await this.gateway.getOrder(operation.externalOrderId)
-        : await this.gateway.getOrderByIdempotencyKey(operation.orderIdempotencyKey!);
+        : await this.gateway.getOrderByIdempotencyKey(operation.orderIdempotencyKey!, operation.customerId);
     } catch {
       // The provider may be temporarily unreachable; never infer PAGADO from a timeout.
       return {
@@ -656,13 +692,32 @@ export class CheckoutService {
 
   private async invalidatePreparedOperations(customerId: string): Promise<void> {
     await this.prisma.checkoutOperation.updateMany({
-      where: { customerId, state: CheckoutOperationState.PREPARED },
+      where: {
+        customerId,
+        state: { in: [CheckoutOperationState.PREPARING, CheckoutOperationState.PREPARED] },
+      },
       data: {
         state: CheckoutOperationState.FAILED,
         failureCode: 'CHECKOUT_CONTEXT_CHANGED',
         completedAt: new Date(),
       },
     });
+  }
+
+  private async withCustomerContextLock<T>(customerId: string, action: () => Promise<T>): Promise<T> {
+    const previous = this.customerContextLocks.get(customerId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.customerContextLocks.set(customerId, current);
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+      if (this.customerContextLocks.get(customerId) === current) {
+        this.customerContextLocks.delete(customerId);
+      }
+    }
   }
 
   private assertIdempotencyKey(
@@ -733,6 +788,7 @@ export class CheckoutService {
       SALES_UNAVAILABLE: { status: 503, code: 'SALES_UNAVAILABLE' },
       SALES_TIMEOUT: { status: 409, code: 'ORDER_CREATION_PENDING' },
       SALES_STATUS_TIMEOUT: { status: 503, code: 'SALES_UNAVAILABLE' },
+      IDEMPOTENCY_KEY_REUSED: { status: 409, code: 'IDEMPOTENCY_KEY_REUSED' },
     };
     const mapped = maps[error.code];
     if (mapped) this.fail(mapped.status, mapped.code);

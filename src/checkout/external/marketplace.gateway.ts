@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
+import { createHash } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
 import {
   CheckoutContact,
@@ -57,14 +58,16 @@ export class MarketplaceGateway {
   }
 
   createOrder(input: {
+    customerId: string;
     checkoutOperationId: string;
     idempotencyKey: string;
     contact: CheckoutContact;
     total: Money;
   }): Promise<SalesOrder> {
-    const { idempotencyKey, ...body } = input;
+    const { customerId, idempotencyKey, ...body } = input;
     return this.request('post', 'http://sales.mock/orders', body, {
       'Idempotency-Key': idempotencyKey,
+      'X-Mock-Idempotency-Scope': this.mockIdempotencyScope(customerId),
     });
   }
 
@@ -72,11 +75,17 @@ export class MarketplaceGateway {
     return this.request('get', `http://sales.mock/orders/${encodeURIComponent(orderId)}`);
   }
 
-  getOrderByIdempotencyKey(idempotencyKey: string): Promise<SalesOrder> {
+  getOrderByIdempotencyKey(idempotencyKey: string, customerId: string): Promise<SalesOrder> {
     return this.request(
       'get',
       `http://sales.mock/orders/by-idempotency-key/${encodeURIComponent(idempotencyKey)}`,
+      undefined,
+      { 'X-Mock-Idempotency-Scope': this.mockIdempotencyScope(customerId) },
     );
+  }
+
+  private mockIdempotencyScope(customerId: string): string {
+    return createHash('sha256').update(customerId).digest('hex');
   }
 
   private async request<T>(

@@ -106,6 +106,7 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
 
     values.MOCK_SALES_SCENARIO = 'POST_TIMEOUT';
     const input = {
+      customerId: '11111111-1111-4111-8111-111111111111',
       checkoutOperationId: '11111111-1111-4111-8111-111111111111',
       idempotencyKey: '33333333-3333-4333-8333-333333333333',
       contact: {
@@ -121,9 +122,52 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     const retried = await gateway.createOrder(input);
     expect(retried.pedidoId).toMatch(/^PED-\d{4}-\d{5}$/);
     expect(await gateway.getOrder(retried.pedidoId)).toMatchObject({ estado: 'CREADO' });
-    expect(await gateway.getOrderByIdempotencyKey(input.idempotencyKey)).toMatchObject({
+    expect(await gateway.getOrderByIdempotencyKey(input.idempotencyKey, input.customerId)).toMatchObject({
       pedidoId: retried.pedidoId,
       estado: 'CREADO',
+    });
+  });
+
+  it('isolates identical idempotency keys by customer and rejects a changed payload within a scope', async () => {
+    const idempotencyKey = '33333333-3333-4333-8333-333333333333';
+    const first = {
+      customerId: '11111111-1111-4111-8111-111111111111',
+      checkoutOperationId: '44444444-4444-4444-8444-444444444444',
+      idempotencyKey,
+      contact: {
+        fullName: 'First Customer',
+        documentType: 'DNI' as const,
+        documentNumber: '12345678',
+        phone: '900000000',
+        email: 'first@example.test',
+      },
+      total: { amount: 355, currency: 'PEN' as const },
+    };
+    const second = {
+      ...first,
+      customerId: '22222222-2222-4222-8222-222222222222',
+      checkoutOperationId: '55555555-5555-4555-8555-555555555555',
+      contact: { ...first.contact, fullName: 'Second Customer', email: 'second@example.test' },
+      total: { amount: 999, currency: 'PEN' as const },
+    };
+
+    const firstOrder = await gateway.createOrder(first);
+    const secondOrder = await gateway.createOrder(second);
+
+    expect(secondOrder.pedidoId).not.toBe(firstOrder.pedidoId);
+    expect(firstOrder.total.amount).toBe(355);
+    expect(secondOrder.total.amount).toBe(999);
+    expect(await gateway.getOrderByIdempotencyKey(idempotencyKey, first.customerId)).toMatchObject({
+      pedidoId: firstOrder.pedidoId,
+      total: { amount: 355 },
+    });
+    expect(await gateway.getOrderByIdempotencyKey(idempotencyKey, second.customerId)).toMatchObject({
+      pedidoId: secondOrder.pedidoId,
+      total: { amount: 999 },
+    });
+    await expect(gateway.createOrder({ ...first, total: { amount: 500, currency: 'PEN' } })).rejects.toMatchObject({
+      status: 409,
+      code: 'IDEMPOTENCY_KEY_REUSED',
     });
   });
 

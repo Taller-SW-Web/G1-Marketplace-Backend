@@ -162,11 +162,16 @@ describe('CheckoutService', () => {
   it('records a PREPARED operation only after quantity revalidation', async () => {
     quotes.replace(customerId, quote);
     const prepared = { ...baseOperation(), state: CheckoutOperationState.PREPARING };
-    prisma.checkoutOperation.findUnique.mockResolvedValue(null);
+    prisma.checkoutOperation.findUnique.mockImplementation(async ({ where }) =>
+      where.id ? prepared : null,
+    );
     prisma.checkoutOperation.create.mockResolvedValue(prepared);
-    prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
-      Object.assign(prepared, data);
-      return prepared;
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.id === operationId && prepared.state === CheckoutOperationState.PREPARING) {
+        Object.assign(prepared, data);
+        return { count: 1 };
+      }
+      return { count: 0 };
     });
 
     const result = await service.prepare(
@@ -184,6 +189,55 @@ describe('CheckoutService', () => {
     expect(prisma.checkoutOperation.create.mock.calls[0][0].data).toHaveProperty(
       'preparedTotalAmount',
     );
+  });
+
+  it('does not finish preparation against a quote replaced during revalidation', async () => {
+    quotes.replace(customerId, quote);
+    const preparing = { ...baseOperation(), state: CheckoutOperationState.PREPARING };
+    let releaseRevalidation!: (value: { available: boolean; revalidatedAt: string }) => void;
+    let markRevalidationStarted!: () => void;
+    const revalidationStarted = new Promise<void>((resolve) => { markRevalidationStarted = resolve; });
+    const delayedRevalidation = new Promise<{ available: boolean; revalidatedAt: string }>((resolve) => {
+      releaseRevalidation = resolve;
+    });
+    gateway.revalidate.mockImplementation(() => {
+      markRevalidationStarted();
+      return delayedRevalidation;
+    });
+    prisma.checkoutOperation.findUnique.mockImplementation(async ({ where }) =>
+      where.id ? preparing : null,
+    );
+    prisma.checkoutOperation.create.mockResolvedValue(preparing);
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.state?.in?.includes(preparing.state) || where.state === preparing.state) {
+        Object.assign(preparing, data);
+        return { count: 1 };
+      }
+      return { count: 0 };
+    });
+    gateway.listAddresses.mockResolvedValue([
+      { addressId: 'ADR-1', street: 'Av. Lima 123', district: 'Miraflores', province: 'Lima', department: 'Lima', phone: '999999999' },
+      { addressId: 'ADR-2', street: 'Av. Lima 456', district: 'San Isidro', province: 'Lima', department: 'Lima', phone: '999999999' },
+    ]);
+    gateway.createQuote.mockResolvedValue({ ...quote, quoteId: 'Q-2', addressId: 'ADR-2' });
+
+    const preparingRequest = service.prepare(
+      customerId,
+      { quoteId: 'Q-1', cartVersion: 8, simulationConfirmed: true },
+      '33333333-3333-7333-8333-333333333333',
+    );
+    await revalidationStarted;
+
+    await service.createQuote(customerId, 'valid-test-token', { addressId: 'ADR-2', cartVersion: 8 });
+    releaseRevalidation({ available: true, revalidatedAt: new Date().toISOString() });
+
+    await expect(preparingRequest).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'REVALIDATION_CHANGED' } },
+    });
+    expect(preparing.state).toBe(CheckoutOperationState.FAILED);
+    expect(preparing.failureCode).toBe('CHECKOUT_CONTEXT_CHANGED');
+    expect(gateway.revalidate).toHaveBeenCalledTimes(1);
   });
 
   it('retries a persisted PREPARING operation with its original context after a transient revalidation error', async () => {
@@ -206,6 +260,13 @@ describe('CheckoutService', () => {
     prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
       Object.assign(operation, data);
       return operation;
+    });
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.state === CheckoutOperationState.PREPARING && operation.state === CheckoutOperationState.PREPARING) {
+        Object.assign(operation, data);
+        return { count: 1 };
+      }
+      return { count: 0 };
     });
     gateway.revalidate.mockRejectedValueOnce(new ProviderError(504, 'REVALIDATION_TIMEOUT'));
 
@@ -279,6 +340,7 @@ describe('CheckoutService', () => {
     expect(operation.externalOrderId).toBeNull();
     expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(
       '66666666-6666-4666-8666-666666666666',
+      customerId,
     );
     expect(gateway.createOrder).toHaveBeenCalledWith(expect.objectContaining({
       idempotencyKey: '66666666-6666-4666-8666-666666666666',
@@ -292,6 +354,34 @@ describe('CheckoutService', () => {
       '66666666-6666-4666-8666-666666666666',
     );
     expect(JSON.stringify(persistedOrderRequest)).not.toContain('ana@example.test');
+  });
+
+  it('returns a conflict when the mock Sales idempotency scope rejects a changed payload', async () => {
+    const operation = baseOperation();
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ data }) => {
+      Object.assign(operation, data);
+      return { count: 1 };
+    });
+    gateway.createOrder.mockRejectedValue(new ProviderError(409, 'IDEMPOTENCY_KEY_REUSED'));
+
+    await expect(service.createOrder(
+      customerId,
+      {
+        checkoutOperationId: operationId,
+        contact: {
+          fullName: 'Ana Perez',
+          documentType: 'DNI',
+          documentNumber: '12345678',
+          phone: '999999999',
+          email: 'ana@example.test',
+        },
+      },
+      '66666666-6666-4666-8666-666666666666',
+    )).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'IDEMPOTENCY_KEY_REUSED' } },
+    });
   });
 
   it('rejects a competing order idempotency key after another request claims the operation', async () => {
@@ -583,7 +673,7 @@ describe('CheckoutService', () => {
     });
     expect(operation.externalOrderId).toBeNull();
     expect(prisma.checkoutOperation.update).not.toHaveBeenCalled();
-    expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(operation.orderIdempotencyKey);
+    expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(operation.orderIdempotencyKey, customerId);
   });
 
   it('persists the mock Sales order ID only when the operation becomes SUCCEEDED', async () => {
