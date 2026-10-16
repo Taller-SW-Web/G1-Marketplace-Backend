@@ -1,5 +1,7 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Entorno actual solicitado: Docker local.** Render queda como referencia futura. Consultar [Docker H3](docs/DOCKER-H3.md) para levantar los tres servicios. No se ha desplegado en Render.
+
 > **Taller de Software Web — Grupo 1 (G1)**  
 > Plataforma e-commerce multicanal orientada a microservicios desarrollada bajo la metodología **Spec-Driven Development (SDD)**.
 
