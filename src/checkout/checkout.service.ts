@@ -386,10 +386,6 @@ export class CheckoutService {
         this.throwProviderError(error, 'ORDER_CREATION_PENDING');
       }
       this.assertValidSalesOrder(createdOrder);
-      operation = await this.prisma.checkoutOperation.update({
-        where: { id: operation.id },
-        data: { externalOrderId: createdOrder.pedidoId },
-      });
     }
 
     const result = await this.refreshOrder(operation);
@@ -408,15 +404,9 @@ export class CheckoutService {
     if (operation.state === CheckoutOperationState.PREPARED) {
       this.fail(409, 'ORDER_NOT_SUBMITTED');
     }
-    if (operation.state === CheckoutOperationState.SUBMITTED && operation.externalOrderId) {
+    if (operation.state === CheckoutOperationState.SUBMITTED) {
       const result = await this.refreshOrder(operation);
       return { status: result.status, data: this.operationStatusView(result.data) };
-    }
-    if (operation.state === CheckoutOperationState.SUBMITTED) {
-      return {
-        status: 202,
-        data: this.operationStatusView({ ...this.operationView(operation), recoveryRequired: true }),
-      };
     }
     if (
       operation.externalOrderId &&
@@ -461,7 +451,7 @@ export class CheckoutService {
   }
 
   private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>): Promise<ApiResult<CheckoutOperationView>> {
-    if (!operation.externalOrderId) {
+    if (!operation.externalOrderId && !operation.orderIdempotencyKey) {
       return {
         status: 202,
         data: { ...this.operationView(operation), recoveryRequired: true },
@@ -470,16 +460,14 @@ export class CheckoutService {
 
     let order: SalesOrder;
     try {
-      order = await this.gateway.getOrder(operation.externalOrderId);
+      order = operation.externalOrderId
+        ? await this.gateway.getOrder(operation.externalOrderId)
+        : await this.gateway.getOrderByIdempotencyKey(operation.orderIdempotencyKey!);
     } catch {
       // The provider may be temporarily unreachable; never infer PAGADO from a timeout.
       return {
         status: 202,
-        data: {
-          ...this.operationView(operation),
-          orderId: operation.externalOrderId,
-          orderState: 'CREADO',
-        },
+        data: { ...this.operationView(operation), recoveryRequired: true },
       };
     }
     this.assertValidSalesOrder(order);
@@ -489,6 +477,8 @@ export class CheckoutService {
         where: { id: operation.id },
         data: {
           state: CheckoutOperationState.SUCCEEDED,
+          externalOrderId: order.pedidoId,
+          failureCode: null,
           completedAt: new Date(),
         },
       });
@@ -508,6 +498,7 @@ export class CheckoutService {
         where: { id: operation.id },
         data: {
           state: CheckoutOperationState.FAILED,
+          externalOrderId: null,
           failureCode: order.failureCode ?? 'PAGO_NO_COMPLETADO',
           completedAt: new Date(),
         },

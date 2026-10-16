@@ -48,6 +48,7 @@ describe('CheckoutService', () => {
     | 'revalidate'
     | 'createOrder'
     | 'getOrder'
+    | 'getOrderByIdempotencyKey'
   >>;
   let service: CheckoutService;
   let quotes: QuotesService;
@@ -102,6 +103,12 @@ describe('CheckoutService', () => {
       revalidate: jest.fn().mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString() }),
       createOrder: jest.fn(),
       getOrder: jest.fn(),
+      getOrderByIdempotencyKey: jest.fn().mockResolvedValue({
+        pedidoId: 'PED-2026-00001',
+        estado: 'CREADO',
+        total: { amount: 355, currency: 'PEN' },
+        createdAt: new Date().toISOString(),
+      }),
     };
     quotes = new QuotesService();
     service = new CheckoutService(
@@ -118,6 +125,17 @@ describe('CheckoutService', () => {
       { addressId: 'ADR-1', cartVersion: 8 },
     );
     expect(created).toEqual(quote);
+    expect(prisma.cart.findFirst).toHaveBeenCalledWith({
+      where: { customerId, state: 'ACTIVE' },
+      include: { items: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    expect(gateway.createQuote).toHaveBeenCalledWith({
+      address: expect.objectContaining({ addressId: 'ADR-1' }),
+      addressId: 'ADR-1',
+      cartVersion: cart.version,
+      lines: cart.items.map(({ sku, quantity }) => ({ sku, quantity })),
+    });
     expect(gateway.listAddresses).toHaveBeenCalledWith('valid-test-token');
     expect(quotes.get(customerId, 'Q-1')).toEqual(quote);
 
@@ -232,6 +250,12 @@ describe('CheckoutService', () => {
       total: { amount: 355, currency: 'PEN' },
       createdAt: new Date().toISOString(),
     });
+    gateway.getOrderByIdempotencyKey.mockResolvedValue({
+      pedidoId: 'PED-2026-00001',
+      estado: 'CREADO',
+      total: { amount: 355, currency: 'PEN' },
+      createdAt: new Date().toISOString(),
+    });
     const contact: CheckoutContactDto = {
       fullName: 'Ana Perez',
       documentType: 'DNI',
@@ -252,6 +276,10 @@ describe('CheckoutService', () => {
       orderState: 'CREADO',
       orderId: 'PED-2026-00001',
     });
+    expect(operation.externalOrderId).toBeNull();
+    expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(
+      '66666666-6666-4666-8666-666666666666',
+    );
     expect(gateway.createOrder).toHaveBeenCalledWith(expect.objectContaining({
       idempotencyKey: '66666666-6666-4666-8666-666666666666',
     }));
@@ -329,6 +357,12 @@ describe('CheckoutService', () => {
         createdAt: new Date().toISOString(),
       });
     gateway.getOrder.mockResolvedValue({
+      pedidoId: 'PED-2026-00005',
+      estado: 'CREADO',
+      total: { amount: 355, currency: 'PEN' },
+      createdAt: new Date().toISOString(),
+    });
+    gateway.getOrderByIdempotencyKey.mockResolvedValue({
       pedidoId: 'PED-2026-00005',
       estado: 'CREADO',
       total: { amount: 355, currency: 'PEN' },
@@ -526,6 +560,64 @@ describe('CheckoutService', () => {
     expect(result.data.state).not.toBe('SUCCEEDED');
   });
 
+  it('recovers a pending order by the persisted idempotency key without storing its ID', async () => {
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.SUBMITTED,
+      orderIdempotencyKey: '66666666-6666-4666-8666-666666666666',
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    gateway.getOrderByIdempotencyKey.mockResolvedValue({
+      pedidoId: 'PED-2026-00007',
+      estado: 'CREADO',
+      total: { amount: 355, currency: 'PEN' },
+      createdAt: '2026-10-16T10:00:00.000Z',
+    });
+
+    const result = await service.getOperation(customerId, operationId);
+
+    expect(result.status).toBe(202);
+    expect(result.data).toMatchObject({
+      state: 'SUBMITTED',
+      order: { orderId: 'PED-2026-00007', state: 'CREADO' },
+    });
+    expect(operation.externalOrderId).toBeNull();
+    expect(prisma.checkoutOperation.update).not.toHaveBeenCalled();
+    expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(operation.orderIdempotencyKey);
+  });
+
+  it('persists the mock Sales order ID only when the operation becomes SUCCEEDED', async () => {
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.SUBMITTED,
+      orderIdempotencyKey: '66666666-6666-4666-8666-666666666666',
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
+      Object.assign(operation, data);
+      return operation;
+    });
+    gateway.getOrderByIdempotencyKey.mockResolvedValue({
+      pedidoId: 'PED-2026-00008',
+      estado: 'PAGADO',
+      total: { amount: 355, currency: 'PEN' },
+      createdAt: '2026-10-16T10:00:00.000Z',
+    });
+
+    const result = await service.getOperation(customerId, operationId);
+
+    expect(result.status).toBe(200);
+    expect(result.data).toMatchObject({
+      state: 'SUCCEEDED',
+      order: { orderId: 'PED-2026-00008', state: 'PAGADO' },
+    });
+    expect(operation).toMatchObject({
+      state: CheckoutOperationState.SUCCEEDED,
+      externalOrderId: 'PED-2026-00008',
+      completedAt: expect.any(Date),
+    });
+  });
+
   it('returns an ANULADO order nested as a terminal FAILED result', async () => {
     const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED };
     operation.externalOrderId = 'PED-2026-00004';
@@ -555,6 +647,7 @@ describe('CheckoutService', () => {
         createdAt: '2026-10-16T10:00:00.000Z',
       },
     });
+    expect(operation.externalOrderId).toBeNull();
   });
 
   it('does not reveal an operation to a different customer', async () => {
