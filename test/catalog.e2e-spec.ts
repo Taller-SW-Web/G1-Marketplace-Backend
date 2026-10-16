@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { CATALOG_PROVIDER } from '../src/catalog/types';
 import { createMockProvider } from '../src/catalog/fixtures';
+import { CartService } from '../src/cart/cart.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { NotFoundFilter } from '../src/http/not-found.filter';
 
@@ -11,6 +12,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
   let app: INestApplication;
   const mock = createMockProvider();
   const provider = { source: mock.source, home: jest.fn(), search: jest.fn() };
+  const cartService = { getCurrentCart: jest.fn().mockResolvedValue({ cartId: null, version: 0, items: [] }) };
   const originalEnv = { DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
   const prisma = {
     $queryRaw: jest.fn().mockRejectedValue(new Error('private database failure')),
@@ -24,7 +26,8 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     const { AppModule } = await import('../src/app.module');
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(CATALOG_PROVIDER).useValue(provider)
-      .overrideProvider(PrismaService).useValue(prisma).compile();
+      .overrideProvider(PrismaService).useValue(prisma)
+      .overrideProvider(CartService).useValue(cartService).compile();
     app = module.createNestApplication();
     const origins = app.get(ConfigService).get<string[]>('CORS_ORIGINS', []);
     app.enableCors({ origin: origins.length > 0 ? origins : false, methods: ['GET', 'OPTIONS'], allowedHeaders: ['Content-Type'] });
@@ -48,6 +51,14 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
   });
   afterEach(() => jest.restoreAllMocks());
+
+  it('keeps anonymous cart and catalog routes mounted in the shared AppModule', async () => {
+    const cart = await request(app.getHttpServer()).get('/api/v1/carts/current').expect(200);
+    expect(cart.body.data).toEqual({ cartId: null, version: 0, items: [] });
+    expect(cart.headers['set-cookie'][0]).toMatch(/^cart_session=[a-f0-9-]+;/);
+    expect(cartService.getCurrentCart).toHaveBeenCalledWith(expect.objectContaining({ sessionHash: expect.any(String) }));
+    await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
+  });
 
   it('serves home with the original public DTO and source/security headers', async () => {
     const result = await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);

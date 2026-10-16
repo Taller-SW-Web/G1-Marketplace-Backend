@@ -2,7 +2,7 @@
 
 El workflow `.github/workflows/h3.yml` se ejecuta al push a `feat/s1-f006-f007-catalogo` o manualmente sobre esa rama. No despliega, no abre PR y no escribe main/develop. Usa `contents: read`, acciones fijadas por SHA, Node 22.18.0 y lockfiles. No necesita credenciales de Productos ni otras cuentas del grupo.
 
-Backend ejecuta build, tipado, pruebas unitarias y HTTP, validación Prisma, migraciones sobre PostgreSQL 16 desechable y smoke del ejecutable compilado con readiness real. Ninguna migración apunta al entorno del equipo. Localmente el smoke usa una URL sintética sin BD y espera readiness 503.
+Backend ejecuta build, tipado, pruebas unitarias y HTTP, validación Prisma, migraciones sobre PostgreSQL 16 desechable y smoke del ejecutable compilado con readiness real. Ninguna migración apunta al entorno del equipo. Localmente el smoke usa una URL sintética sin BD y espera readiness 503. Con `H3_SMOKE_MODE=production` verifica el destino de `start:prod`, liveness/readiness y catálogo 503 sin credenciales, sin activar fixtures. Los reportes separados son smoke.json y smoke-production.json.
 
 Frontend ejecuta lint, componentes, build/E2E y tipado. Obtiene Backend público en una carpeta hermana por el SHA explícito del workflow. Usa Chromium en Linux y conserva Edge local; actualizar ese SHA requiere revisar el cambio y repetir pruebas. Los E2E usan MOCK, sin BD disponible ni conexión a G6. Las respuestas de error/vacío de casos específicos se interceptan deliberadamente desde el navegador; el recorrido normal pasa por Next y Nest compilados.
 
@@ -33,17 +33,20 @@ En Backend:
 
 ```powershell
 node scripts/smoke-h3.mjs
-& .local-security/tools-python/Scripts/python.exe scripts/security-check.py --base ed9582e55da30007620d5740f9e4c80d41d5ad8b --artifact dist
+$env:H3_SMOKE_MODE = 'production'
+node scripts/smoke-h3.mjs
+Remove-Item Env:H3_SMOKE_MODE
+& .local-security/tools-python/Scripts/python.exe scripts/security-check.py --base e6fc7f25e78a8b34316096839f44863f37f5e2c9 --artifact dist
 ```
 
 En Frontend:
 
 ```powershell
-& .local-security/tools-python/Scripts/python.exe scripts/security-check.py --base 0f47537ee12c25194817f7682be84500a62dde1c --artifact .next/static
+& .local-security/tools-python/Scripts/python.exe scripts/security-check.py --base 843dfde7a4e52e1a836db0eb207d8f9aa3502c28 --artifact .next/static
 ```
 
 Los reportes quedan en `.local-security/summary.json` y `licenses.json`, ignorados por Git. En Windows, Semgrep requiere acceso al almacén de certificados del sistema; un error de permisos/certificados debe resolverse en el entorno, sin desactivar TLS ni omitir el control. CI corre en Ubuntu.
 
-No ejecutar el smoke contra un puerto ocupado (usa 10101), contra servicios externos ni con datos reales. La validación dinámica local es dirigida; **DAST baseline de staging sigue pendiente** hasta disponer de un entorno propio y autorización operativa. La integración REAL, revisión humana y aceptación H3 se registran separadamente en SPECS.
+No ejecutar el smoke contra un puerto ocupado (usa 10101 o 10102 en el caso production), contra servicios externos ni con datos reales. La validación dinámica local es dirigida; **DAST baseline de staging sigue pendiente** hasta disponer de un entorno propio y autorización operativa. La integración REAL, revisión humana y aceptación H3 se registran separadamente en SPECS.
 
 Fuentes de herramientas: [Semgrep CLI](https://docs.semgrep.dev/cli-reference), [Gitleaks v8.30.1](https://github.com/gitleaks/gitleaks/tree/v8.30.1), [artefactos de GitHub](https://github.com/actions/upload-artifact). La evidencia de cada ejecución y sus límites se registra en [SPECS](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/docs/giuliano-elementos-compartidos/plan/evidencias/H3-AUTONOMIA-2026-10-16.md).

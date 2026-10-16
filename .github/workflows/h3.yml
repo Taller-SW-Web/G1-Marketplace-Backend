@@ -52,9 +52,14 @@ jobs:
         run: node scripts/smoke-h3.mjs
         env:
           H3_EXPECT_DATABASE: up
+      - name: Smoke production startup without catalog credentials
+        run: node scripts/smoke-h3.mjs
+        env:
+          H3_SMOKE_MODE: production
+          H3_EXPECT_DATABASE: up
       - run: python -m pip install -r .security/requirements.txt
       - run: python scripts/install-gitleaks.py
-      - run: python scripts/security-check.py --base ed9582e55da30007620d5740f9e4c80d41d5ad8b --artifact dist
+      - run: python scripts/security-check.py --base e6fc7f25e78a8b34316096839f44863f37f5e2c9 --artifact dist
       - name: Sanitized security evidence (7 days)
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -67,3 +72,4 @@ jobs:
             .local-security/summary.json
             .local-security/licenses.json
             .local-security/smoke.json
+            .local-security/smoke-production.json
