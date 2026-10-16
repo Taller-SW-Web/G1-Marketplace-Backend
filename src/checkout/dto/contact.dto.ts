@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 
 export class CheckoutContactDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(2)
   @MaxLength(120)
@@ -19,11 +20,13 @@ export class CheckoutContactDto {
   @IsIn(['DNI', 'RUC', 'CE', 'PASAPORTE'])
   documentType!: 'DNI' | 'RUC' | 'CE' | 'PASAPORTE';
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(5)
   @MaxLength(24)
   documentNumber!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(5)
   @MaxLength(40)
