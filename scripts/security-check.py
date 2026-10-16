@@ -120,8 +120,10 @@ try:
             continue
         manifest = root / path / "package.json"
         installed = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else {}
+        legacy_licenses = " OR ".join(item.get("type", "UNKNOWN") for item in installed.get("licenses", [])
+                                      if isinstance(item, dict))
         licenses.append({"package": path.split("node_modules/")[-1], "version": package.get("version"),
-                         "license": installed.get("license", package.get("license", "UNKNOWN")),
+                         "license": installed.get("license", package.get("license", legacy_licenses or "UNKNOWN")),
                          "dev": bool(package.get("dev"))})
     (out / "licenses.json").write_text(json.dumps(licenses, indent=2) + "\n", encoding="utf-8")
     record("license-inventory", bool(licenses), packages=len(licenses),
