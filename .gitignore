@@ -6,6 +6,8 @@
 # Node
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
 npm-debug.log*
 
 # Docker local data

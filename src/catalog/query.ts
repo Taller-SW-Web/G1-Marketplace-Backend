@@ -1,7 +1,8 @@
-const { CatalogError } = require("./errors");
+import { CatalogError } from "./errors";
+import type { CatalogQuery } from "./types";
 const allowedKeys = new Set(["q", "page", "pageSize", "categoryIds", "sort"]);
 
-function integer(value, fallback, min, max) {
+function integer(value: string | null, fallback: number, min: number, max: number) {
   if (value === null) return fallback;
   if (!/^\d+$/.test(value)) throw new CatalogError("INVALID_PAGE", 400);
   const parsed = Number(value);
@@ -10,7 +11,7 @@ function integer(value, fallback, min, max) {
   return parsed;
 }
 
-function parseQuery(params) {
+export function parseQuery(params: URLSearchParams): CatalogQuery {
   for (const key of params.keys()) {
     if (!allowedKeys.has(key) || params.getAll(key).length !== 1)
       throw new CatalogError("INVALID_PARAMETERS", 400);
@@ -23,7 +24,7 @@ function parseQuery(params) {
   if (categoryId && !/^[\p{L}\p{N}_-]{1,120}$/u.test(categoryId))
     throw new CatalogError("INVALID_FILTER", 400);
   const sort = params.get("sort") || undefined;
-  if (sort && !["NAME_ASC", "NAME_DESC"].includes(sort))
+  if (sort !== undefined && sort !== "NAME_ASC" && sort !== "NAME_DESC")
     throw new CatalogError("INVALID_SORT", 400);
   return {
     q,
@@ -33,5 +34,3 @@ function parseQuery(params) {
     sort,
   };
 }
-
-module.exports = { parseQuery };

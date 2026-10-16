@@ -2,27 +2,51 @@
   "name": "g1-marketplace-backend",
   "version": "1.0.0",
   "description": "Backend Marketplace Multicanal - NestJS & Prisma ORM",
-  "main": "src/server.js",
+  "main": "dist/main.js",
   "scripts": {
-    "build": "prisma generate",
-    "start": "node src/server.js",
-    "start:prod": "node src/server.js",
+    "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "test": "jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage --runInBand",
+    "lint": "tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:resolve": "prisma migrate resolve --applied 0_init",
     "prisma:pull": "prisma db pull",
     "prisma:studio": "prisma studio",
-    "prisma:validate": "prisma validate",
-    "test": "node --test"
+    "prisma:validate": "prisma validate"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0"
+    "@nestjs/common": "^11.2.7",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.2.7",
+    "@nestjs/platform-express": "^11.2.7",
+    "@prisma/client": "^5.20.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "prisma": "^5.20.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "prisma": "^5.20.0"
+    "@nestjs/cli": "^11.0.24",
+    "@nestjs/testing": "^11.2.7",
+    "@swc/core": "^1.16.18",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.19.0",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.5.2",
+    "supertest": "^7.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22 <25"
   }
 }

@@ -1,0 +1,131 @@
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { CATALOG_PROVIDER } from '../src/catalog/types';
+import { createMockProvider } from '../src/catalog/fixtures';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { NotFoundFilter } from '../src/http/not-found.filter';
+
+describe('CatalogModule with the baseline AppModule (e2e)', () => {
+  let app: INestApplication;
+  const mock = createMockProvider();
+  const provider = { source: mock.source, home: jest.fn(), search: jest.fn() };
+  const originalEnv = { DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
+  const prisma = {
+    $queryRaw: jest.fn().mockRejectedValue(new Error('private database failure')),
+    cart: { count: jest.fn() }, wishlistItem: { count: jest.fn() },
+  };
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:1/catalog_tests';
+    process.env.CATALOG_SOURCE = 'mock';
+    process.env.CORS_ORIGINS = 'http://localhost:3000,https://store.example';
+    const { AppModule } = await import('../src/app.module');
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(CATALOG_PROVIDER).useValue(provider)
+      .overrideProvider(PrismaService).useValue(prisma).compile();
+    app = module.createNestApplication();
+    const origins = app.get(ConfigService).get<string[]>('CORS_ORIGINS', []);
+    app.enableCors({ origin: origins.length > 0 ? origins : false, methods: ['GET', 'OPTIONS'], allowedHeaders: ['Content-Type'] });
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+    app.useGlobalFilters(new NotFoundFilter());
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app?.close();
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    provider.home.mockImplementation(() => mock.home());
+    provider.search.mockImplementation((query) => mock.search(query));
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('serves home with the original public DTO and source/security headers', async () => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
+    expect(result.body.categories).toHaveLength(3);
+    expect(result.body.featuredProducts).toEqual([]);
+    expect(result.headers['x-catalog-source']).toBe('MOCK');
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.headers['x-content-type-options']).toBe('nosniff');
+    expect(result.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(provider.home).toHaveBeenCalledWith(result.headers['x-request-id']);
+  });
+
+  it('serves normalized search and the same paging metadata', async () => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=++running++&page=1&pageSize=4').expect(200);
+    expect(result.body.data).toHaveLength(4);
+    expect(result.body.page).toEqual({ number: 1, size: 4, totalElements: 16, totalPages: 4 });
+    expect(provider.search).toHaveBeenCalledWith(expect.objectContaining({ q: 'running', page: 1, pageSize: 4 }), result.headers['x-request-id']);
+  });
+
+  it.each([
+    ['q=x', 'INVALID_SEARCH_QUERY'], ['q=running&q=polo', 'INVALID_PARAMETERS'],
+    ['page=-1', 'INVALID_PAGE'], ['categoryIds=a,b', 'INVALID_FILTER'], ['sort=PRICE_ASC', 'INVALID_SORT'],
+  ])('rejects invalid URL %s before invoking the provider', async (query, code) => {
+    const result = await request(app.getHttpServer()).get(`/api/v1/catalog/products?${query}`).expect(400);
+    expect(result.headers['content-type']).toContain('application/problem+json');
+    expect(result.body.code).toBe(code);
+    expect(result.body.requestId).toBe(result.headers['x-request-id']);
+    expect(provider.search).not.toHaveBeenCalled();
+  });
+
+  it('keeps a valid empty page successful', async () => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=zzzzzz').expect(200);
+    expect(result.body.data).toEqual([]);
+    expect(result.body.page.totalElements).toBe(0);
+  });
+
+  it('returns a safe 503 for unexpected provider exceptions without a mock fallback', async () => {
+    provider.search.mockRejectedValue(new Error('private token and upstream payload'));
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=polo').expect(503);
+    expect(result.body.code).toBe('CATALOG_UNAVAILABLE');
+    expect(result.body.requestId).toBe(result.headers['x-request-id']);
+    expect(JSON.stringify(result.body)).not.toMatch(/private|token|upstream/);
+    expect(provider.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the baseline multi-origin CORS behavior', async () => {
+    for (const origin of ['http://localhost:3000', 'https://store.example']) {
+      const allowed = await request(app.getHttpServer()).get('/api/v1/catalog/home').set('Origin', origin).expect(200);
+      expect(allowed.headers['access-control-allow-origin']).toBe(origin);
+    }
+    const denied = await request(app.getHttpServer()).get('/api/v1/catalog/home').set('Origin', 'https://evil.example').expect(200);
+    expect(denied.headers['access-control-allow-origin']).toBeUndefined();
+    const preflight = await request(app.getHttpServer()).options('/api/v1/catalog/products').set('Origin', 'https://store.example').set('Access-Control-Request-Method', 'GET').expect(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://store.example');
+  });
+
+  it('rejects writes to the read-only catalog with a safe 405', async () => {
+    const result = await request(app.getHttpServer()).post('/api/v1/catalog/products').expect(405);
+    expect(result.headers.allow).toBe('GET, OPTIONS');
+    expect(result.body.code).toBe('METHOD_NOT_ALLOWED');
+    expect(provider.search).not.toHaveBeenCalled();
+  });
+
+  it('preserves baseline liveness/readiness and keeps catalog independent of DB availability', async () => {
+    await request(app.getHttpServer()).get('/live').expect(200);
+    const ready = await request(app.getHttpServer()).get('/ready').expect(503);
+    expect(ready.body.database.connected).toBe(false);
+    expect(JSON.stringify(ready.body)).not.toContain('private database failure');
+    await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
+    const missing = await request(app.getHttpServer()).get('/missing-route').expect(404);
+    expect(missing.body).toEqual({ error: 'Ruta no encontrada' });
+  });
+
+  it('logs correlation and a hash rather than the raw search or credentials', async () => {
+    await request(app.getHttpServer()).get('/api/v1/catalog/products?q=private-search-term').expect(200);
+    const logs = JSON.stringify((Logger.prototype.log as jest.Mock).mock.calls);
+    expect(logs).toContain('queryHash');
+    expect(logs).toContain('requestId');
+    expect(logs).not.toContain('private-search-term');
+  });
+});

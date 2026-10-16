@@ -1,57 +1,47 @@
-# Utilidades compartidas del BFF de catálogo
+# Elementos compartidos del catálogo NestJS
 
-Versión documental 0.1.0 · 14/10/2026 · En revisión. Autor del bloque: Giuliano; revisión técnica: Leonidas y revisión principal: Sebastian. Estas utilidades se comparten **entre lecturas de catálogo**; no son todavía una librería transversal de todos los módulos.
+Versión documental 0.2.0 · 15/10/2026 · En revisión. Giuliano desarrolla el bloque; Sebastian y Leonidas revisan. Estas utilidades se comparten dentro de catálogo, sin atribuirles ownership de auth, checkout o inventario.
 
-| Archivo / export | Contrato | Límite |
+## Módulo y contratos
+
+| Export / archivo | Contrato | Consumo y límite |
 |---|---|---|
-| [`errors.js`](../src/catalog/errors.js): `CatalogError` | `(code?, status?, diagnostic?)`; defaults `CATALOG_UNAVAILABLE`, 503 | No importar como error de auth/checkout sin definir antes ese contrato |
-| Mismo archivo: `problem` | `(error, requestId)` → `{type,title,status,code,requestId}` | Mensajes públicos; el diagnóstico interno no se serializa |
-| [`query.js`](../src/catalog/query.js): `parseQuery` | `URLSearchParams` → consulta normalizada | Valida antes de llamar al proveedor; no aplica reglas administrativas |
-| [`provider.js`](../src/catalog/provider.js): `createProvider` | `(env?, fetchImpl?)` → proveedor de home/search | Mock explícito y prohibido en producción; real exige configuración y aprobación registradas |
-| Mismo archivo: `createRealProvider`, `projectProduct` | Adaptador HTTP y proyección pública de tarjeta | No replica BD, inventa SKU, calcula precios ni autoriza stock |
-| [`app.js`](../src/app.js): `createApp` | `{env?,provider?,healthCheck?,log?}` → handler HTTP | CORS explícito, UUID, log seguro y composición de rutas |
-| [`server.js`](../src/server.js) | Arranque del proceso | No importarlo desde tests/clientes: abre el puerto y registra señales |
+| [CatalogModule](../src/catalog/catalog.module.ts) | Registra controller/service, provider por token e interceptor/filtro | Importado por AppModule; depende del ConfigService global del baseline |
+| [CatalogService](../src/catalog/catalog.service.ts) | home/search con URLSearchParams y requestId; getter source | Valida antes del proveedor; exportado por el módulo para composición dentro del catálogo |
+| [CatalogController](../src/catalog/catalog.controller.ts) | GET home/products bajo api/v1/catalog; 405 para escrituras | Rutas y DTO H3 conservados; no inicia otro servidor |
+| [types.ts](../src/catalog/types.ts) | Category, ProductCardDTO, HomeDTO, CatalogPageDTO, CatalogQuery, CatalogProvider, CatalogEnvironment, CatalogFetch | Tipos internos compatibles con la proyección pública existente; no exponen precio/stock inventados |
+| Mismo archivo: CATALOG_PROVIDER | Symbol usado como token de inyección | Una implementación elegida por ConfigService; sustituible en pruebas con overrideProvider |
+| [provider.ts](../src/catalog/provider.ts) | createProvider, createRealProvider, projectProduct; versión/SHA fijados | MOCK explícito fuera de producción o REAL autorizado; sin fallback entre ambos |
+| [query.ts](../src/catalog/query.ts) | parseQuery(URLSearchParams): CatalogQuery | Normalización, límites, claves desconocidas/duplicadas y categoría singular |
+| [errors.ts](../src/catalog/errors.ts) | CatalogError(code?,status?,diagnostic?), problem(error,requestId) | Error interno y proyección segura; el diagnóstico no se serializa al visitante |
+| [CatalogRequestInterceptor](../src/catalog/catalog-request.interceptor.ts) | Contexto HTTP local al controller | UUID, cabeceras públicas, log con hash y saneamiento de excepciones inesperadas |
+| [CatalogExceptionFilter](../src/catalog/catalog-exception.filter.ts) | CatalogError → problem+json | Filtro del controller; no reemplaza el NotFoundFilter global ni los errores de otros módulos |
 
-## Validación compartida
+## Consumir y probar
 
-```js
-const { parseQuery } = require('./src/catalog/query');
+```typescript
+import { parseQuery } from '../src/catalog/query';
+import { createRealProvider } from '../src/catalog/provider';
+import { CATALOG_PROVIDER } from '../src/catalog/types';
+import type { CatalogProvider } from '../src/catalog/types';
+
 const query = parseQuery(new URLSearchParams('q=running&page=0&pageSize=24'));
+// En TestingModule, sustituir el proveedor sin iniciar otro servidor ni cambiar AppModule:
+// .overrideProvider(CATALOG_PROVIDER).useValue(testProvider satisfies CatalogProvider)
 ```
 
-Se admiten q, page, pageSize, categoryIds y sort. q vacío elimina búsqueda; si tiene texto se normaliza y requiere 2–120 caracteres. PageSize es 1–48 y page es entero desde cero; la implementación añade un límite técnico de 1 000 000 para page, pendiente de revisión como guardia local. Parámetros desconocidos/duplicados se rechazan.
+CatalogProvider declara source y métodos home(requestId?) / search(query,requestId?) asíncronos. El controller genera requestId mediante el interceptor y lo propaga al servicio/proveedor. El adaptador real acepta fetchImpl: CatalogFetch para respuestas sintéticas; esa inyección no acredita runtime con G6.
 
-CategoryIds sólo permite un ID en este corte, mapeado a `categoriaId` singular de G6. No ofrece un panel de filtros completo en esta entrega. Sort sólo admite NAME_ASC/DESC, mapeado a NOMBRE_ASC/DESC; no ordenar localmente una página incompleta.
+parseQuery recibe la URL original para detectar duplicados, incluidos los que se perderían al proyectar directamente a un DTO de query. No se modifica el ValidationPipe global. PageSize es 1–48, page comienza en cero y mantiene el límite técnico local de 1 000 000; q usa 2–120 caracteres y espacios normalizados. Sólo un categoryId y orden NAME_ASC/DESC; no implementa filtros múltiples.
 
-## Contrato común de errores
+Las configuraciones de PostgreSQL, CORS_ORIGINS y PORT pertenecen al baseline AppModule/main. HealthModule y PrismaService conservan sus contratos/ciclo de vida. No importar Backend, Prisma ni secretos en React; la web sólo consume el BFF y sus DTO. No reaparecen createApp ni server.js como capa alternativa.
 
-400 identifica entradas inválidas mediante INVALID_SEARCH_QUERY, INVALID_PAGE, INVALID_SORT, INVALID_FILTER o INVALID_PARAMETERS. CATALOG_UNAVAILABLE usa 503 para falta de configuración o fallos del proveedor. Un 401/403 técnico de G6 no significa sesión vencida del visitante.
+CORS sigue la configuración compartida: sin cabecera de concesión para orígenes ajenos, sin convertir esa política en autenticación. El frontend consulta mediante su proxy Next. El filtro global 404 mantiene el formato del baseline; los errores del catálogo conservan su formato problem+json.
 
-`createApp` genera el requestId, recibe el resultado del proveedor y registra sólo datos permitidos. La consulta se registra como hash; no se registran token, payload externo, búsqueda cruda ni detalles de base de datos. `problem` usa mensajes públicos reconocidos. No pasar `error.message` de un tercero directamente al navegador.
+## Compatibilidad y verificaciones
 
-## Inyección para pruebas y separación
+La migración cambia imports internos de require/createApp a módulos TypeScript e inyección NestJS. Los consumidores HTTP mantienen rutas, DTO, cabeceras y códigos de validación/proveedor. La guía anterior 0.1.0 describe el handler retirado; no debe usarse para nuevos consumidores.
 
-```js
-const http = require('node:http');
-const { createApp } = require('./src/app');
+Pruebas: [catalog.spec.ts](../src/catalog/catalog.spec.ts) conserva 32 casos de dominio/proveedor; el baseline agrega sus 2 casos unitarios de HealthService. [catalog.e2e-spec.ts](../test/catalog.e2e-spec.ts) prueba 13 casos HTTP del AppModule compuesto y el baseline conserva 6 casos HTTP de health. El total es 34 unitarios y 19 HTTP. Consultar [CATALOGO-S1.md](CATALOGO-S1.md) para comandos, configuración y límites.
 
-const app = createApp({
-  env: { CATALOG_SOURCE: 'mock', CORS_ORIGIN: 'http://localhost:3000' },
-  healthCheck: async () => {}, // Sólo prueba; no acredita una BD real.
-  log: () => {},
-});
-const server = http.createServer(app);
-// El test decide cuándo abrir/cerrar el servidor.
-```
-
-El adaptador acepta fetchImpl para pruebas deterministas; un stub no acredita integración real. Los métodos home/search reciben el requestId para propagar X-Correlation-Id. La configuración real exige versión y SHA revisados y host de medios permitido; parámetros secretos permanecen en variables de entorno.
-
-El frontend sólo consume DTO públicos. No importar código Backend, Prisma ni configuración del proveedor desde React. El healthCheck de producción continúa comprobando BD real y puede fallar aunque las lecturas de catálogo funcionen.
-
-## Revisión y evolución
-
-Pruebas existentes: 34 casos en [`catalog.test.js`](../test/catalog.test.js), con respuestas sintéticas y HTTP local propio, incluyendo timeout efectivo. Consultar [ejecución/configuración](CATALOGO-S1.md) para comandos y gates.
-
-Para reutilizar una utilidad fuera de catálogo, acordar semántica/ownership con el dueño del bloque y Leonidas antes de extraerla a un módulo común. Versionar el contrato, revisar consumidores y actualizar pruebas/documentación. Los helpers actuales no sustituyen los contratos de Seguridad, Ventas o Despacho.
-
-Política actualizada de esta sesión: crear commits y subir la rama de trabajo al remoto, sin publicar a main ni abrir PR. Giuliano preparará los PR manualmente al terminar. El inventario y changelog centrales están en `G1-Marketplace-SPECS/SPECS/ui/sistema-diseno/`.
+Para extender fuera del catálogo, acordar semántica/ownership con el dueño y Leonidas antes de extraer una biblioteca común. Esta entrega no completa O-010 ni implementa autorización del visitante, Pricing o Inventario. Se trabaja y publica únicamente en la rama individual; revisión humana y PR manual pendientes.

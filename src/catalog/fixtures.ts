@@ -1,5 +1,6 @@
+import type { CatalogProvider, Category, ProductCardDTO } from "./types";
 // Synthetic fixtures only. Never used as a fallback for a failed real provider.
-const categories = [
+const categories: Category[] = [
   { categoryId: "running", name: "Running" },
   { categoryId: "training", name: "Entrenamiento" },
   { categoryId: "outdoor", name: "Aire libre" },
@@ -10,7 +11,7 @@ const names = [
   "Mochila deportiva",
   "Short de running",
 ];
-const products = Array.from({ length: 32 }, (_, i) => ({
+const products: ProductCardDTO[] = Array.from({ length: 32 }, (_, i) => ({
   productId: `mock-product-${i + 1}`,
   slug: `producto-demostracion-${i + 1}`,
   name: `${names[i % names.length]} ${String(i + 1).padStart(2, "0")}`,
@@ -22,7 +23,7 @@ const products = Array.from({ length: 32 }, (_, i) => ({
   },
 }));
 
-function createMockProvider() {
+export function createMockProvider(): CatalogProvider {
   return {
     source: "MOCK",
     async home() {
@@ -60,5 +61,3 @@ function createMockProvider() {
     },
   };
 }
-
-module.exports = { createMockProvider };

@@ -1,15 +1,3 @@
-<!-- CATALOGO-S1 -->
-# Inicio y búsqueda — corte local de Giuliano
-
-Consultar [ejecución, pruebas, contrato y pendientes del catálogo](docs/CATALOGO-S1.md).
-Consultar [elementos compartidos, contratos y ejemplos de uso](docs/ELEMENTOS-COMPARTIDOS.md).
-
-Este avance MOCK no acredita integración real ni cierre de H3. Las asignaciones vigentes están en G1-Marketplace-SPECS/SPECS/RESPONSABILIDADES-PUNTA-A-PUNTA.md.
-
----
-
-## Documentación histórica (reparto y stack preliminares)
-
 # 🛒 Canal Marketplace Multicanal
 
 > **Taller de Software Web — Grupo 1 (G1)**  
@@ -87,8 +75,45 @@ flowchart LR
 | **Testing & Calidad** | Jest, Supertest, Playwright, Gherkin BDD |
 
 ---
+
+## Backend NestJS
+
+El servidor del backend usa NestJS con TypeScript, Express y Prisma. Node.js 22 es la versión base (`.node-version`). Las rutas `/` y `/health` comprueban la disponibilidad de PostgreSQL; `/ready` es alias de readiness y `/live` verifica el proceso sin consultar la base de datos. Render usa `/live` como health check para no reiniciar el servicio durante una interrupción de PostgreSQL.
+
+### Desarrollo local
+
+1. Instala Node.js 22 y PostgreSQL local (o inicia el servicio PostgreSQL de `docker-compose.yml`).
+2. Copia `.env.example` a `.env` y ajusta `DATABASE_URL` y `CORS_ORIGINS` según tu entorno.
+3. Instala y compila:
+
+   ```bash
+   npm ci
+   npm run build
+   ```
+
+4. Ejecuta el servidor y las pruebas:
+
+   ```bash
+   npm run start:dev
+   npm test
+   npm run test:e2e
+   ```
+
+Las pruebas Jest usan SWC para transformar TypeScript; el build de producción NestJS usa `tsc`.
+
+`DATABASE_URL` es obligatorio al arrancar. `CORS_ORIGINS` acepta orígenes separados por coma; en Render debe configurarse en el dashboard antes de permitir llamadas desde el frontend. Las migraciones siguen gestionándose con `prisma migrate deploy` durante el arranque del servicio; este setup no cambia el esquema ni las migraciones.
+
+---
+
 ## 📋 Convenciones y Contribución
 
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
 2. **Branching:** Cada integrante trabaja sobre ramas asociadas a su módulo (e.g. `feat/SPEC-0X-nombre-historia`).
 3. **Definition of Done:** Cada entrega debe cumplir con los criterios de aceptación BDD, tipado estricto, manejo de errores HTTP y cobertura de pruebas estipulada en su SPEC.
+
+
+## Catálogo H3 (F-006/F-007)
+
+CatalogModule integra inicio/búsqueda en este baseline NestJS, sin otro servidor HTTP ni cambios a Prisma/health/Render. Consultar [ejecución y pruebas](docs/CATALOGO-S1.md) y [elementos compartidos](docs/ELEMENTOS-COMPARTIDOS.md).
+
+El modo MOCK acredita avance parcial. Las asignaciones vigentes están en la matriz punta a punta de G1-Marketplace-SPECS; la migración no reasigna bloques ni cierra integración real/H3. Los cambios se publican sólo en la rama de Giuliano, sin modificar main/develop ni abrir PR.

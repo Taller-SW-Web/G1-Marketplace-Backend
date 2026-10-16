@@ -1,16 +1,11 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const http = require("node:http");
-const { once } = require("node:events");
-const { parseQuery } = require("../src/catalog/query");
-const {
-  createProvider,
-  createRealProvider,
-  CONTRACT_SHA,
-} = require("../src/catalog/provider");
-const { createApp } = require("../src/app");
-const parse = (value) => parseQuery(new URLSearchParams(value));
-const env = {
+import assert from "node:assert/strict";
+import * as http from "node:http";
+import { once } from "node:events";
+import { parseQuery } from "./query";
+import { createProvider, createRealProvider, CONTRACT_SHA } from "./provider";
+import type { CatalogEnvironment } from "./types";
+const parse = (value: string) => parseQuery(new URLSearchParams(value));
+const env: CatalogEnvironment = {
   CATALOG_SOURCE: "real",
   CATALOG_INTEGRATION_APPROVED: "true",
   PRODUCTOS_BASE_URL: "https://provider.example",
@@ -19,7 +14,7 @@ const env = {
   PRODUCTOS_CONTRACT_SHA: CONTRACT_SHA,
   PRODUCTOS_MEDIA_HOSTS: "images.example",
 };
-const product = {
+const product: Record<string, unknown> = {
   product_id: "p1",
   name: "Zapatillas",
   slug: "zapatillas",
@@ -30,7 +25,7 @@ const product = {
   pricing_preparado: true,
   perfil_fisico: "private",
 };
-const pagePayload = (items = [product]) => ({
+const pagePayload = (items: Record<string, unknown>[] = [product]) => ({
   items,
   pagina: 1,
   tamanio: 24,
@@ -48,31 +43,34 @@ test("real provider rejects a different contract revision or a non-origin base U
     });
 });
 
-test("actual HTTP timeout aborts a slow local provider", async (t) => {
+test("actual HTTP timeout aborts a slow local provider", async () => {
   const upstream = http.createServer((_req, res) => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (!res.destroyed) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(pagePayload()));
       }
     }, 250);
+    timer.unref();
   });
   upstream.listen(0, "127.0.0.1");
   await once(upstream, "listening");
-  t.after(() => {
-    upstream.closeAllConnections();
-    upstream.close();
-  });
+  const address = upstream.address();
+  assert.ok(address && typeof address !== "string");
   const provider = createRealProvider({
     ...env,
     NODE_ENV: "development",
     PRODUCTOS_TIMEOUT_MS: "100",
-    PRODUCTOS_BASE_URL: `http://127.0.0.1:${upstream.address().port}`,
+    PRODUCTOS_BASE_URL: `http://127.0.0.1:${address.port}`,
   });
-  await assert.rejects(provider.search(parse("q=polo"), "test-correlation"), {
-    diagnostic: "PROVIDER_TIMEOUT",
-    status: 503,
-  });
+  try {
+    await assert.rejects(provider.search(parse("q=polo"), "test-correlation"), {
+      diagnostic: "PROVIDER_TIMEOUT", status: 503,
+    });
+  } finally {
+    upstream.closeAllConnections();
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+  }
 });
 
 for (const length of [1, 121])
@@ -132,7 +130,7 @@ test("real mode requires approval, token and pinned contract", async () => {
   }
 });
 test("provider maps one-based page, canal, category and name order; projects public fields only", async () => {
-  let seen;
+  let seen!: { url: URL; options: RequestInit };
   const provider = createRealProvider(env, async (url, options) => {
     seen = { url, options };
     return Response.json({ ...pagePayload(), pagina: 2 });
@@ -146,9 +144,9 @@ test("provider maps one-based page, canal, category and name order; projects pub
   assert.equal(seen.url.searchParams.get("canal"), "MARKETPLACE");
   assert.equal(seen.url.searchParams.get("categoriaId"), "running");
   assert.equal(seen.url.searchParams.get("orden"), "NOMBRE_DESC");
-  assert.equal(seen.options.headers["X-Correlation-Id"], "correlation-test");
+  assert.equal(new Headers(seen.options.headers).get("X-Correlation-Id"), "correlation-test");
   assert.equal(
-    seen.options.headers.Authorization,
+    new Headers(seen.options.headers).get("Authorization"),
     "Bearer synthetic-test-token",
   );
   assert.equal(result.page.number, 1);
@@ -170,7 +168,7 @@ test("home includes only active categories and no invented featured products", a
       ],
     }),
   );
-  assert.deepEqual(await provider.home("id"), {
+  expect(await provider.home("id")).toEqual({
     categories: [{ categoryId: "active", name: "Running" }],
     featuredProducts: [],
   });
@@ -220,67 +218,3 @@ for (const overrides of [
     });
   });
 }
-test("HTTP flow: mock home/search, validation before provider, source, CORS, method and safe errors", async (t) => {
-  const server = http.createServer(
-    createApp({
-      env: { CATALOG_SOURCE: "mock" },
-      healthCheck: async () => {},
-      log: () => {},
-    }),
-  );
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  t.after(() => {
-    server.closeAllConnections();
-    server.close();
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const home = await fetch(`${base}/api/v1/catalog/home`);
-  assert.equal(home.headers.get("x-catalog-source"), "MOCK");
-  assert.equal((await home.json()).categories.length, 3);
-  const search = await fetch(`${base}/api/v1/catalog/products?q=running`);
-  assert.equal(search.status, 200);
-  assert.ok((await search.json()).data.length > 0);
-  const empty = await fetch(`${base}/api/v1/catalog/products?q=zzzzzz`);
-  assert.deepEqual((await empty.json()).data, []);
-  const invalid = await fetch(`${base}/api/v1/catalog/products?q=x`);
-  assert.equal(invalid.status, 400);
-  assert.equal((await invalid.json()).code, "INVALID_SEARCH_QUERY");
-  const blocked = await fetch(`${base}/api/v1/catalog/home`, {
-    headers: { Origin: "https://evil.example" },
-  });
-  assert.equal(blocked.status, 403);
-  assert.equal(blocked.headers.get("access-control-allow-origin"), null);
-  const post = await fetch(`${base}/api/v1/catalog/products`, {
-    method: "POST",
-  });
-  assert.equal(post.status, 405);
-  const health = await fetch(`${base}/health`);
-  assert.equal(health.status, 200);
-});
-test("invalid input never invokes provider; error bodies do not expose diagnostics", async (t) => {
-  let calls = 0;
-  const provider = {
-    source: "REAL",
-    search: async () => {
-      calls++;
-      throw new Error("private token");
-    },
-  };
-  const server = http.createServer(createApp({ provider, log: () => {} }));
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  t.after(() => {
-    server.closeAllConnections();
-    server.close();
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  assert.equal(
-    (await fetch(`${base}/api/v1/catalog/products?q=x`)).status,
-    400,
-  );
-  assert.equal(calls, 0);
-  const response = await fetch(`${base}/api/v1/catalog/products?q=polo`);
-  assert.equal(response.status, 503);
-  assert.ok(!(await response.text()).includes("private token"));
-});

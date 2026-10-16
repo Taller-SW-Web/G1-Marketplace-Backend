@@ -1,14 +1,11 @@
-class CatalogError extends Error {
-  constructor(code = "CATALOG_UNAVAILABLE", status = 503, diagnostic = code) {
+export class CatalogError extends Error {
+  constructor(public readonly code = "CATALOG_UNAVAILABLE", public readonly status = 503, public readonly diagnostic = code) {
     super(code);
-    this.code = code;
-    this.status = status;
-    this.diagnostic = diagnostic;
   }
 }
 
-function problem(error, requestId) {
-  const messages = {
+export function problem(error: CatalogError, requestId: string) {
+  const messages: Record<string, string> = {
     INVALID_SEARCH_QUERY: "Escribe entre 2 y 120 caracteres para buscar.",
     INVALID_PAGE: "Selecciona una página y un tamaño válidos.",
     INVALID_SORT: "Selecciona un orden permitido.",
@@ -27,5 +24,3 @@ function problem(error, requestId) {
     requestId,
   };
 }
-
-module.exports = { CatalogError, problem };
