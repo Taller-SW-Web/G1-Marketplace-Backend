@@ -1,5 +1,9 @@
 # Resolucion del PR #15 hacia develop
 
+Ampliación vigente del mismo PR: [integración de lectura y adición sin retirar favorito](integracion-frontend.md).
+Los cortes siguientes se mantienen como evidencia histórica. La compatibilidad
+externa de los conteos de salud sigue sin confirmación del equipo.
+
 Fecha local: 2026-10-16.
 
 Seguimiento vigente: el build completo de `de049b1` se confirmó en una copia limpia

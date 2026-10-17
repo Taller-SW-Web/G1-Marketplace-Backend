@@ -1,16 +1,37 @@
 ## Alcance
 
-Implementa el backend de F-036 (agregar favorito) y F-038 (quitar favorito) sobre NestJS, Prisma y PostgreSQL local. Es un avance parcial H3: identidad y elegibilidad de Productos son MOCK de sandbox.
+Amplía favoritos F-036/F-038 con lectura F-037 y adición al carrito que conserva el
+favorito. Usa NestJS, Prisma y PostgreSQL reales locales; identidad de demostración,
+catálogo y condiciones comerciales son MOCK. La decisión explícita del usuario
+sustituye el movimiento/eliminación y la idempotencia durable del handoff inicial;
+no acredita cumplimiento de F-039 original ni integración externa homologada.
 
 ## Comportamiento y cambios
 
 - `POST /api/v1/wishlist/items`: 201 al crear y 200 si ya existe; conserva `createdAt`, incluso ante concurrencia, respaldado por la unicidad cliente/producto.
 - `DELETE /api/v1/wishlist/items/{productId}`: 204 al eliminar o si ya estaba ausente, acotado al cliente autenticado y sin consultar catálogo.
+- `GET /api/v1/wishlist`: arreglo del titular ordenado por fecha; distingue vacío,
+  agotados, retirados y fallo de catálogo, sin exponer customerId.
+- `POST /api/v1/wishlist/items/{productId}/add-to-cart`: 200 con snapshot confirmado;
+  una unidad por solicitud, sin cuerpo ni clave idempotente. Conserva favorito y fecha.
+- Reutiliza CartService y coordina escrituras concurrentes por titular. No agrega
+  tablas ni migraciones; los fallos revierten escrituras. No existe `/move-to-cart`.
+- Ante timeout consultar carrito; una nueva petición puede sumar otra unidad.
 - Identidad derivada del Bearer token, cuerpo limitado a `productId`, validación y errores sanitizados.
 - JWT sandbox con validación de algoritmo, emisor, audiencia y expiración; bloqueo en producción y puertos inyectables para sustituir los mocks.
 - Integración con el carrito de `develop`, conservando autenticación RS256/JWKS, validación, errores y CORS compartido.
 - PostgreSQL 16 temporal aislado, scripts de tokens, integración y smoke; OpenAPI, guía de uso y evidencias.
 - Pruebas para idempotencia, aislamiento A/B, concurrencia, persistencia y regresiones del carrito.
+
+## Validación de la ampliación
+
+Ver [evidencia vigente](docs/evidencias/h3/integracion-frontend.md) para comandos,
+resultados y diferencia con los cortes históricos siguientes. Se agrega CI con
+instalación limpia, build completo, regresión, PostgreSQL 16, smoke y verificación
+de OpenAPI generado. Consultar el resultado publicado del commit en los checks del PR.
+
+Entrega: [contrato vigente y ajustes necesarios del BFF](docs/FAVORITOS-FRONTEND-HANDOFF.md)
+y [fixtures/conexión](docs/H3-FAVORITOS-INTEGRACION.md). El repositorio frontend no se modifica.
 
 ## Validación registrada antes de la auditoría
 
@@ -27,6 +48,9 @@ Tras integrar `develop`: 25 unitarias, 53 HTTP y 4 del servidor mock aprobadas; 
 
 Confirmar con el equipo el uso externo de los conteos retirados de salud, registrando responsable, fecha y sistemas revisados. Sin consumidores externos, no se requiere otro cambio de código por ese punto.
 
-No incluye UI, listado F-037, autenticación real ni elegibilidad real de Productos. La restauración de deshacer depende de F-036 y G-UNDO. No cierra tareas de integración ni acredita el flujo integral o un despliegue de producción.
+Quedan pendientes adaptar y aceptar el BFF/UI de adición conservando tarjeta,
+integraciones reales, G-UNDO y demás gates externos. Los flags nuevos deben permanecer
+desactivados hasta adaptar/probar el frontend; MOVE sigue false. No acredita el flujo
+integral ni un despliegue de producción. Revisión humana y aprobación siguen pendientes.
 
 Relacionados: `TASK-F036-BE-001`, `TASK-F038-BE-001` y DB/QA/DOC. Revisor principal según SPECS: Fernando Saire; aprobación pendiente. Ver [guía](docs/H3-DIEGO-USO.md) y [evidencia individual](docs/evidencias/h3/diego-backend.md).

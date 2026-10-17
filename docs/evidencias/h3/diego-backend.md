@@ -1,5 +1,9 @@
 # Evidencia individual — Diego — Backend H3 — F-036/F-038
 
+Estado vigente de la ampliación: [lectura y adición al carrito conservando favorito](integracion-frontend.md).
+El registro siguiente corresponde al corte F-036/F-038 y sus auditorías anteriores;
+sus conteos y pendientes no sustituyen los resultados de la ampliación enlazada.
+
 Fecha: 16/10/2026. Entorno: Windows, PowerShell, Node 24.16.0, npm 11.13.0, Docker Desktop, PostgreSQL 16 temporal.
 
 Repositorio: G1-Marketplace-Backend. Rama: `feat/s1-f036-f038-favoritos`, creada desde `origin/develop`.

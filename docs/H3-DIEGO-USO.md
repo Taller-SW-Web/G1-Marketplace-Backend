@@ -1,6 +1,10 @@
 # Backend H3 de Diego — ejecución y handoff
 
-Este corte implementa F-036/F-038. Clasificación: identidad y elegibilidad **MOCK**; NestJS, Prisma y PostgreSQL **reales locales**. No hay integración aprobada con Seguridad/Productos, UI ni listado F-037. La revisión independiente sigue pendiente.
+Este corte amplía F-036/F-038 con lectura F-037 y adición al carrito conservando el
+favorito, sin tabla de movimientos. La identidad de demo, catálogo y condiciones
+comerciales son **MOCK**; NestJS, Prisma y PostgreSQL son **reales locales**.
+No hay integración homologada con Seguridad/Productos ni aceptación UI de los nuevos
+flujos. Ver [contrato y conexión vigentes](H3-FAVORITOS-INTEGRACION.md).
 
 ## Requisitos
 
@@ -27,7 +31,7 @@ npm run test:integration
 npm run test:smoke
 ```
 
-El runner carga `.env` si existe, valida que la base sea local `marketplace_h3_test`, esquema public y distinta de desarrollo; después aplica `prisma migrate deploy` y ejecuta las pruebas. Solo limpia los favoritos de los UUID ficticios A/B. No usa `migrate reset`, ni borra volúmenes o tablas de desarrollo.
+El runner carga `.env` si existe, valida que la base sea local `marketplace_h3_test`, esquema public y distinta de desarrollo; después aplica `prisma migrate deploy` y ejecuta las pruebas. Las suites limpian favoritos, líneas y carritos de los UUID ficticios A/B de esa base temporal. No usa `migrate reset`, ni borra volúmenes o tablas de desarrollo.
 
 Si `DATABASE_URL` ya apunta a esa misma base temporal, retirarla de la sesión o usar una terminal nueva antes de ejecutar integración. No desactivar la validación para saltar el control.
 
@@ -105,7 +109,7 @@ OpenAPI: [openapi-h3.json](contratos/openapi-h3.json). Regenerar con `npm run do
 
 ## Entornos y Render
 
-Mantener `H3_SANDBOX_ENABLED=false` o ausente en producción. Activarlo con `NODE_ENV=production` impide arrancar. Sin adaptador real, favoritos responde 401 incluso con JWT sandbox. `/health`, `/ready`, `/` y `/live` siguen disponibles; `/live` conserva el comportamiento de la base y no comprueba PostgreSQL.
+Mantener `H3_SANDBOX_ENABLED=false` o ausente en producción. Activarlo con `NODE_ENV=production` impide arrancar. Los JWT sandbox se rechazan fuera de development/test. RS256/JWKS utiliza la validación existente de carrito; no implica integración externa homologada. Sin proveedor de catálogo real, lectura/adición fallan cerradas. `/health`, `/ready`, `/` y `/live` siguen disponibles; `/live` no comprueba PostgreSQL.
 
 `CORS_ALLOWED_ORIGINS` tiene precedencia sobre `CORS_ORIGINS`, que se conserva para Render. Las entradas deben ser orígenes HTTP(S) completos sin paths ni comodines. CORS no sustituye autorización.
 

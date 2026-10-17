@@ -1,5 +1,10 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Ampliación vigente de favoritos:** [lectura y agregar al carrito conservando favorito](docs/H3-FAVORITOS-INTEGRACION.md),
+> [handoff actualizado](docs/FAVORITOS-FRONTEND-HANDOFF.md) y [evidencia](docs/evidencias/h3/integracion-frontend.md).
+> Sin tabla de movimientos ni migraciones nuevas; identidad/catalogo/comercio sandbox.
+> La descripción del corte F-036/F-038 que sigue se conserva como contexto histórico.
+
 > **Corte backend H3 de Diego:** [guía de ejecución y contrato](docs/H3-DIEGO-USO.md) y [evidencia local](docs/evidencias/h3/diego-backend.md). El archivo `PLAN-H3-DIEGO-BACKEND.md` es una guía local no versionada. Favoritos F-036/F-038: identidad y elegibilidad MOCK; persistencia PostgreSQL real local. Integración externa y revisión pendientes. El catálogo vigente F-001–F-040 y su reparto están en el repositorio SPECS; las referencias SPEC-01–SPEC-08 de las secciones históricas siguientes no gobiernan el reparto actual.
 
 > **Taller de Software Web — Grupo 1 (G1)**  
