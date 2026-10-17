@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiError } from './api-error';
+import { BaseExceptionFilter } from '@nestjs/core';
+import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
 import { ApiErrorFilter } from './api-error.filter';
 
 export function configureApp(app: INestApplication): void {
@@ -8,20 +9,19 @@ export function configureApp(app: INestApplication): void {
   const origins = config.get<string[]>('CORS_ORIGINS', []);
   app.enableCors({
     origin: origins.length ? origins : false,
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-customer-id'],
+    credentials: true,
   });
+  const defaultValidationError = new ValidationPipe().createExceptionFactory();
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
     whitelist: true,
     forbidNonWhitelisted: true,
     forbidUnknownValues: true,
-    exceptionFactory: (errors) => {
-      const onlyProduct = errors.length === 1 && errors[0].property === 'productId'
-        && !errors[0].constraints?.whitelistValidation;
-      return new ApiError(400, onlyProduct ? 'INVALID_PRODUCT_ID' : 'INVALID_REQUEST',
-        onlyProduct ? 'Identificador de producto inválido' : 'Cuerpo de solicitud inválido');
-    },
+    exceptionFactory: (errors) => errors.some((error) => error.target instanceof SaveWishlistItemDto)
+      ? wishlistValidationError(errors)
+      : defaultValidationError(errors),
   }));
-  app.useGlobalFilters(new ApiErrorFilter());
+  app.useGlobalFilters(new ApiErrorFilter(new BaseExceptionFilter(app.getHttpAdapter())));
 }

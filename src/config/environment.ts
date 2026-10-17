@@ -29,5 +29,11 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
       throw new Error('CORS entries must be explicit HTTP(S) origins');
     }
   }
-  return { ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins };
+  return {
+    ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins,
+    NODE_ENV: String(config.NODE_ENV ?? 'development').toLowerCase(),
+    USE_MOCKS: String(config.USE_MOCKS ?? 'true').toLowerCase() === 'true',
+    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
+    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
+  };
 }

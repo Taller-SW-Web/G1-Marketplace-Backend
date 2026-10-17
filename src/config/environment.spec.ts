@@ -13,6 +13,15 @@ describe('Environment boundaries', () => {
   it.each(['*', 'https://example.com/path', 'file:///test'])('rejects invalid origin %s', (origin) => {
     expect(() => validateEnvironment({ ...base, CORS_ALLOWED_ORIGINS: origin })).toThrow();
   });
+  it('normalizes cart mocks and preserves authentication settings', () => {
+    expect(validateEnvironment({ ...base, USE_MOCKS: 'FALSE', AUTH_ISSUER: 'https://auth.example',
+      AUTH_JWKS_URL: 'https://auth.example/jwks', HTTP_TIMEOUT_MS: '1500' })).toMatchObject({
+      USE_MOCKS: false, AUTH_ISSUER: 'https://auth.example',
+      AUTH_JWKS_URL: 'https://auth.example/jwks', HTTP_TIMEOUT_MS: '1500',
+    });
+    expect(validateEnvironment(base)).toMatchObject({ USE_MOCKS: true,
+      AUTH_ISSUER: 'http://127.0.0.1:4010', AUTH_JWKS_URL: 'http://127.0.0.1:4010/jwks' });
+  });
   it('requires an adequate sandbox secret', () => {
     expect(() => validateEnvironment({ ...base, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'short' })).toThrow();
   });

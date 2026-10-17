@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
+import { BaseExceptionFilter } from '@nestjs/core';
 import { ApiError } from './api-error';
 
 interface JsonResponse {
@@ -8,9 +9,18 @@ interface JsonResponse {
 
 @Catch()
 export class ApiErrorFilter implements ExceptionFilter {
+  constructor(private readonly fallback: BaseExceptionFilter) {}
+
   private readonly logger = new Logger(ApiErrorFilter.name);
 
   catch(error: unknown, host: ArgumentsHost): void {
+    const request = host.switchToHttp().getRequest<{ originalUrl?: string; url?: string }>();
+    const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
+    const isWishlist = /^\/api\/v1\/wishlist\/items(?:\/|$)/.test(path);
+    if (!isWishlist && !(error instanceof HttpException && error.getStatus() === 404)) {
+      this.fallback.catch(error, host);
+      return;
+    }
     const response = host.switchToHttp().getResponse<JsonResponse>();
     if (error instanceof ApiError) {
       response.status(error.getStatus()).json(error.getResponse());

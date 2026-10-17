@@ -1,4 +1,4 @@
-import { registerDecorator, ValidationOptions } from 'class-validator';
+import { registerDecorator, ValidationError, ValidationOptions } from 'class-validator';
 import { Injectable, PipeTransform } from '@nestjs/common';
 import { ApiError } from '../http/api-error';
 
@@ -25,4 +25,11 @@ export class ProductIdPipe implements PipeTransform<unknown, string> {
 export class SaveWishlistItemDto {
   @IsProductId()
   productId!: string;
+}
+
+export function wishlistValidationError(errors: ValidationError[]): ApiError {
+  const onlyProduct = errors.length === 1 && errors[0].property === 'productId'
+    && !errors[0].constraints?.whitelistValidation;
+  return new ApiError(400, onlyProduct ? 'INVALID_PRODUCT_ID' : 'INVALID_REQUEST',
+    onlyProduct ? 'Identificador de producto inválido' : 'Cuerpo de solicitud inválido');
 }
