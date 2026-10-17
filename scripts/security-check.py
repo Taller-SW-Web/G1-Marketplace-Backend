@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-import secrets
+import string
 import shutil
 import subprocess
 import tempfile
@@ -67,7 +67,10 @@ try:
         canary = temp / "canary"
         canary.mkdir()
         # Construct synthetic detector controls in temp only. They are not credentials.
-        (canary / "control.txt").write_text('api_key = "' + secrets.token_hex(24) + '"\n')
+        # Interleave letters/digits: fixed high entropy, with no random dictionary stopwords.
+        control_value = "".join(letter + str(index % 10)
+                                for index, letter in enumerate(string.ascii_letters))
+        (canary / "control.txt").write_text('api_key = "' + control_value + '"\n')
         code, findings, _ = secret_scan(canary, temp / "control-secrets.json")
         record("secrets-positive-control", code == 1 and bool(findings))
         (canary / "control.ts").write_text("eval(userInput);\n")

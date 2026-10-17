@@ -16,3 +16,7 @@ Validacion Linux en imagenes Docker temporales, sin cargar el .env privado:
 La base de datos habitual del usuario no se modifica durante esta validacion. Las migraciones del baseline se ejercitan solo al arrancar el proyecto temporal. El comando npm test conserva la secuencia de develop (unitarias, HTTP y emisor) e incorpora el comprobador G6; el workflow H3 no repite la suite HTTP.
 
 Los incrementos de otros integrantes mantienen su autor y alcance. CI, pruebas locales y merge de develop no equivalen a integracion G6, publicacion cloud ni aceptacion H3. El PR #11 permanece draft.
+
+## Control positivo del escaner
+
+Se sustituye el valor hexadecimal aleatorio del control sintetico por una secuencia determinista de letras intercaladas con digitos. Conserva alta entropia y evita coincidencias aleatorias con las palabras excluidas del detector, evitando fallos aleatorios del control positivo de Gitleaks. El valor se construye solo en una carpeta temporal; no es una credencial. Se conserva la exigencia de deteccion, el escaneo de fuente/historial/artefactos y las reglas sin exclusiones nuevas.
