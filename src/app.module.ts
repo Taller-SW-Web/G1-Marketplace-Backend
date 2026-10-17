@@ -30,7 +30,7 @@ function validateEnvironment(config: Record<string, unknown>) {
 
   const corsOrigins = String(config.CORS_ORIGINS ?? '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
