@@ -130,6 +130,9 @@ export class CheckoutService {
     }
     this.assertValidQuote(nextQuote, 'BENEFITS_UNAVAILABLE');
     return this.withCustomerContextLock(customerId, async () => {
+      if (!this.quotes.get(customerId, input.quoteId)) {
+        this.fail(409, 'QUOTE_EXPIRED');
+      }
       await this.invalidatePreparedOperations(customerId);
       return this.quotes.replace(customerId, nextQuote);
     });

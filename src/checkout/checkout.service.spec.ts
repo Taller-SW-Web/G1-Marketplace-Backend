@@ -240,6 +240,84 @@ describe('CheckoutService', () => {
     expect(gateway.revalidate).toHaveBeenCalledTimes(1);
   });
 
+  it('does not replace a newer prepared quote with a delayed benefit result', async () => {
+    quotes.replace(customerId, quote);
+    const staleBenefitQuote = {
+      ...quote,
+      quoteId: 'Q-1-BENEFIT',
+      discount: { amount: 20, currency: 'PEN' },
+      total: { amount: 335, currency: 'PEN' },
+      selectedBenefit: { type: 'COUPON' as const, id: 'SAVE20', discount: { amount: 20, currency: 'PEN' } },
+    };
+    let releaseBenefit!: (value: typeof staleBenefitQuote) => void;
+    let markBenefitStarted!: () => void;
+    const benefitStarted = new Promise<void>((resolve) => { markBenefitStarted = resolve; });
+    const delayedBenefit = new Promise<typeof staleBenefitQuote>((resolve) => { releaseBenefit = resolve; });
+    gateway.applyBenefit.mockImplementation(() => {
+      markBenefitStarted();
+      return delayedBenefit;
+    });
+    gateway.listAddresses.mockResolvedValue([
+      { addressId: 'ADR-1', street: 'Av. Lima 123', district: 'Miraflores', province: 'Lima', department: 'Lima', phone: '999999999' },
+      { addressId: 'ADR-2', street: 'Av. Lima 456', district: 'San Isidro', province: 'Lima', department: 'Lima', phone: '999999999' },
+    ]);
+    const currentQuote = { ...quote, quoteId: 'Q-2', addressId: 'ADR-2' };
+    gateway.createQuote.mockResolvedValue(currentQuote);
+
+    let preparedOperation: (Omit<ReturnType<typeof baseOperation>, 'state'> & { state: CheckoutOperationState }) | null = null;
+    prisma.checkoutOperation.findUnique.mockImplementation(async ({ where }) =>
+      where.id ? preparedOperation : null,
+    );
+    prisma.checkoutOperation.create.mockImplementation(async ({ data }) => {
+      preparedOperation = { ...baseOperation(), ...data };
+      return preparedOperation;
+    });
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.state?.in) {
+        if (preparedOperation && where.state.in.includes(preparedOperation.state)) {
+          Object.assign(preparedOperation, data);
+          return { count: 1 };
+        }
+        return { count: 0 };
+      }
+      if (where.state === CheckoutOperationState.PREPARING && preparedOperation?.state === CheckoutOperationState.PREPARING) {
+        Object.assign(preparedOperation, data);
+        return { count: 1 };
+      }
+      return { count: 0 };
+    });
+
+    const staleBenefitRequest = service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' });
+    await benefitStarted;
+
+    await service.createQuote(customerId, 'valid-test-token', { addressId: 'ADR-2', cartVersion: 8 });
+    await service.prepare(
+      customerId,
+      { quoteId: 'Q-2', cartVersion: 8, simulationConfirmed: true },
+      '33333333-3333-7333-8333-333333333333',
+    );
+    expect(preparedOperation).toMatchObject({
+      state: CheckoutOperationState.PREPARED,
+      preparedQuoteId: 'Q-2',
+      preparedAddressId: 'ADR-2',
+    });
+
+    releaseBenefit(staleBenefitQuote);
+    await expect(staleBenefitRequest).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+
+    expect(quotes.get(customerId, 'Q-2')).toEqual(currentQuote);
+    expect(quotes.get(customerId, 'Q-1-BENEFIT')).toBeUndefined();
+    expect(preparedOperation).toMatchObject({
+      state: CheckoutOperationState.PREPARED,
+      preparedQuoteId: 'Q-2',
+      preparedAddressId: 'ADR-2',
+      failureCode: null,
+    });
+  });
+
   it('retries a persisted PREPARING operation with its original context after a transient revalidation error', async () => {
     const operation = {
       ...baseOperation(),
