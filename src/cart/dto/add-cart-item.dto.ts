@@ -3,7 +3,7 @@ import { IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validat
 export class AddCartItemDto {
   @IsString({ message: 'El parámetro sku debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El parámetro sku es requerido.' })
-  sku: string;
+  sku!: string;
 
   @IsOptional()
   @IsInt({ message: 'La cantidad debe ser un número entero.' })
