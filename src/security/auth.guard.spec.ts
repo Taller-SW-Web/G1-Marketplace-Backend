@@ -47,14 +47,12 @@ describe('AuthGuard', () => {
 
   it('verifies RS256, issuer, access-token type and UUID subject without requiring aud', async () => {
     const subject = '11111111-1111-4111-8111-111111111111';
-    const { token } = {
-      token: makeToken({
-        iss: issuer,
-        sub: subject,
-        tipo: 'acceso',
-        exp: Math.floor(Date.now() / 1000) + 60,
-      }),
-    };
+    const token = makeToken({
+      iss: issuer,
+      sub: subject,
+      tipo: 'acceso',
+      exp: Math.floor(Date.now() / 1000) + 60,
+    });
     const { context, request } = makeContext(token);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);

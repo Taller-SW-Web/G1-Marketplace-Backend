@@ -99,9 +99,23 @@ El servidor del backend usa NestJS con TypeScript, Express y Prisma. Node.js 22 
    npm run test:e2e
    ```
 
+Para probar endpoints protegidos mientras `USE_MOCKS=true`, inicia el emisor JWT local en otra terminal:
+
+```bash
+npm run mock:auth
+```
+
+El emisor sólo escucha en `127.0.0.1:4010`, genera una clave RS256 efímera al iniciar y publica su JWKS en `/jwks`. Obtén un token de fixture con `http://127.0.0.1:4010/token?user=default` o `?user=empty`; envíalo como `Authorization: Bearer <access_token>`. `default` y `empty` corresponden a los titulares de prueba con direcciones precargadas y sin direcciones. Al reiniciar el emisor, los tokens anteriores dejan de ser válidos. Este servidor no conecta con Seguridad, no debe exponerse en red ni usarse en producción; la validación JWT del BFF permanece activa.
+
 Las pruebas Jest usan SWC para transformar TypeScript; el build de producción NestJS usa `tsc`.
 
 `DATABASE_URL` es obligatorio al arrancar. `CORS_ORIGINS` acepta orígenes separados por coma; en Render debe configurarse en el dashboard antes de permitir llamadas desde el frontend. Las migraciones siguen gestionándose con `prisma migrate deploy` durante el arranque del servicio; este setup no cambia el esquema ni las migraciones.
+
+### F-028 — historial de pedidos (corte local H3)
+
+El endpoint `GET /api/v1/orders/me?page=0&pageSize=10` se puede ejecutar localmente con una fixture sintética. Para habilitarla, establece `ORDERS_SOURCE=mock` y selecciona un principal fijo del servidor con `ORDERS_MOCK_CUSTOMER_ID=customer-demo-001` (también existen `customer-demo-002` y `customer-demo-empty`). No se acepta identidad del cliente por header/query/body; en particular, `clienteId` no es un parámetro válido. Sin fuente/principal configurados, el endpoint responde no disponible; `mock` se rechaza en producción. Las respuestas llevan `X-Orders-Source` y `Cache-Control: no-store`.
+
+Este modo no valida JWT y no integra Ventas; el principal fijo sólo permite renderizar una cuenta sintética de demostración y no representa autenticación ni una prueba de autorización real. No se guardan pedidos en Prisma. La integración I-03 con `GET /api/v1/pedidos/me` queda pendiente de homologación y prueba autorizada.
 
 ---
 
@@ -110,3 +124,7 @@ Las pruebas Jest usan SWC para transformar TypeScript; el build de producción N
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
 2. **Branching:** Cada integrante trabaja sobre ramas asociadas a su módulo (e.g. `feat/SPEC-0X-nombre-historia`).
 3. **Definition of Done:** Cada entrega debe cumplir con los criterios de aceptación BDD, tipado estricto, manejo de errores HTTP y cobertura de pruebas estipulada en su SPEC.
+
+## Configuración de autenticación en Render
+
+El servicio requiere `AUTH_ISSUER` y `AUTH_JWKS_URL` como variables de entorno. En `render.yaml` quedan marcadas como `sync: false`: deben configurarse con los valores del issuer y el endpoint JWKS entregados por Seguridad/Ops; no usar los valores locales de `.env.example` en producción. El despliegue falla de forma cerrada si faltan o no corresponden al token recibido.
