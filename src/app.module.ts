@@ -6,6 +6,7 @@ import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
+import { MockIdentityModule } from './mock-identity/mock-identity.module';
 
 function validateEnvironment(config: Record<string, unknown>) {
   const port = Number(config.PORT ?? 10000);
@@ -89,6 +90,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     OrdersModule,
     CartModule,
     CheckoutModule,
+    MockIdentityModule,
   ],
 })
 export class AppModule {}
