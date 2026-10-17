@@ -15,7 +15,7 @@ export class CatalogRequestInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const request = http.getRequest<CatalogRequest>();
     const response = http.getResponse<ServerResponse>();
-    const requestId = randomUUID();
+    const requestId = request.requestId ?? randomUUID();
     const startedAt = Date.now();
     request.catalogRequestId = requestId;
     response.setHeader('X-Request-Id', requestId);

@@ -27,7 +27,7 @@ test('probe refuses MOCK and distinguishes a provider failure from an empty resu
   await assert.rejects(checkG6({ fetchImpl: provider({ status: 503 }) }), /CHECK_HTTP_503/);
   assert.equal((await checkG6({ fetchImpl: provider({ empty: true }) })).status, 'PARTIAL_NO_DATA');
 });
-test('web probe uses Next routes and does not require the header its current proxy omits', async () => {
+test('web probe uses Next routes and tolerates older proxies without the optional correlation header', async () => {
   const fake = provider();
   const result = await checkG6({ viaWeb: true, fetchImpl: async (url, options) => {
     assert.ok(url.pathname.startsWith('/api/catalog/'));

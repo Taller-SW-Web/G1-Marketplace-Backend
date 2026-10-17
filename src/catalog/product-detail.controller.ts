@@ -14,6 +14,11 @@
  *   504 — Timeout hacia Productos → PRODUCT_CATALOG_TIMEOUT (post I-01)
  *   404 — Slug ausente (`/products` sin segmento) → ruta del listado F-006/F-007
  *
+ * Los errores responden en el sobre uniforme `application/problem+json`
+ * (RFC 9457: type, title, status, code, instance, requestId) vía
+ * `ProblemDetailsFilter`, y toda respuesta incluye `X-Request-Id`
+ * (middleware global de correlación).
+ *
  * ⚠️ MOCK — H3: respuestas provienen de fixtures.
  *
  * @see SPECS/contrato-api/F-011-detalle-producto.md
@@ -26,10 +31,12 @@ import {
   Get,
   Injectable,
   Param,
+  UseFilters,
   UseInterceptors,
   type NestInterceptor,
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
+import { ProblemDetailsFilter } from '../http/problem-details.filter';
 import type { ProductDetailResponseDTO } from './product-detail.dto';
 import { CatalogException, ERROR_CODES } from './product-detail.errors';
 import { ProductDetailService } from './product-detail.service';
@@ -90,6 +97,7 @@ class CatalogSourceInterceptor implements NestInterceptor {
 
 @Controller('api/v1/catalog/products')
 @UseInterceptors(CatalogSourceInterceptor)
+@UseFilters(new ProblemDetailsFilter())
 export class ProductDetailController {
   constructor(private readonly productDetail: ProductDetailService) {}
 

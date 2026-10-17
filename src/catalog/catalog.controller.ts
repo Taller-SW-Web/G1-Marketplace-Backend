@@ -5,7 +5,7 @@ import { CatalogService } from './catalog.service';
 import { CatalogExceptionFilter } from './catalog-exception.filter';
 import { CatalogRequestInterceptor } from './catalog-request.interceptor';
 
-export type CatalogRequest = IncomingMessage & { catalogRequestId: string };
+export type CatalogRequest = IncomingMessage & { catalogRequestId: string; requestId?: string };
 
 @Controller('api/v1/catalog')
 @UseInterceptors(CatalogRequestInterceptor)

@@ -1,12 +1,11 @@
-import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { CATALOG_PROVIDER } from '../src/catalog/types';
 import { createMockProvider } from '../src/catalog/fixtures';
 import { CartService } from '../src/cart/cart.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { NotFoundFilter } from '../src/http/not-found.filter';
+import { configureApp } from '../src/http/configure-app';
 
 describe('CatalogModule with the baseline AppModule (e2e)', () => {
   let app: INestApplication;
@@ -30,10 +29,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
       .overrideProvider(PrismaService).useValue(prisma)
       .overrideProvider(CartService).useValue(cartService).compile();
     app = module.createNestApplication();
-    const origins = app.get(ConfigService).get<string[]>('CORS_ORIGINS', []);
-    app.enableCors({ origin: origins.length > 0 ? origins : false, methods: ['GET', 'OPTIONS'], allowedHeaders: ['Content-Type'] });
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
-    app.useGlobalFilters(new NotFoundFilter());
+    configureApp(app);
     await app.init();
   });
 
@@ -68,6 +64,31 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(detail.body.data).toMatchObject({ productId: card.productId, slug: card.slug, name: card.name });
     expect(detail.body.meta.source).toBe('MOCK');
     expect(detail.headers['x-catalog-source']).toBe('MOCK');
+  });
+
+  it.each([
+    '/api/v1/catalog/home', '/api/v1/catalog/products?q=running',
+    '/api/v1/catalog/products/producto-demostracion-5',
+  ])('preserves the proxy correlation through shared bootstrap for %s', async (path) => {
+    const result = await request(app.getHttpServer()).get(path).set('X-Request-Id', 'proxy-catalog-integration-01').expect(200);
+    expect(result.headers['x-request-id']).toBe('proxy-catalog-integration-01');
+    if (path.endsWith('/home')) expect(provider.home).toHaveBeenCalledWith('proxy-catalog-integration-01');
+    if (path.includes('?')) expect(provider.search).toHaveBeenCalledWith(expect.anything(), 'proxy-catalog-integration-01');
+  });
+
+  it.each([
+    ['producto-no-existente-mock', 404, 'PRODUCT_NOT_AVAILABLE'],
+    ['producto-error-503-mock', 503, 'PRODUCT_CATALOG_UNAVAILABLE'],
+    ['producto-error-504-mock', 504, 'PRODUCT_CATALOG_TIMEOUT'],
+  ])('keeps correlated Problem Details for detail %s beside the collection', async (slug, status, code) => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products/' + slug)
+      .set('X-Request-Id', 'proxy-catalog-integration-02').expect(Number(status));
+    expect(result.headers['content-type']).toContain('application/problem+json');
+    expect(result.headers['x-request-id']).toBe('proxy-catalog-integration-02');
+    expect(result.body).toMatchObject({ code, status: Number(status), requestId: 'proxy-catalog-integration-02',
+      instance: '/api/v1/catalog/products/' + slug });
+    expect(result.body.type).toMatch(/^https:\/\//);
+    expect(result.body.title).toEqual(expect.any(String));
   });
 
   it('serves home with the original public DTO and source/security headers', async () => {

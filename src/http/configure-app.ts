@@ -4,12 +4,14 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
 import { ApiErrorFilter } from './api-error.filter';
 import { corsOptions } from './cors-options';
+import { requestIdMiddleware } from './request-id.middleware';
 import { validationExceptionFactory } from './validation-exception.factory';
 import { CreateDeliveryAddressDto } from '../checkout/dto/delivery-address.dto';
 import { CreateOrderRequestDto } from '../checkout/dto/contact.dto';
 import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from '../checkout/dto/quote.dto';
 
 export function configureApp(app: INestApplication): void {
+  app.use(requestIdMiddleware);
   app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
     if (/^\/api\/v1\/wishlist(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
     next();

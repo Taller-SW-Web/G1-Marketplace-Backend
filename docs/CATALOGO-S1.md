@@ -38,7 +38,7 @@ Build genera Prisma Client y compila a `dist/main.js`; no aplica migraciones. El
 - `categoryIds` admite un ID; `sort` sólo NAME_ASC/DESC para el adaptador, sin panel/selector H4 en la UI.
 - Parámetros desconocidos, duplicados, administrativos o inválidos se rechazan antes de invocar al proveedor. Se analiza la URL original para conservar esta protección; el ValidationPipe global del baseline permanece intacto.
 - DTO de tarjeta: `productId`, `slug`, `name`, `categoryId`, `brandId`, `image`. No inventa precio, nombre de marca, stock ni SKU.
-- Cabeceras: X-Catalog-Source, X-Request-Id, Cache-Control no-store y X-Content-Type-Options nosniff. El interceptor genera el UUID y sólo registra códigos, ruta, duración y hash de búsqueda.
+- Cabeceras: X-Catalog-Source, X-Request-Id, Cache-Control no-store y X-Content-Type-Options nosniff. El middleware conserva un X-Request-Id seguro o genera un UUID; el interceptor reutiliza ese ID y sólo registra códigos, ruta, duración y hash de búsqueda.
 - Errores del catálogo: `application/problem+json` con `type`, `title`, `status`, `code`, `requestId`. Un fallo técnico de G6 se convierte en 503, sin vacíos falsos ni cierre de sesión del visitante. POST a las rutas de lectura devuelve 405.
 - Las rutas inexistentes conservan el NotFoundFilter compartido y su `{error: "Ruta no encontrada"}`.
 

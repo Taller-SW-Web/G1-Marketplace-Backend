@@ -1,6 +1,6 @@
 # Evidencia H3 — Sebastian Malca — TASK-F011-BE-001 (MOCK)
 
-**Fecha:** 2026-10-15 · **Migración al baseline NestJS:** 2026-10-16 · **Cierre de feedback del revisor:** 2026-10-17
+**Fecha:** 2026-10-15 · **Migración al baseline NestJS:** 2026-10-16 · **Cierre de feedback del revisor:** 2026-10-17 · **Corrección Problem Details + X-Request-Id:** 2026-10-17
 **Repositorio / rama / commit:** G1-Marketplace-Backend / feat/h3-f011-f015-detalle-de-producto / `cac413c`
 **PR:** [#16 → develop](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/16) · revisor solicitado: Giuliano MaPe · **aprobación pendiente**
 **CI:** [H3 F-011 Backend — run 39003832390 ✅](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/39003832390) (lint · 19 unit · 32 e2e · build · postgres)
@@ -18,6 +18,7 @@
 - Coherencia con el frontend (`G1-Marketplace-Frontend`, proxy `/api/catalog/...`): slug especial `producto-error-504-mock` → 504 añadido (espejo del adapter FE) y header `X-Catalog-Source: MOCK` en todas las respuestas del endpoint
 - Guardia de contrato en el DTO (`isProductDetailResponse`): valida estructura, medios HTTPS (API-CA-F011-04) y **rechaza campos comerciales excluidos** (price/stock/variants/sku/coupon) → 502 si falla
 - **Feedback del revisor (2026-10-17):** (1) fixture ampliado a los **32 productos del listado F-006/F-007** (`producto-demostracion-1..32`) como **espejo exacto de `src/catalog/fixtures.ts`** de la rama `feat/s1-f006-f007-catalogo` (PR #11: mismo `productId`, `slug` y `nombre`) para que **cada tarjeta abra LA ficha que le corresponde**; (2) lookup por slug conocido **sin fallback** — antes cualquier slug válido caía al fixture por defecto (200), ahora responde **404 `PRODUCT_NOT_AVAILABLE`**; (3) la prueba **Frontend → BFF MOCK** quedó reproducible desde el FE (`npm run test:e2e` arranca este BFF en MOCK vía `dist/main.js` y valida aviso + errores acordados)
+- **Corrección de errores de API — Problem Details + `X-Request-Id` (2026-10-17):** los errores del endpoint responden ahora en el **sobre uniforme `application/problem+json`** (RFC 9457) del contrato F-011 §4 — `{type, title, status, code, instance, requestId}` (+ `detail` con el mensaje propio, opcional) — vía nuevo `src/http/problem-details.filter.ts` aplicado con `@UseFilters` en `ProductDetailController`; y **toda respuesta incluye `X-Request-Id`** (conserva el del consumidor si es seguro — 1–64 `[A-Za-z0-9._-]` — si no genera UUID) mediante el middleware global `src/http/request-id.middleware.ts` (`main.ts`). El sobre `{error:{code,message}}` quedó como **interno** de `CatalogException`; se retiró la excepción temporal *"problem+json pendiente post I-01"*. Diagnóstico de 5xx en log sin PII (código, estado y requestId). **Alineado con el módulo F-006/F-007 del PR #11** (mismo `Content-Type` y correlación), corrigiendo la salvedad de la auditoría: ahora incluye `instance`, que es lo que pide el contrato F-011
 
 ## IA utilizada
 
@@ -51,6 +52,7 @@
 - RC-F-011-BE-04: **PASS** — Slug de error de servicio retorna 503
 - RC-F-011-BE-05: **PASS** — Respuesta no contiene campos comerciales (price, stock, variants undefined — además bloqueados por la guardia del DTO → 502)
 - Tests adicionales: **PASS** — producto sin specs, 504 (timeout), **espejo del listado** (`producto-demostracion-5` → 200 con «Zapatillas de running 05»), `producto-demostracion-99` y `un-slug-valido-123` → **404** (sin fallback)
+- **Corrección Problem Details + X-Request-Id (2026-10-17): PASS** — unit `src/http` **+10 tests** en 2 suites nuevas (`request-id.middleware.spec`, `problem-details.spec`); e2e F-011 **22 passed** (los 18 previos + 4 de correlación `X-Request-Id` y 1 del header en éxito); **smoke end-to-end** `dist/main.js` + proxy del frontend (`next start` con `MARKETPLACE_API_URL`): correlación de punta a punta y `application/problem+json` en errores (bloque inferior)
 - **Unit `npm test`: 19 passed, 0 failed** (3 suites) · **E2E `npm run test:e2e`: 32 passed, 0 failed** (3 suites, incluye cart F-016/F-019 fusionado)
 - **Total: 51 passed, 0 failed** entre ambos runners
 - Etiqueta: **MOCK**
@@ -89,6 +91,27 @@ Smoke (dist/main.js, BFF_MODE=mock):
   404 producto-no-existente-mock  PRODUCT_NOT_AVAILABLE  src=MOCK
   504 producto-error-504-mock     PRODUCT_CATALOG_TIMEOUT src=MOCK
   400 SLUG_INVALIDO!              INVALID_PRODUCT_SLUG   src=MOCK
+
+Smoke Problem Details + X-Request-Id (2026-10-17; BFF :10099 + proxy FE :3010):
+  200 GET /api/v1/catalog/products/zapatillas-running-aero-x
+      x-request-id: 02d1f24f-…  (UUID generado)  x-catalog-source: MOCK
+  400 GET /api/v1/catalog/products/SLUG_INVALIDO!  (X-Request-Id: smoke-be-1)
+      content-type: application/problem+json
+      {"type":"…/problems/invalid-product-slug","title":"El slug no cumple el formato definido.",
+       "status":400,"code":"INVALID_PRODUCT_SLUG",
+       "instance":"/api/v1/catalog/products/SLUG_INVALIDO!","requestId":"smoke-be-1",
+       "detail":"El slug tiene formato inválido. Solo se permiten minúsculas, dígitos y guiones"}
+  200 GET :3010/api/catalog/... (proxy → BFF, X-Request-Id: smoke-fe-1)
+      x-request-id: smoke-fe-1   (conservado de punta a punta)
+  503 GET :3010/api/catalog/.../producto-error-503-mock  (passthrough)
+      content-type: application/problem+json
+      {"type":"…/problems/product-catalog-unavailable","status":503,
+       "code":"PRODUCT_CATALOG_UNAVAILABLE","requestId":"<UUID generado por el proxy>",
+       …}
+  404 GET :3010/api/catalog/products/BAD!slug  (guardia del proxy, sin consultar el BFF)
+      {"type":"…/problems/not-found","code":"NOT_FOUND","instance":"/api/catalog/products/BAD!slug",…}
+  Log del filtro (sin PII): {"event":"catalog_error","code":"PRODUCT_CATALOG_UNAVAILABLE",
+                              "status":503,"requestId":"d9d43119-…"}
 ```
 
 ## Gates que bloquean integración REAL
