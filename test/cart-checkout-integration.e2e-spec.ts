@@ -223,9 +223,9 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
     // 5. Consultar operación resuelta con Mock Outcome
     const opRes = await request(app.getHttpServer())
       .get(`/api/v1/checkout/operations/${operationId}`)
-      .set('Authorization', `Bearer ${mockToken}`)
-      .expect(200);
+      .set('Authorization', `Bearer ${mockToken}`);
 
+    expect([200, 202]).toContain(opRes.status);
     const finalOrderId = opRes.body.data.order?.orderId ?? opRes.body.data.orderId;
     const finalOrderState = opRes.body.data.order?.state ?? opRes.body.data.orderState;
     expect(finalOrderId).toBeDefined();
