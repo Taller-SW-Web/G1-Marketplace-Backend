@@ -26,3 +26,7 @@ services:
         value: 10000
       - key: CORS_ORIGINS
         sync: false
+      - key: AUTH_ISSUER
+        sync: false
+      - key: AUTH_JWKS_URL
+        sync: false

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -32,7 +33,27 @@ function validateEnvironment(config: Record<string, unknown>) {
     .filter(Boolean);
 
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
-  const useMocksValue = String(config.USE_MOCKS ?? 'true').toLowerCase();
+  const useMocksValue = String(config.USE_MOCKS ?? 'false').toLowerCase();
+  if (useMocksValue !== 'true' && useMocksValue !== 'false') {
+    throw new Error('USE_MOCKS must be true or false');
+  }
+  if (useMocksValue === 'true' && nodeEnv === 'production') {
+    throw new Error('USE_MOCKS cannot be enabled in production');
+  }
+
+  const httpTimeoutMs = Number(config.HTTP_TIMEOUT_MS ?? 3000);
+  if (!Number.isInteger(httpTimeoutMs) || httpTimeoutMs < 1 || httpTimeoutMs > 30000) {
+    throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
+  }
+
+  const authIssuer = String(
+    config.AUTH_ISSUER ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
+  );
+  const authJwksUrl = String(
+    config.AUTH_JWKS_URL ??
+      (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
+  );
+
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'unconfigured'].includes(ordersSource)) {
     throw new Error('ORDERS_SOURCE must be mock or unconfigured');
@@ -48,8 +69,9 @@ function validateEnvironment(config: Record<string, unknown>) {
     ORDERS_SOURCE: ordersSource,
     NODE_ENV: nodeEnv,
     USE_MOCKS: useMocksValue === 'true',
-    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
-    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
+    HTTP_TIMEOUT_MS: httpTimeoutMs,
+    AUTH_ISSUER: authIssuer,
+    AUTH_JWKS_URL: authJwksUrl,
   };
 }
 
@@ -63,6 +85,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     HealthModule,
     OrdersModule,
     CartModule,
+    CheckoutModule,
   ],
 })
 export class AppModule {}

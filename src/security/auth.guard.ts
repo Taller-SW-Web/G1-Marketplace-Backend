@@ -44,8 +44,8 @@ export class AuthGuard implements CanActivate {
     const match = typeof value === 'string' ? /^Bearer\s+([^\s]+)$/i.exec(value) : null;
     if (!match) throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
 
-    const issuer = this.config.get<string>('AUTH_ISSUER', 'http://127.0.0.1:4010');
-    const jwksUrl = this.config.get<string>('AUTH_JWKS_URL', 'http://127.0.0.1:4010/jwks');
+    const issuer = this.config.get<string>('AUTH_ISSUER');
+    const jwksUrl = this.config.get<string>('AUTH_JWKS_URL');
     if (!issuer || !jwksUrl) {
       throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
     }
