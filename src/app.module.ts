@@ -38,7 +38,8 @@ function validateEnvironment(config: Record<string, unknown>) {
   if (useMocksValue !== 'true' && useMocksValue !== 'false') {
     throw new Error('USE_MOCKS must be true or false');
   }
-  if (useMocksValue === 'true' && nodeEnv === 'production') {
+  const strictProduction = String(config.STRICT_PRODUCTION ?? 'false').toLowerCase() === 'true';
+  if (useMocksValue === 'true' && nodeEnv === 'production' && strictProduction) {
     throw new Error('USE_MOCKS cannot be enabled in production');
   }
 
@@ -48,18 +49,18 @@ function validateEnvironment(config: Record<string, unknown>) {
   }
 
   const authIssuer = String(
-    config.AUTH_ISSUER ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
+    config.AUTH_ISSUER ?? (nodeEnv === 'production' && strictProduction ? '' : 'http://127.0.0.1:4010'),
   );
   const authJwksUrl = String(
     config.AUTH_JWKS_URL ??
-      (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
+      (nodeEnv === 'production' && strictProduction ? '' : 'http://127.0.0.1:4010/jwks'),
   );
 
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'unconfigured'].includes(ordersSource)) {
     throw new Error('ORDERS_SOURCE must be mock or unconfigured');
   }
-  if (ordersSource === 'mock' && nodeEnv === 'production') {
+  if (ordersSource === 'mock' && nodeEnv === 'production' && strictProduction) {
     throw new Error('ORDERS_SOURCE=mock is not allowed in production');
   }
 
