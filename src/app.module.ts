@@ -5,6 +5,7 @@ import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { validateEnvironment as validateH3Environment } from './config/environment';
+import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 
@@ -17,6 +18,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
     PrismaModule,
     HealthModule,
     WishlistModule,
+    AuthModule,
     OrdersModule,
     CartModule,
     CheckoutModule,

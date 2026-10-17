@@ -1,7 +1,9 @@
 ## Alcance
 
-Seguimiento vigente: se integra `develop` (`040d5fb`) y se resuelven seis archivos en
-conflicto conservando favoritos, carrito, checkout e historial. Ver el
+Seguimiento vigente: se integra `develop` en dos cortes (`040d5fb` y después `92de428`,
+que avanzó durante la resolución), conservando favoritos, carrito, checkout, historial
+y acceso MOCK. Se resolvieron seis archivos en el primer corte y AppModule en el
+segundo. Validación final sin BD: build, typecheck y 76 unitarias/83 HTTP/4 mock. Ver el
 [detalle para auditoría](docs/evidencias/h3/resolucion-conflictos-pr15.md): decisiones
 por archivo, procedencia de migraciones, acciones previas y restricción actual de no
 acceder/modificar bases. El CI actual usa exclusivamente pruebas sin BD real.

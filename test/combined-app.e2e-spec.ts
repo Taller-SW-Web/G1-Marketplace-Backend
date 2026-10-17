@@ -25,6 +25,7 @@ describe('Combined application HTTP contracts', () => {
     CORS_ORIGINS: 'http://localhost:3000', CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
     AUTH_ISSUER: issuer, AUTH_JWKS_URL: `${issuer}/jwks`,
     ORDERS_SOURCE: 'mock', ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-001',
+    H3_AUTH_MOCK: 'true',
   };
   const previous = Object.fromEntries(Object.keys(environment).map((key) => [key, process.env[key]]));
   const validCartToken = () => {
@@ -166,6 +167,15 @@ describe('Combined application HTTP contracts', () => {
         expect(headers['x-orders-source']).toBe('MOCK');
         expect(body.data).toEqual(expect.any(Array));
         expect(body.data.length).toBeGreaterThan(0);
+      });
+  });
+  it('registers the inherited mock login without turning it into a real authenticated session', async () => {
+    await request(app.getHttpServer()).post('/api/v1/auth/login')
+      .send({ correo: 'demo@inka.test', contrasena: 'Hito3Demo!' }).expect(200)
+      .expect(({ body, headers }) => {
+        expect(body).toMatchObject({ mode: 'MOCK', authenticated: false });
+        expect(body.token).toBeUndefined();
+        expect(headers['set-cookie']).toBeUndefined();
       });
   });
 });

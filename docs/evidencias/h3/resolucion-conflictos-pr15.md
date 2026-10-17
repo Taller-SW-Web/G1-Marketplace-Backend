@@ -3,6 +3,12 @@
 Fecha local: 17/10/2026. PR: https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/15
 Rama: `feat/s1-f036-f038-favoritos`, destino `develop`.
 
+**Último corte:** después de publicar la primera resolución `cec1684`, develop avanzó
+a `92de42808ac22cc34a6df162e19d5c8df8c263e2` al fusionarse el PR #12 de acceso MOCK.
+Se hizo una segunda integración, sin operaciones sobre BD. Build y typecheck aprobaron;
+la regresión final es **76 unitarias, 83 HTTP y 4 mock-auth**. El detalle del segundo
+corte figura al final. Los apartados iniciales registran la primera integración.
+
 ## Estado y límites vigentes
 
 El usuario prohibió acceder o modificar bases de datos durante esta resolución.
@@ -143,3 +149,31 @@ Para revisar sin BD, comparar el commit de resolución contra sus dos padres:
 Siguen pendientes consumidores externos de los conteos de salud, adaptación BFF/UI
 a add-to-cart conservando tarjeta, revisión humana e integraciones/gates externos.
 No se certifican F-039 original, G-UNDO, producción ni aceptación UI integral.
+
+## Segunda integración: develop avanzó durante la resolución
+
+Tras publicar `cec16847a9fd0567b2a498561250b1ed4ad2ca15`, los checks sin BD aprobaron
+en Node 22/24: https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/39005729493.
+GitHub siguió indicando CONFLICTING porque develop ya había pasado de 040d5fb a
+92de428 (PR #12, implementación original 6739c18). No se atribuye ese conflicto
+nuevo a un fallo del CI ni se declara resuelto basándose solo en las pruebas.
+
+Se actualizó origin y se inició otro merge sin commit automático. Único archivo en
+conflicto: src/app.module.ts, en imports y registro de módulos. Se conservaron tanto
+el validador centralizado/WishlistModule como AuthModule. .env.example incorporó
+H3_AUTH_MOCK=false automáticamente; el resto de archivos de acceso y sus pruebas
+se conservaron como vienen de develop. Sin dependencias ni migraciones adicionales.
+
+Se añadió una prueba HTTP combinada para comprobar que POST /api/v1/auth/login
+quedó registrado y sigue devolviendo mode MOCK, authenticated false, sin token ni
+cookie de sesión. No se convirtió el acceso de demostración heredado en autenticación
+real ni se modificó el contrato de favoritos.
+
+Validación del segundo corte: npm run build (0, Prisma generado en 147 ms y TypeScript),
+npm run typecheck (0), npm test (0: 76 unitarias/12 suites, 83 HTTP/7 suites,
+4 mock-auth). Frente a 78 HTTP del primer corte: cuatro casos heredados de acceso
+y uno combinado nuevo. No se ejecutaron comandos con BD real ni se activó el flag
+de escrituras. El CI conserva la matriz Node 22/24 sin PostgreSQL.
+
+Para este segundo merge, el primer padre es cec1684 y el segundo 92de428. Revisar
+el delta contra esos commits; las decisiones del primer corte permanecen en la historia.
