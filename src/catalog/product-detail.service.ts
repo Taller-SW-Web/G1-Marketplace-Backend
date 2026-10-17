@@ -15,7 +15,7 @@ import {
   isProductDetailResponse,
   type ProductDetailResponseDTO,
 } from './product-detail.dto';
-import { MOCK_PRODUCT_NO_SPECS, MOCK_PRODUCT_SIMPLE } from './product-detail.fixture';
+import { MOCK_PRODUCT_NO_SPECS, MOCK_PRODUCTS_BY_SLUG } from './product-detail.fixture';
 import { CatalogException, ERROR_CODES } from './product-detail.errors';
 
 /** Latencia simulada del modo MOCK (ms). */
@@ -43,9 +43,6 @@ export class ProductDetailService {
     if (bffMode === 'mock') {
       await simulateLatency();
 
-      if (slug === 'producto-no-existente-mock') {
-        throw new CatalogException(404, ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
-      }
       if (slug === 'producto-error-503-mock') {
         throw new CatalogException(503, ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE, 'Servicio de catálogo no disponible');
       }
@@ -53,8 +50,16 @@ export class ProductDetailService {
         throw new CatalogException(504, ERROR_CODES.PRODUCT_CATALOG_TIMEOUT, 'Timeout al consultar el servicio de catálogo');
       }
 
+      // Lookup por slug conocido — sin fallback: 'producto-no-existente-mock'
+      // y cualquier slug fuera del fixture responden 404 (cada tarjeta del
+      // listado F-006/F-007 tiene su ficha en MOCK_PRODUCTS_BY_SLUG).
       const fixture =
-        slug === 'producto-sin-specs-mock' ? MOCK_PRODUCT_NO_SPECS : MOCK_PRODUCT_SIMPLE;
+        slug === 'producto-sin-specs-mock'
+          ? MOCK_PRODUCT_NO_SPECS
+          : MOCK_PRODUCTS_BY_SLUG.get(slug);
+      if (!fixture) {
+        throw new CatalogException(404, ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
+      }
       const response: ProductDetailResponseDTO = {
         ...fixture,
         meta: { source: 'MOCK', retrievedAt: new Date().toISOString() },

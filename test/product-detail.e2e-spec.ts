@@ -147,8 +147,22 @@ describe('ProductDetailController (e2e) — F-011 MOCK', () => {
       expect(res.body.error.code).toBe('PRODUCT_CATALOG_TIMEOUT');
     });
 
-    it('slug válido con guiones funciona correctamente', async () => {
-      await get('/api/v1/catalog/products/un-slug-valido-123').expect(200);
+    it('slug con formato válido pero inexistente retorna 404 (sin fallback)', async () => {
+      const res = await get('/api/v1/catalog/products/un-slug-valido-123').expect(404);
+      expect(res.body.error.code).toBe('PRODUCT_NOT_AVAILABLE');
+    });
+
+    it('producto-demostracion-99 (fuera del listado de 32) retorna 404', async () => {
+      const res = await get('/api/v1/catalog/products/producto-demostracion-99').expect(404);
+      expect(res.body.error.code).toBe('PRODUCT_NOT_AVAILABLE');
+    });
+
+    it('cada tarjeta del listado tiene su ficha: producto-demostracion-5', async () => {
+      const res = await get('/api/v1/catalog/products/producto-demostracion-5').expect(200);
+      expect(res.body.data.slug).toBe('producto-demostracion-5');
+      expect(res.body.data.productId).toBe('mock-product-5');
+      expect(res.body.data.name).toBe('Zapatillas de running 05');
+      expect(res.body.meta.source).toBe('MOCK');
     });
   });
 });

@@ -37,6 +37,20 @@ describe('ProductDetailService', () => {
     expect(result.data.technicalSpecifications).toEqual([]);
   });
 
+  it('cada slug del listado F-006/F-007 tiene su ficha espejo (32 productos)', async () => {
+    const result = await service.getBySlug('producto-demostracion-32');
+    expect(result.data.productId).toBe('mock-product-32');
+    expect(result.data.name).toBe('Short de running 32');
+    expect(result.meta.source).toBe('MOCK');
+  });
+
+  it('slug desconocido responde 404 (sin fallback al fixture por defecto)', async () => {
+    await expect(service.getBySlug('nunca-visto-123')).rejects.toMatchObject({
+      status: 404,
+      response: { error: { code: ERROR_CODES.PRODUCT_NOT_AVAILABLE } },
+    });
+  });
+
   it.each([
     ['producto-no-existente-mock', 404, ERROR_CODES.PRODUCT_NOT_AVAILABLE],
     ['producto-error-503-mock', 503, ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE],

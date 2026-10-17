@@ -43,9 +43,72 @@ export const MOCK_PRODUCT_NO_SPECS: ProductDetailResponseDTO = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Slugs especiales para pruebas (espejo del adapter FE):
-//   'producto-no-existente-mock'  → responde 404
+// Slugs especiales para pruebas (unit FE, unit BE y e2e):
+//   'producto-no-existente-mock'  → responde 404 (cae al lookup: no existe)
 //   'producto-error-503-mock'     → responde 503
 //   'producto-error-504-mock'     → responde 504
 //   'producto-sin-specs-mock'     → specs vacías
+// Cualquier slug fuera de este archivo responde 404 (sin fallback).
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * Productos MOCK del listado F-006/F-007 — espejo exacto de `src/catalog/
+ * fixtures.ts` de la rama `feat/s1-f006-f007-catalogo` (PR #11): mismos
+ * `productId`, `slug` y `nombre` para que cada tarjeta del catálogo abra LA
+ * ficha que le corresponde. ⚠️ Mantener sincronizado con ese fixture mientras
+ * I-01 siga bloqueado.
+ */
+const DEMO_NAMES = [
+  'Zapatillas de running',
+  'Polo de entrenamiento',
+  'Mochila deportiva',
+  'Short de running',
+];
+
+const DEMO_SPECIFICATIONS = [
+  { group: 'Características', name: 'Material', value: 'Malla técnica', displayOrder: 1 },
+  { group: 'Características', name: 'Peso', value: '280', unit: 'g', displayOrder: 2 },
+];
+
+export const MOCK_DEMO_PRODUCTS: ProductDetailResponseDTO[] = Array.from(
+  { length: 32 },
+  (_, index) => {
+    const number = index + 1;
+    const name = `${DEMO_NAMES[index % DEMO_NAMES.length]} ${String(number).padStart(2, '0')}`;
+    return {
+      data: {
+        productId: `mock-product-${number}`,
+        slug: `producto-demostracion-${number}`,
+        name,
+        brand: { brandId: 'BR-MOCK', name: 'BrandMock' },
+        description: `${name} de demostración. Producto ficticio [MOCK].`,
+        technicalSpecifications: DEMO_SPECIFICATIONS.map((spec) => ({ ...spec })),
+        media: [
+          {
+            mediaId: `MED-DEMO-${number}-FRONT`,
+            type: 'IMAGE',
+            url: `https://placehold.co/600x400?text=${number}A`,
+            alt: `${name} — vista frontal [MOCK]`,
+            displayOrder: 1,
+          },
+          {
+            mediaId: `MED-DEMO-${number}-SIDE`,
+            type: 'IMAGE',
+            url: `https://placehold.co/600x400?text=${number}B`,
+            alt: `${name} — vista lateral [MOCK]`,
+            displayOrder: 2,
+          },
+        ],
+      },
+      meta: { source: 'MOCK', retrievedAt: new Date().toISOString() },
+    };
+  },
+);
+
+/** Índice slug → ficha MOCK de productos conocidos (el service no tiene fallback). */
+const slugEntries: Array<[string, ProductDetailResponseDTO]> =
+  MOCK_DEMO_PRODUCTS.map((product) => [product.data.slug, product]);
+slugEntries.push([MOCK_PRODUCT_SIMPLE.data.slug, MOCK_PRODUCT_SIMPLE]);
+
+export const MOCK_PRODUCTS_BY_SLUG: ReadonlyMap<string, ProductDetailResponseDTO> =
+  new Map(slugEntries);
