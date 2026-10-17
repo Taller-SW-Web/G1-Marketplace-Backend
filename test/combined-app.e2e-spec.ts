@@ -115,4 +115,25 @@ describe('Combined application HTTP contracts', () => {
     await request(app.getHttpServer()).get('/live').expect(200).expect(({ body }) => expect(body).toMatchObject({ status: 'UP' }));
     await request(app.getHttpServer()).get('/missing-route').expect(404).expect({ error: 'Ruta no encontrada' });
   });
+  it('uses the same validated sandbox principal for cart and wishlist', async () => {
+    const token = issueSandboxToken(SANDBOX_CUSTOMERS.A, secret);
+    await request(app.getHttpServer()).get('/api/v1/carts/current').auth(token, { type: 'bearer' }).expect(200);
+    expect(cart.getCurrentCart).toHaveBeenCalledWith(expect.objectContaining({ customerId: SANDBOX_CUSTOMERS.A }));
+    await request(app.getHttpServer()).post('/api/v1/wishlist/items').auth(token, { type: 'bearer' })
+      .send({ productId: 'PRD-1' }).expect(201);
+    expect(wishlist.save).toHaveBeenCalledWith(SANDBOX_CUSTOMERS.A, 'PRD-1');
+  });
+  it('uses validated RS256 subjects in wishlist', async () => {
+    await request(app.getHttpServer()).post('/api/v1/wishlist/items').auth(validCartToken(), { type: 'bearer' })
+      .send({ productId: 'PRD-1' }).expect(201);
+    expect(wishlist.save).toHaveBeenCalledWith(SANDBOX_CUSTOMERS.A, 'PRD-1');
+  });
+  it('permits configured add-to-cart preflight and rejects anonymous reads', async () => {
+    const response = await request(app.getHttpServer()).options('/api/v1/wishlist/items/PRD-1/add-to-cart')
+      .set('Origin', 'http://localhost:3000').set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Authorization').expect(204);
+    expect(response.headers['access-control-allow-headers']).toContain('Authorization');
+    await request(app.getHttpServer()).get('/api/v1/wishlist').expect(401)
+      .expect(({ body }) => expect(body.code).toBe('UNAUTHORIZED'));
+  });
 });

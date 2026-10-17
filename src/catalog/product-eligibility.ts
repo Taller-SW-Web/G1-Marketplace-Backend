@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiError } from '../http/api-error';
+import { SANDBOX_ACTIVE_PRODUCTS } from './wishlist-catalog';
 
 export abstract class ProductEligibilityPort {
   abstract isActive(productId: string): Promise<boolean>;
@@ -14,6 +15,6 @@ export class SandboxProductEligibility extends ProductEligibilityPort {
     if (!this.config.get<boolean>('H3_SANDBOX_ENABLED', false) || productId === 'PRD-UNAVAILABLE') {
       throw new ApiError(503, 'CATALOG_UNAVAILABLE', 'Catálogo no disponible');
     }
-    return productId === 'PRD-1';
+    return SANDBOX_ACTIVE_PRODUCTS.includes(productId);
   }
 }

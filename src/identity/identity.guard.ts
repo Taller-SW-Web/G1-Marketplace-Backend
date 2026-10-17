@@ -1,7 +1,6 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { CanActivate, ExecutionContext, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ApiError } from '../http/api-error';
-import { verifySandboxToken } from './sandbox-token';
+import { AuthGuard } from '../security/auth.guard';
 
 export interface AuthenticatedRequest {
   headers: { authorization?: string };
@@ -14,15 +13,15 @@ export abstract class IdentityPort {
 
 @Injectable()
 export class SandboxIdentityAdapter extends IdentityPort {
-  constructor(private readonly config: ConfigService) { super(); }
+  constructor(private readonly authentication: AuthGuard) { super(); }
 
   async authenticate(token: string): Promise<{ customerId: string }> {
-    if (!this.config.get<boolean>('H3_SANDBOX_ENABLED', false)) {
-      throw new ApiError(401, 'UNAUTHORIZED', 'Autenticación requerida');
-    }
     try {
-      return { customerId: verifySandboxToken(token, this.config.getOrThrow<string>('H3_JWT_SECRET')) };
-    } catch {
+      return { customerId: (await this.authentication.authenticate(token)).sub };
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Autenticación no disponible');
+      }
       throw new ApiError(401, 'UNAUTHORIZED', 'Autenticación requerida');
     }
   }

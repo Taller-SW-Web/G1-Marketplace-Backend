@@ -5,6 +5,10 @@ import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/produc
 import { ApiErrorFilter } from './api-error.filter';
 
 export function configureApp(app: INestApplication): void {
+  app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
+    if (/^\/api\/v1\/wishlist(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
+    next();
+  });
   const config = app.get(ConfigService);
   const origins = config.get<string[]>('CORS_ORIGINS', []);
   app.enableCors({

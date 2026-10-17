@@ -54,6 +54,25 @@ async function main(): Promise<void> {
     await call('unauthenticated', 'POST', 401, 'PRD-1', false);
     await call('inactive', 'POST', 404, 'PRD-INACTIVE');
     await call('catalog unavailable', 'POST', 503, 'PRD-UNAVAILABLE');
+    await call('prepare addition', 'POST', 201, 'PRD-1');
+    const list = await fetch(`${base}/api/v1/wishlist`, { headers: auth, signal: AbortSignal.timeout(3000) });
+    const items = await list.json() as Array<{ productId: string }>;
+    if (list.status !== 200 || !Array.isArray(items) || !items.some((item) => item.productId === 'PRD-1')) {
+      throw new Error('Compiled list contract failed');
+    }
+    const add = () => fetch(`${base}/api/v1/wishlist/items/PRD-1/add-to-cart`, {
+      method: 'POST', headers: auth, signal: AbortSignal.timeout(6000),
+    });
+    const first = await add();
+    const snapshot = await first.json() as { cart: { items: Array<{ sku: string; quantity: number }> } };
+    const after = await fetch(`${base}/api/v1/wishlist`, { headers: auth });
+    const favorites = await after.json() as Array<{ productId: string }>;
+    if (first.status !== 200 || !snapshot.cart.items.some((item) => item.sku === 'SKU-SIMPLE' && item.quantity >= 1)
+      || !favorites.some((item) => item.productId === 'PRD-1')) {
+      throw new Error('Compiled add-to-cart/preserve favorite failed');
+    }
+    await call('cleanup favorite', 'DELETE', 204);
+    results.push({ step: 'list', status: list.status }, { step: 'add to cart, favorite preserved', status: first.status });
     console.log(JSON.stringify({ classification: 'MOCK identity/catalog; REAL compiled HTTP/PostgreSQL', health: 200, results }, null, 2));
   } finally {
     // Only kill the child created by this smoke; never another backend process.

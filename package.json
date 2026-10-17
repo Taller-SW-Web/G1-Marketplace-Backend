@@ -15,6 +15,7 @@
     "test:integration": "ts-node scripts/integration-test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
+    "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",
     "docs:openapi": "ts-node scripts/openapi.ts",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
