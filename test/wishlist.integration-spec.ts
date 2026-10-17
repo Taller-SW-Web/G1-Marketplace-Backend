@@ -8,6 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { issueSandboxToken, SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
 
 // This suite can also be called directly: validate its destination before any DB write.
+if (process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true') throw new Error('Database writes are disabled');
 const databaseUrl = validateTestDatabase({ TEST_DATABASE_URL: process.env.TEST_DATABASE_URL });
 if (process.env.NODE_ENV !== 'test' || process.env.DATABASE_URL !== databaseUrl) {
   throw new Error('Use npm run test:integration with an isolated database');

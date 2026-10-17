@@ -1,5 +1,9 @@
 # Resolucion del PR #15 hacia develop
 
+Estado vigente al integrar develop el 17/10/2026:
+[resolución de conflictos y restricción de no operar sobre BD](resolucion-conflictos-pr15.md).
+Los resultados posteriores de este archivo son cortes históricos anteriores a esa integración.
+
 Ampliación vigente del mismo PR: [integración de lectura y adición sin retirar favorito](integracion-frontend.md).
 Los cortes siguientes se mantienen como evidencia histórica. La compatibilidad
 externa de los conteos de salud sigue sin confirmación del equipo.

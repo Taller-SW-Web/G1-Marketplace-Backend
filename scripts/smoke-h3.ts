@@ -7,6 +7,9 @@ import { validateTestDatabase } from './test-database';
 import { issueSandboxToken, SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
 
 async function main(): Promise<void> {
+  if (process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true') {
+    throw new Error('Database smoke disabled: explicit authorization for test database writes is required');
+  }
   const databaseUrl = validateTestDatabase(process.env);
   const reserve = createServer();
   const port = await new Promise<number>((resolve, reject) => {
@@ -83,6 +86,8 @@ async function main(): Promise<void> {
 }
 
 void main().catch(() => {
-  process.stderr.write('Compiled H3 smoke failed; check build, isolated DB and configuration\n');
+  process.stderr.write(process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true'
+    ? 'Database smoke disabled: no database access attempted\n'
+    : 'Compiled H3 smoke failed; check build, isolated DB and configuration\n');
   process.exitCode = 1;
 });

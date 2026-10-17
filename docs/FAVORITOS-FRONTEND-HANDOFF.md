@@ -1,5 +1,10 @@
 # Handoff de favoritos — contrato backend vigente v0.2.0
 
+Restricción operativa vigente del usuario (17/10/2026): no ejecutar operaciones sobre
+bases de datos. Los procedimientos con PostgreSQL mencionados aquí quedan pendientes
+de una autorización posterior expresa; no forman parte de la validación automática.
+No se modifica la funcionalidad de la API: agregar conserva el favorito.
+
 ## Decisión vigente del usuario
 
 Esta sección sustituye la propuesta histórica reproducida más abajo: **agregar al

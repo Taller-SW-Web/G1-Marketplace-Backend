@@ -1,5 +1,8 @@
 # Evidencia individual — Diego — Backend H3 — F-036/F-038
 
+Seguimiento más reciente: [resolución de conflictos del PR #15](resolucion-conflictos-pr15.md),
+con las acciones registradas y la restricción del usuario de no operar sobre BD.
+
 Estado vigente de la ampliación: [lectura y adición al carrito conservando favorito](integracion-frontend.md).
 El registro siguiente corresponde al corte F-036/F-038 y sus auditorías anteriores;
 sus conteos y pendientes no sustituyen los resultados de la ampliación enlazada.

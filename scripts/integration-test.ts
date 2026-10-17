@@ -4,10 +4,12 @@ import { resolve } from 'node:path';
 import { validateTestDatabase } from './test-database';
 
 try {
+  if (process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true') {
+    throw new Error('Database tests disabled: explicit H3_ALLOW_TEST_DATABASE_WRITES=true is required. No migrations are applied by this runner.');
+  }
   const databaseUrl = validateTestDatabase(process.env);
   const env = { ...process.env, DATABASE_URL: databaseUrl, TEST_DATABASE_URL: databaseUrl, NODE_ENV: 'test' };
   for (const [script, args] of [
-    ['node_modules/prisma/build/index.js', ['migrate', 'deploy']],
     ['node_modules/jest/bin/jest.js', ['--config', 'test/jest-integration.json', '--runInBand']],
   ] as const) {
     const result = spawnSync(process.execPath, [resolve(script), ...args], { env, stdio: 'inherit' });

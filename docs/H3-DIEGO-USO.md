@@ -1,5 +1,12 @@
 # Backend H3 de Diego — ejecución y handoff
 
+**Restricción vigente (17/10/2026): no ejecutar operaciones sobre bases de datos.**
+Las secciones de PostgreSQL/demo siguientes registran procedimientos históricos;
+no ejecutarlos bajo la restricción actual. El runner de integración no aplica
+migraciones y los scripts con escrituras están bloqueados por defecto.
+El CI automático valida únicamente con dobles de prueba, sin servicio de base de datos.
+Detalles: [resolución del PR](evidencias/h3/resolucion-conflictos-pr15.md).
+
 Este corte amplía F-036/F-038 con lectura F-037 y adición al carrito conservando el
 favorito, sin tabla de movimientos. La identidad de demo, catálogo y condiciones
 comerciales son **MOCK**; NestJS, Prisma y PostgreSQL son **reales locales**.

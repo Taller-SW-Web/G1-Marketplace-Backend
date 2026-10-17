@@ -1,5 +1,11 @@
 # Entrega backend de favoritos al frontend — v0.2.0
 
+**Restricción vigente del usuario (17/10/2026): no acceder ni modificar bases de datos.**
+Los comandos de integración, smoke y fixtures que siguen son instrucciones históricas,
+no autorizaciones de ejecución. El runner ya no aplica migraciones; las escrituras de
+prueba están bloqueadas por defecto y fueron retiradas del CI automático.
+Ver [resolución y registro de acciones](evidencias/h3/resolucion-conflictos-pr15.md).
+
 Rama: `feat/s1-f036-f038-favoritos`, PR #15. Contrato:
 [handoff vigente](FAVORITOS-FRONTEND-HANDOFF.md),
 [OpenAPI](contratos/openapi-h3.json). Identidad/catalogo/comercio de demo MOCK;

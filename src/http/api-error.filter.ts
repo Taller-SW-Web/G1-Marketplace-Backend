@@ -29,6 +29,12 @@ export class ApiErrorFilter implements ExceptionFilter {
     const status = error instanceof HttpException ? error.getStatus() : 500;
     // Preserve the shared baseline's route-not-found contract.
     if (status === 404) {
+      const body = error instanceof HttpException ? error.getResponse() : undefined;
+      if (typeof body === 'object' && body !== null && 'error' in body
+        && typeof body.error === 'object' && body.error !== null) {
+        response.status(404).json(body);
+        return;
+      }
       response.status(404).json({ error: 'Ruta no encontrada' });
       return;
     }

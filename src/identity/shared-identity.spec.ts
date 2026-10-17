@@ -19,4 +19,9 @@ describe('Shared identity sandbox restrictions', () => {
     await expect(authentication(Boolean(enabled), String(environment)).authenticate(issueSandboxToken(SANDBOX_CUSTOMERS.A, secret)))
       .rejects.toMatchObject({ status: 401 });
   });
+  it('does not silently default missing RS256 authentication configuration to localhost', async () => {
+    const guard = new AuthGuard({ get: () => undefined } as unknown as ConfigService);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'key' })).toString('base64url');
+    await expect(guard.authenticate(`${header}.payload.signature`)).rejects.toMatchObject({ status: 503 });
+  });
 });

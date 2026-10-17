@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
 import { ApiErrorFilter } from './api-error.filter';
+import { corsOptions } from './cors-options';
+import { validationExceptionFactory } from './validation-exception.factory';
+import { CreateDeliveryAddressDto } from '../checkout/dto/delivery-address.dto';
+import { CreateOrderRequestDto } from '../checkout/dto/contact.dto';
+import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from '../checkout/dto/quote.dto';
 
 export function configureApp(app: INestApplication): void {
   app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
@@ -11,12 +16,7 @@ export function configureApp(app: INestApplication): void {
   });
   const config = app.get(ConfigService);
   const origins = config.get<string[]>('CORS_ORIGINS', []);
-  app.enableCors({
-    origin: origins.length ? origins : false,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-customer-id'],
-    credentials: true,
-  });
+  app.enableCors(corsOptions(origins));
   const defaultValidationError = new ValidationPipe().createExceptionFactory();
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
@@ -25,7 +25,10 @@ export function configureApp(app: INestApplication): void {
     forbidUnknownValues: true,
     exceptionFactory: (errors) => errors.some((error) => error.target instanceof SaveWishlistItemDto)
       ? wishlistValidationError(errors)
-      : defaultValidationError(errors),
+      : errors.some((error) => [CreateDeliveryAddressDto, CreateOrderRequestDto, ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto]
+        .some((dto) => error.target instanceof dto))
+        ? validationExceptionFactory(errors)
+        : defaultValidationError(errors),
   }));
   app.useGlobalFilters(new ApiErrorFilter(new BaseExceptionFilter(app.getHttpAdapter())));
 }

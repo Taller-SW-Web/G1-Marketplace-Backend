@@ -9,6 +9,7 @@ import { CartService } from '../src/cart/cart.service';
 import { WishlistCatalog } from '../src/catalog/wishlist-catalog';
 import { issueSandboxToken, SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
 
+if (process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true') throw new Error('Database writes are disabled');
 const database = validateTestDatabase({ TEST_DATABASE_URL: process.env.TEST_DATABASE_URL });
 if (process.env.NODE_ENV !== 'test' || process.env.DATABASE_URL !== database) throw new Error('Use isolated integration runner');
 process.env.H3_SANDBOX_ENABLED = 'true';

@@ -50,8 +50,19 @@ export class AuthGuard implements CanActivate {
   }
 
   async authenticate(token: string): Promise<CheckoutPrincipal> {
-    const issuer = this.config.get<string>('AUTH_ISSUER', 'http://127.0.0.1:4010');
-    const jwksUrl = this.config.get<string>('AUTH_JWKS_URL', 'http://127.0.0.1:4010/jwks');
+    // Algorithm selection grants no identity: verifyToken still checks signature,
+    // claims and the explicit sandbox/environment restrictions.
+    let algorithm: unknown;
+    try {
+      if (token.length > 8192) throw new Error('Token too large');
+      algorithm = this.decodeJson<JwtHeader>(token.split('.')[0])?.alg;
+    } catch {
+      throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
+    }
+    if (algorithm === 'HS256') return this.verifyToken(token, '', '');
+    if (algorithm !== 'RS256') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
+    const issuer = this.config.get<string>('AUTH_ISSUER');
+    const jwksUrl = this.config.get<string>('AUTH_JWKS_URL');
     if (!issuer || !jwksUrl) {
       throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
     }

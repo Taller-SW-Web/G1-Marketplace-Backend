@@ -1,5 +1,11 @@
 ## Alcance
 
+Seguimiento vigente: se integra `develop` (`040d5fb`) y se resuelven seis archivos en
+conflicto conservando favoritos, carrito, checkout e historial. Ver el
+[detalle para auditoría](docs/evidencias/h3/resolucion-conflictos-pr15.md): decisiones
+por archivo, procedencia de migraciones, acciones previas y restricción actual de no
+acceder/modificar bases. El CI actual usa exclusivamente pruebas sin BD real.
+
 Amplía favoritos F-036/F-038 con lectura F-037 y adición al carrito que conserva el
 favorito. Usa NestJS, Prisma y PostgreSQL reales locales; identidad de demostración,
 catálogo y condiciones comerciales son MOCK. La decisión explícita del usuario
@@ -26,9 +32,10 @@ no acredita cumplimiento de F-039 original ni integración externa homologada.
 ## Validación de la ampliación
 
 Ver [evidencia vigente](docs/evidencias/h3/integracion-frontend.md) para comandos,
-resultados y diferencia con los cortes históricos siguientes. Se agrega CI con
-instalación limpia, build completo, regresión, PostgreSQL 16, smoke y verificación
-de OpenAPI generado. Consultar el resultado publicado del commit en los checks del PR.
+resultados históricos y diferencia con los cortes anteriores. Tras la restricción del
+usuario, el CI verifica instalación limpia, build completo, esquema estático, TypeScript,
+unitarias/HTTP/mock y OpenAPI en Node 22/24; no levanta PostgreSQL ni ejecuta integración,
+smoke, fixtures o migraciones. Consultar el resultado del commit en los checks del PR.
 
 Entrega: [contrato vigente y ajustes necesarios del BFF](docs/FAVORITOS-FRONTEND-HANDOFF.md)
 y [fixtures/conexión](docs/H3-FAVORITOS-INTEGRACION.md). El repositorio frontend no se modifica.

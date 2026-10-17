@@ -17,13 +17,27 @@ describe('Environment boundaries', () => {
     expect(validateEnvironment({ ...base, USE_MOCKS: 'FALSE', AUTH_ISSUER: 'https://auth.example',
       AUTH_JWKS_URL: 'https://auth.example/jwks', HTTP_TIMEOUT_MS: '1500' })).toMatchObject({
       USE_MOCKS: false, AUTH_ISSUER: 'https://auth.example',
-      AUTH_JWKS_URL: 'https://auth.example/jwks', HTTP_TIMEOUT_MS: '1500',
+      AUTH_JWKS_URL: 'https://auth.example/jwks', HTTP_TIMEOUT_MS: 1500,
     });
-    expect(validateEnvironment(base)).toMatchObject({ USE_MOCKS: true,
+    expect(validateEnvironment(base)).toMatchObject({ USE_MOCKS: false,
       AUTH_ISSUER: 'http://127.0.0.1:4010', AUTH_JWKS_URL: 'http://127.0.0.1:4010/jwks' });
   });
   it('requires an adequate sandbox secret', () => {
     expect(() => validateEnvironment({ ...base, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'short' })).toThrow();
+  });
+  it('preserves develop production mock restrictions and requires explicit production auth', () => {
+    expect(() => validateEnvironment({ ...base, NODE_ENV: 'production', USE_MOCKS: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...base, NODE_ENV: 'production', ORDERS_SOURCE: 'mock' })).toThrow();
+    expect(validateEnvironment({ ...base, NODE_ENV: 'production' })).toMatchObject({
+      USE_MOCKS: false, ORDERS_SOURCE: 'unconfigured', AUTH_ISSUER: '', AUTH_JWKS_URL: '',
+    });
+  });
+  it('rejects invalid mock switches, order source and HTTP timeouts', () => {
+    expect(() => validateEnvironment({ ...base, USE_MOCKS: 'maybe' })).toThrow();
+    expect(() => validateEnvironment({ ...base, ORDERS_SOURCE: 'unknown' })).toThrow();
+    for (const timeout of ['abc', 0, 1.5, 30001]) {
+      expect(() => validateEnvironment({ ...base, HTTP_TIMEOUT_MS: timeout })).toThrow();
+    }
   });
   it.each([undefined, 'postgresql://remote/marketplace_h3_test', 'postgresql://localhost/development',
     'postgresql://localhost/marketplace_h3_test?schema=other'])('rejects unsafe test database %s', (url) => {

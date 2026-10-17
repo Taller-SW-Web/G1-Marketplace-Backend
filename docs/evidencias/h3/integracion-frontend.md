@@ -1,5 +1,10 @@
 # Evidencia de ampliación del PR #15 — lectura y agregar al carrito
 
+Corte histórico anterior a integrar `develop` y a la restricción operativa del usuario
+del 17/10/2026. Estado vigente, acciones sobre la base temporal ya realizadas,
+corrección de automatismos y validación sin BD:
+[resolución de conflictos](resolucion-conflictos-pr15.md).
+
 Fecha local de ejecución: 16/10/2026. Rama: `feat/s1-f036-f038-favoritos`;
 destino `develop`, PR #15. Base anterior: `aacb454`, con evidencia del build de
 `de049b1`. Entorno local: Windows/PowerShell, Node 24.16.0, npm 11.13.0,

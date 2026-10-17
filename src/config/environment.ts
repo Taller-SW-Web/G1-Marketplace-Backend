@@ -29,11 +29,22 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
       throw new Error('CORS entries must be explicit HTTP(S) origins');
     }
   }
+  const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const useMocks = String(config.USE_MOCKS ?? 'false').toLowerCase();
+  if (!['true', 'false'].includes(useMocks)) throw new Error('USE_MOCKS must be true or false');
+  if (useMocks === 'true' && nodeEnv === 'production') throw new Error('USE_MOCKS cannot be enabled in production');
+  const httpTimeoutMs = Number(config.HTTP_TIMEOUT_MS ?? 3000);
+  if (!Number.isInteger(httpTimeoutMs) || httpTimeoutMs < 1 || httpTimeoutMs > 30000) {
+    throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
+  }
+  const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
+  if (!['mock', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock or unconfigured');
+  if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins,
-    NODE_ENV: String(config.NODE_ENV ?? 'development').toLowerCase(),
-    USE_MOCKS: String(config.USE_MOCKS ?? 'true').toLowerCase() === 'true',
-    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
-    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
+    NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    ORDERS_SOURCE: ordersSource,
+    AUTH_ISSUER: config.AUTH_ISSUER ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
+    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
   };
 }

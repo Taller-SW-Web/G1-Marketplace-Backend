@@ -1,8 +1,9 @@
-import { ConflictException, INestApplication } from '@nestjs/common';
+import { ConflictException, INestApplication, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { generateKeyPairSync, sign } from 'node:crypto';
 import request from 'supertest';
 import { CartService } from '../src/cart/cart.service';
+import { CheckoutService } from '../src/checkout/checkout.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { WishlistRepository } from '../src/wishlist/wishlist.repository';
 import { configureApp } from '../src/http/configure-app';
@@ -17,11 +18,13 @@ describe('Combined application HTTP contracts', () => {
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig' };
   const cart = { getCurrentCart: jest.fn(), addItemToCart: jest.fn() };
   const wishlist = { save: jest.fn(), remove: jest.fn() };
+  const checkout = { createAddress: jest.fn(), getOperation: jest.fn() };
   const environment = {
     DATABASE_URL: 'postgresql://localhost/combined_app_mock', NODE_ENV: 'test',
     H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: secret,
     CORS_ORIGINS: 'http://localhost:3000', CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
     AUTH_ISSUER: issuer, AUTH_JWKS_URL: `${issuer}/jwks`,
+    ORDERS_SOURCE: 'mock', ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-001',
   };
   const previous = Object.fromEntries(Object.keys(environment).map((key) => [key, process.env[key]]));
   const validCartToken = () => {
@@ -38,6 +41,7 @@ describe('Combined application HTTP contracts', () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService).useValue({})
       .overrideProvider(CartService).useValue(cart)
+      .overrideProvider(CheckoutService).useValue(checkout)
       .overrideProvider(WishlistRepository).useValue(wishlist).compile();
     app = module.createNestApplication();
     configureApp(app);
@@ -135,5 +139,33 @@ describe('Combined application HTTP contracts', () => {
     expect(response.headers['access-control-allow-headers']).toContain('Authorization');
     await request(app.getHttpServer()).get('/api/v1/wishlist').expect(401)
       .expect(({ body }) => expect(body.code).toBe('UNAUTHORIZED'));
+  });
+  it('preserves checkout validation without changing standard cart validation', async () => {
+    await request(app.getHttpServer()).post('/api/v1/checkout/delivery-addresses')
+      .auth(validCartToken(), { type: 'bearer' }).send({})
+      .expect(400).expect(({ body }) => expect(body.error.code).toBe('ADDRESS_VALIDATION_ERROR'));
+    expect(checkout.createAddress).not.toHaveBeenCalled();
+    await request(app.getHttpServer()).post('/api/v1/carts/current/items').send({ sku: 'SKU-1', quantity: 0 })
+      .expect(400).expect(({ body }) => expect(body.message).toEqual(expect.any(Array)));
+  });
+  it('preserves structured checkout 404 errors through the shared application filter', async () => {
+    checkout.getOperation.mockRejectedValueOnce(new NotFoundException({ error: { code: 'CHECKOUT_OPERATION_NOT_FOUND' } }));
+    await request(app.getHttpServer()).get('/api/v1/checkout/operations/44444444-4444-4444-8444-444444444444')
+      .auth(validCartToken(), { type: 'bearer' }).expect(404).expect({ error: { code: 'CHECKOUT_OPERATION_NOT_FOUND' } });
+  });
+  it('allows checkout idempotency headers and wishlist DELETE in the same CORS configuration', async () => {
+    const response = await request(app.getHttpServer()).options('/api/v1/checkout/preparations')
+      .set('Origin', 'http://localhost:3000').set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Authorization,Idempotency-Key').expect(204);
+    expect(response.headers['access-control-allow-headers']).toContain('Idempotency-Key');
+    expect(response.headers['access-control-allow-methods']).toContain('DELETE');
+  });
+  it('registers the orders history module alongside checkout, cart and wishlist', async () => {
+    await request(app.getHttpServer()).get('/api/v1/orders/me').expect(200)
+      .expect(({ body, headers }) => {
+        expect(headers['x-orders-source']).toBe('MOCK');
+        expect(body.data).toEqual(expect.any(Array));
+        expect(body.data.length).toBeGreaterThan(0);
+      });
   });
 });
