@@ -4,6 +4,7 @@ import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 
 function validateEnvironment(config: Record<string, unknown>) {
@@ -83,6 +84,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     }),
     PrismaModule,
     HealthModule,
+    AuthModule,
     OrdersModule,
     CartModule,
     CheckoutModule,
