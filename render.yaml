@@ -12,9 +12,9 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
     startCommand: npm run prisma:deploy && npm run start:prod
-    healthCheckPath: /health
+    healthCheckPath: /live
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -24,3 +24,9 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AUTH_ISSUER
+        sync: false
+      - key: AUTH_JWKS_URL
+        sync: false

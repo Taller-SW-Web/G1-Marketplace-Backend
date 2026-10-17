@@ -1,0 +1,6 @@
+# Explicit override for an approved G6 environment. Never used by default/CI.
+# Secrets remain in Backend .env, loaded by compose.h3.yaml at runtime.
+services:
+  backend:
+    environment:
+      CATALOG_SOURCE: real

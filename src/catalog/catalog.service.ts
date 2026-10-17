@@ -1,0 +1,20 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { parseQuery } from './query';
+import { CATALOG_PROVIDER } from './types';
+import type { CatalogProvider, CatalogSource, CatalogPageDTO, HomeDTO } from './types';
+
+@Injectable()
+export class CatalogService {
+  constructor(@Inject(CATALOG_PROVIDER) private readonly provider: CatalogProvider) {}
+
+  get source(): CatalogSource { return this.provider.source; }
+
+  home(params: URLSearchParams, requestId: string): Promise<HomeDTO> {
+    parseQuery(params);
+    return this.provider.home(requestId);
+  }
+
+  search(params: URLSearchParams, requestId: string): Promise<CatalogPageDTO> {
+    return this.provider.search(parseQuery(params), requestId);
+  }
+}
