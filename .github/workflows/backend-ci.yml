@@ -1,0 +1,42 @@
+name: Backend PR validation
+on:
+  pull_request:
+  push:
+    branches: [develop, feat/s1-f036-f038-favoritos]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: h3_test
+          POSTGRES_PASSWORD: h3_ci_test_only
+          POSTGRES_DB: marketplace_h3_test
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U h3_test -d marketplace_h3_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://unused:unused@127.0.0.1:5433/unused_development
+      TEST_DATABASE_URL: postgresql://h3_test:h3_ci_test_only@127.0.0.1:55432/marketplace_h3_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run test:smoke
+      - name: Verify generated OpenAPI
+        run: |
+          npm run docs:openapi
+          git diff --exit-code -- docs/contratos/openapi-h3.json
