@@ -1,0 +1,9 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "modulePathIgnorePatterns": ["<rootDir>/.audit/"],
+  "testRegex": ".*\\.integration-spec\\.ts$",
+  "transform": {"^.+\\.(t|j)s$": "@swc/jest"},
+  "testEnvironment": "node",
+  "testTimeout": 30000
+}

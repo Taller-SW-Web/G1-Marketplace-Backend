@@ -1,60 +1,31 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
+import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { validateEnvironment as validateH3Environment } from './config/environment';
+import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { CatalogModule } from './catalog/catalog.module';
-
-function validateEnvironment(config: Record<string, unknown>) {
-  const port = Number(config.PORT ?? 10000);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('PORT must be an integer between 1 and 65535');
-  }
-
-  const databaseUrl = config.DATABASE_URL;
-  if (typeof databaseUrl !== 'string' || databaseUrl.length === 0) {
-    throw new Error('DATABASE_URL is required');
-  }
-
-  let databaseProtocol: string;
-  try {
-    databaseProtocol = new URL(databaseUrl).protocol;
-  } catch {
-    throw new Error('DATABASE_URL must be a valid PostgreSQL connection URL');
-  }
-  if (databaseProtocol !== 'postgres:' && databaseProtocol !== 'postgresql:') {
-    throw new Error('DATABASE_URL must use PostgreSQL');
-  }
-
-  const corsOrigins = String(config.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-  const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
-  const useMocksValue = String(config.USE_MOCKS ?? 'true').toLowerCase();
-
-  return {
-    ...config,
-    PORT: port,
-    CORS_ORIGINS: corsOrigins,
-    NODE_ENV: nodeEnv,
-    USE_MOCKS: useMocksValue === 'true',
-    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
-    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
-  };
-}
+import { ProductDetailModule } from './catalog/product-detail.module';
+import { WishlistModule } from './wishlist/wishlist.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validate: validateEnvironment,
+      validate: validateH3Environment,
     }),
     PrismaModule,
     HealthModule,
+    WishlistModule,
+    AuthModule,
+    OrdersModule,
     CartModule,
     CatalogModule,
+    ProductDetailModule,
+    CheckoutModule,
   ],
 })
 export class AppModule {}

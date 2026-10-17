@@ -31,7 +31,7 @@ describe('HealthController (e2e)', () => {
   it.each(['/', '/health', '/ready'])('serves readiness at %s', async (path) => {
     healthService.checkReadiness.mockResolvedValue({
       httpStatus: 200,
-      body: { status: 'UP', database: { connected: true } },
+      body: { status: 'UP' },
     });
 
     await request(app.getHttpServer())
@@ -52,13 +52,13 @@ describe('HealthController (e2e)', () => {
   it('returns service unavailable when readiness fails', async () => {
     healthService.checkReadiness.mockResolvedValue({
       httpStatus: 503,
-      body: { status: 'DOWN', database: { connected: false } },
+      body: { status: 'DOWN' },
     });
 
     await request(app.getHttpServer())
       .get('/health')
       .expect(503)
-      .expect(({ body }) => expect(body.database.connected).toBe(false));
+      .expect(({ body }) => expect(body).toEqual({ status: 'DOWN' }));
   });
 
   it('keeps the existing not-found response shape', async () => {

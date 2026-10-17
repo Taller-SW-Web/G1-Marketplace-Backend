@@ -10,6 +10,6 @@ import { OptionalAuthGuard } from '../security/optional-auth.guard';
   imports: [PrismaModule],
   controllers: [CartController],
   providers: [CartService, AuthGuard, OptionalAuthGuard],
-  exports: [CartService],
+  exports: [CartService, AuthGuard],
 })
 export class CartModule {}

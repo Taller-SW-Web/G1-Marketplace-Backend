@@ -13,7 +13,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
   const mock = createMockProvider();
   const provider = { source: mock.source, home: jest.fn(), search: jest.fn() };
   const cartService = { getCurrentCart: jest.fn().mockResolvedValue({ cartId: null, version: 0, items: [] }) };
-  const originalEnv = { DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
+  const originalEnv = { BFF_MODE: process.env.BFF_MODE, DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
   const prisma = {
     $queryRaw: jest.fn().mockRejectedValue(new Error('private database failure')),
     cart: { count: jest.fn() }, wishlistItem: { count: jest.fn() },
@@ -22,6 +22,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:1/catalog_tests';
     process.env.CATALOG_SOURCE = 'mock';
+    process.env.BFF_MODE = 'mock';
     process.env.CORS_ORIGINS = 'http://localhost:3000,https://store.example';
     const { AppModule } = await import('../src/app.module');
     const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -58,6 +59,15 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(cart.headers['set-cookie'][0]).toMatch(/^cart_session=[a-f0-9-]+;/);
     expect(cartService.getCurrentCart).toHaveBeenCalledWith(expect.objectContaining({ sessionHash: expect.any(String) }));
     await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
+  });
+
+  it('keeps catalog collection and detail identities aligned after integrating develop', async () => {
+    const listed = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=running&pageSize=1').expect(200);
+    const card = listed.body.data[0];
+    const detail = await request(app.getHttpServer()).get('/api/v1/catalog/products/' + card.slug).expect(200);
+    expect(detail.body.data).toMatchObject({ productId: card.productId, slug: card.slug, name: card.name });
+    expect(detail.body.meta.source).toBe('MOCK');
+    expect(detail.headers['x-catalog-source']).toBe('MOCK');
   });
 
   it('serves home with the original public DTO and source/security headers', async () => {

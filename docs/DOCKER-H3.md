@@ -68,3 +68,7 @@ No hace falta reconstruir las imágenes por un cambio de configuración. Para ve
 ## Conexion preparada con G6
 
 El override opcional `compose.h3.g6.yaml` permite seleccionar REAL sin modificar este entorno MOCK. Usarlo solo con configuracion aprobada siguiendo [la guia de integracion G6](INTEGRACION-G6-H3.md). Incluye ensayo HTTP local, comandos de comprobacion sin credenciales en el navegador y retorno a MOCK. La configuracion base sigue siendo la usada por CI.
+
+## Regresion tras integrar develop — 17/10/2026
+
+El comprobador actual cubre seis casos: los cuatro iniciales mas identidad de producto en el detalle y HTTP 404 de la pagina desconocida. El proxy y la consulta de servidor de la ficha usan el mismo origen aprobado para la red Docker. Para puertos de un proyecto de pruebas separado, se pueden definir H3_WEB_URL y H3_BFF_URL; ambos aceptan solamente origenes HTTP de loopback. El entorno habitual conserva 3000/10000. [Validacion del merge](INTEGRACION-DEVELOP-H3-2026-10-17.md).

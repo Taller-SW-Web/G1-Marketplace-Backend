@@ -21,7 +21,9 @@ try {
 const databaseUp = process.env.H3_EXPECT_DATABASE === 'up';
 const child = spawn(process.execPath, [startFile], {
   env: { ...process.env, PORT: String(port), NODE_ENV: production ? 'production' : 'test', CATALOG_SOURCE: production ? 'unconfigured' : 'mock',
-    CORS_ORIGINS: 'http://127.0.0.1:3100',
+    CORS_ORIGINS: 'http://127.0.0.1:3100', CORS_ALLOWED_ORIGINS: 'http://127.0.0.1:3100',
+    USE_MOCKS: production ? 'false' : 'true', H3_SANDBOX_ENABLED: 'false',
+    H3_AUTH_MOCK: 'false', ORDERS_SOURCE: 'unconfigured', BFF_MODE: production ? 'real' : 'mock',
     DATABASE_URL: databaseUp ? process.env.DATABASE_URL :
       'postgresql://test:test@127.0.0.1:1/h3_smoke?schema=public&connect_timeout=1' },
   stdio: ['ignore', 'pipe', 'pipe'],

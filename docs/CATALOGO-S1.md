@@ -83,3 +83,7 @@ La rama incorpora develop e6fc7f2 y conserva CartModule, configuración AUTH/USE
 ## Preparacion G6 — 17/10/2026
 
 Se incorpora un ensayo HTTP del CatalogModule y adaptador contra un servidor local del contrato G6, junto a un probe del BFF/Next y un override Docker explicito para REAL. [Configuracion, pruebas y pendientes](INTEGRACION-G6-H3.md). No cambia el DTO ni activa G6 en el entorno habitual; no acredita grants, homologacion ni despliegue.
+
+## Integracion actual de develop — 17/10/2026
+
+Se incorpora develop 62f077d conservando todos los modulos y validaciones compartidos. [Resoluciones y validacion de 267 casos Backend](INTEGRACION-DEVELOP-H3-2026-10-17.md). Los cortes anteriores conservan su fecha; CatalogModule convive con el detalle por slug de Sebastian.
