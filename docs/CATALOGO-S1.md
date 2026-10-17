@@ -79,3 +79,7 @@ Por solicitud de Giuliano, G6 puede omitir `images` o enviar `[]`: el adaptador 
 ## Actualización de baseline — 16/10/2026
 
 La rama incorpora develop e6fc7f2 y conserva CartModule, configuración AUTH/USE_MOCKS, guards y bootstrap compartidos. CatalogModule convive con el carrito anónimo; existe una regresión HTTP conjunta usando servicios sintéticos. Se restaura start:prod para que el comando de Render resuelva el compilado. [Configuración de despliegue](DESPLIEGUE-H3.md); no se aplican migraciones ni se habilita G6 REAL con este cambio. Las referencias anteriores describen la migración inicial; los PR #11/#3 ya existen y permanecen draft.
+
+## Preparacion G6 — 17/10/2026
+
+Se incorpora un ensayo HTTP del CatalogModule y adaptador contra un servidor local del contrato G6, junto a un probe del BFF/Next y un override Docker explicito para REAL. [Configuracion, pruebas y pendientes](INTEGRACION-G6-H3.md). No cambia el DTO ni activa G6 en el entorno habitual; no acredita grants, homologacion ni despliegue.

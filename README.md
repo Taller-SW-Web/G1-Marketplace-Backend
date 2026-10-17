@@ -123,3 +123,7 @@ El modo MOCK acredita avance parcial. Las asignaciones vigentes están en la mat
 ## Adaptación a develop y preparación de despliegue — 16/10/2026
 
 Se incorpora el carrito del develop actual sin sustituir el catálogo. Se restaura el arranque Render y se elimina la identidad de prueba automática del proxy de carrito. Consultar [preparación y límites del despliegue](docs/DESPLIEGUE-H3.md). Los PR existentes siguen en draft hacia develop; no se publica ni se modifica main/develop.
+
+## Preparacion de integracion G6 — H3
+
+[Guia de integracion G6](docs/INTEGRACION-G6-H3.md): ensayo HTTP local (`npm run test:g6:contract`), comprobacion de lecturas REAL (`npm run check:g6`) y override Docker opcional. La demo habitual sigue en MOCK; el despliegue, acceso y datos efectivos de G6 se verifican por separado.

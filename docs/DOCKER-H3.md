@@ -64,3 +64,7 @@ docker compose -f compose.h3.yaml up --detach --wait --wait-timeout 180
 ```
 
 No hace falta reconstruir las imágenes por un cambio de configuración. Para verificar sólo sintaxis, usar `docker compose -f compose.h3.yaml config --quiet`: la salida completa de config o inspect puede mostrar valores privados y no debe publicarse como evidencia. No copiar el archivo a artefactos, guías ni descripciones de PR.
+
+## Conexion preparada con G6
+
+El override opcional `compose.h3.g6.yaml` permite seleccionar REAL sin modificar este entorno MOCK. Usarlo solo con configuracion aprobada siguiendo [la guia de integracion G6](INTEGRACION-G6-H3.md). Incluye ensayo HTTP local, comandos de comprobacion sin credenciales en el navegador y retorno a MOCK. La configuracion base sigue siendo la usada por CI.
