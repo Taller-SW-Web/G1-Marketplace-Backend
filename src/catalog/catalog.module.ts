@@ -17,7 +17,7 @@ import type { CatalogEnvironment } from './types';
       useFactory: (config: ConfigService) => {
         const keys = [
           'NODE_ENV', 'CATALOG_SOURCE', 'CATALOG_INTEGRATION_APPROVED',
-          'PRODUCTOS_BASE_URL', 'PRODUCTOS_SERVICE_TOKEN', 'PRODUCTOS_CONTRACT_VERSION',
+          'PRODUCTOS_BASE_URL', 'PRODUCTOS_SERVICE_TOKEN', 'PRODUCTOS_AUTH_MODE', 'PRODUCTOS_CONTRACT_VERSION',
           'PRODUCTOS_CONTRACT_SHA', 'PRODUCTOS_MEDIA_HOSTS', 'PRODUCTOS_TIMEOUT_MS',
         ];
         const env: CatalogEnvironment = Object.fromEntries(keys.map((key) => [key, config.get<string>(key)]));

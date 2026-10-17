@@ -49,6 +49,7 @@ export function projectProduct(product: unknown, mediaHosts: Set<string>): Produ
 
 export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFetch = fetch): CatalogProvider {
   const timeoutMs = Number(env.PRODUCTOS_TIMEOUT_MS || 5000);
+  const authMode = env.PRODUCTOS_AUTH_MODE ?? 'service-token';
   const mediaHosts = new Set((env.PRODUCTOS_MEDIA_HOSTS || '').split(',').map((value) => value.trim()).filter(Boolean));
   let base: URL;
   try { base = new URL(env.PRODUCTOS_BASE_URL || ''); }
@@ -56,7 +57,9 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
   if (
     (base.protocol !== 'https:' && !(env.NODE_ENV !== 'production' && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname))) ||
     base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
-    !env.PRODUCTOS_SERVICE_TOKEN || !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
+    !['service-token', 'demo-no-auth'].includes(authMode) ||
+    (authMode === 'service-token' && !env.PRODUCTOS_SERVICE_TOKEN) ||
+    !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
     env.PRODUCTOS_CONTRACT_VERSION !== CONTRACT_VERSION || env.PRODUCTOS_CONTRACT_SHA !== CONTRACT_SHA ||
     env.CATALOG_INTEGRATION_APPROVED !== 'true'
   ) throw invalidProvider('PROVIDER_NOT_APPROVED');
@@ -64,11 +67,14 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
   async function request(path: string, requestId?: string): Promise<unknown> {
     const url = new URL(`${base.href.replace(/\/$/, '')}${path}`);
     try {
+      const headers: Record<string, string> = {
+        Accept: 'application/json', 'X-Correlation-Id': requestId || randomUUID(),
+      };
+      // G6's temporary demo explicitly permits calls without JWT (PR #130).
+      // Never forward a stale service token or a visitor's identity in that mode.
+      if (authMode === 'service-token') headers.Authorization = `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`;
       const response = await fetchImpl(url, {
-        headers: {
-          Accept: 'application/json', Authorization: `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`,
-          'X-Correlation-Id': requestId || randomUUID(),
-        },
+        headers,
         redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) throw invalidProvider(`PROVIDER_HTTP_${response.status}`);

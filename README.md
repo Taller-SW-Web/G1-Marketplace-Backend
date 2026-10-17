@@ -157,3 +157,7 @@ Se incorpora el carrito del develop actual sin sustituir el catálogo. Se restau
 ## Configuración de autenticación en Render
 
 El servicio requiere `AUTH_ISSUER` y `AUTH_JWKS_URL` como variables de entorno. En `render.yaml` quedan marcadas como `sync: false`: deben configurarse con los valores del issuer y el endpoint JWKS entregados por Seguridad/Ops; no usar los valores locales de `.env.example` en producción. El despliegue falla de forma cerrada si faltan o no corresponden al token recibido.
+
+## Conexión parcial G6 — demo H3 (17/10/2026)
+
+La [guía G6 H3](docs/INTEGRACION-G6-H3.md) explica la demo REAL en localhost:3300 y el modo temporal sin JWT. Categorías ya responde; productos seguía devolviendo 503 en el corte público registrado. Verificar cada ruta antes de exponer.

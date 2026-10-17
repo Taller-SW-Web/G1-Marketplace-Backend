@@ -54,3 +54,17 @@ test('probe does not accept upstream-only fields in the public card DTO', async 
     return Response.json(body, { status: response.status, headers: response.headers });
   } }), /CHECK_PUBLIC_PRODUCT_SHAPE/);
 });
+
+test('categories-only probe reports its limited scope without calling products', async () => {
+  const upstream = provider();
+  const paths = [];
+  const result = await checkG6({ homeOnly: true, fetchImpl: async (url, options) => {
+    paths.push(url.pathname);
+    return upstream(url, options);
+  } });
+  assert.equal(result.status, 'PASS_CATEGORIES');
+  assert.equal(result.categories, 1);
+  assert.deepEqual(paths, ['/api/v1/catalog/home']);
+  assert.equal(Object.hasOwn(result, 'totalProducts'), false);
+  await assert.rejects(checkG6({ homeOnly: true, fetchImpl: provider({ source: 'MOCK' }) }), /CHECK_SOURCE_NOT_REAL/);
+});

@@ -236,3 +236,17 @@ for (const overrides of [
     });
   });
 }
+
+test.each([undefined, 'stale-service-token'])('explicit demo mode omits Authorization even with token %s', async (token) => {
+  const provider = createRealProvider({ ...env, PRODUCTOS_AUTH_MODE: 'demo-no-auth', PRODUCTOS_SERVICE_TOKEN: token },
+    async (_url, options) => {
+      expect(new Headers(options.headers).has('Authorization')).toBe(false);
+      expect(new Headers(options.headers).get('X-Correlation-Id')).toBe('demo-correlation');
+      return Response.json(pagePayload());
+    });
+  expect((await provider.search(parse('q=polo'), 'demo-correlation')).data).toHaveLength(1);
+});
+
+test.each(['', 'anonymous'])('invalid authentication mode %s fails closed instead of bypassing token validation', (mode) => {
+  expect(() => createRealProvider({ ...env, PRODUCTOS_AUTH_MODE: mode })).toThrow();
+});
