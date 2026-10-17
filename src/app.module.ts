@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
+import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { CartModule } from './cart/cart.module';
 
@@ -53,10 +54,19 @@ function validateEnvironment(config: Record<string, unknown>) {
       (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
   );
 
+  const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
+  if (!['mock', 'unconfigured'].includes(ordersSource)) {
+    throw new Error('ORDERS_SOURCE must be mock or unconfigured');
+  }
+  if (ordersSource === 'mock' && nodeEnv === 'production') {
+    throw new Error('ORDERS_SOURCE=mock is not allowed in production');
+  }
+
   return {
     ...config,
     PORT: port,
     CORS_ORIGINS: corsOrigins,
+    ORDERS_SOURCE: ordersSource,
     NODE_ENV: nodeEnv,
     USE_MOCKS: useMocksValue === 'true',
     HTTP_TIMEOUT_MS: httpTimeoutMs,
@@ -73,6 +83,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     }),
     PrismaModule,
     HealthModule,
+    OrdersModule,
     CartModule,
     CheckoutModule,
   ],
