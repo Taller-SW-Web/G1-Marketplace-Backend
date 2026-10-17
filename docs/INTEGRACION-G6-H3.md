@@ -1,82 +1,93 @@
-# Integración G6 — preparación y ejecución F-006/F-007
+# Integración G6 — F-006/F-007 en H3
 
-Corte: 17/10/2026. Responsable: Giuliano; revisión del adaptador/contrato: Leonidas. El alcance se limita a categorías y búsqueda de H3. No incorpora precio, stock, checkout ni detalle F-011.
+Actualización: 17/10/2026. Alcance: Inicio/categorías y búsqueda. No incorpora precio, stock, checkout ni detalle F-011.
 
-## Fuente y estado
+## Estado comprobado y fuentes
 
-- [OpenAPI candidato 0.6.0-rc.1](https://github.com/Taller-SW-Web/G6-Productos-Ofertas-docs/blob/c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b/contratos/http/openapi.yaml), blob Git `f64bfe9a097b2a0f74c2600988305443d92f640e`.
-- [Acuerdo propuesto G1/G6](https://github.com/Taller-SW-Web/G6-Productos-Ofertas-docs/blob/c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b/integraciones/ALINEACION_MARKETPLACE.md).
-- Backend G6 consultado: `9866ff26a8ff542b802ae39775db2e0326c623fb`. El módulo comercial sigue inyectando `PendingCommercialEligibility`, que devuelve 503. El owner debe resolver su fuente autoritativa; G1 no decide qué productos son elegibles.
-- Comprobación pública 17/10/2026, 01:25 Lima: ambas rutas devolvieron 503 de Caddy, texto «Servicio pendiente: API Gateway G6 aún no está desplegado.». Se usó TLS normal y ningún token.
+- [Contrato OpenAPI 0.6.0-rc.1](https://github.com/Taller-SW-Web/G6-Productos-Ofertas-docs/blob/c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b/contratos/http/openapi.yaml), blob Git `f64bfe9a097b2a0f74c2600988305443d92f640e`.
+- [Gateway demo sin JWT, PR G6 #130 integrado](https://github.com/Taller-SW-Web/G6-Productos-Ofertas-backend/pull/130). Backend G6 consultado: `2970df90babf2c8caa1849b179b02918fc74a005`.
+- Prueba pública del 17/10/2026 a las 07:33 Lima, con TLS verificado y sin token: `/api/v1/categorias` devuelve 200 y ocho categorías activas. Listado, búsqueda y detalle de productos devuelven 503 de Caddy. Es un corte temporal: repetir antes de exponer.
+- [Catálogo G6, PR #125](https://github.com/Taller-SW-Web/G6-Productos-Ofertas-backend/pull/125), abierto en ese corte. No se infiere despliegue a partir del estado de un PR.
 
-Las pruebas locales siguientes acreditan transporte HTTP y adaptación con datos sintéticos. No acreditan despliegue G6, autenticación G7, grants, homologación bilateral ni aceptación H3.
+La conexión real de categorías puede verificarse por separado. El 503 de productos debe seguir mostrándose como error con reintento; no sustituirlo por un listado MOCK o vacío. La demo sin JWT no acredita integración de Seguridad/G7 ni cierre completo de H3.
 
-## Frontera implementada
+## Frontera y autenticación
 
-El navegador llama a Next; Next consulta NestJS y sólo NestJS envía la credencial técnica a G6. No se accede a la base de datos de otro grupo ni se replica su catálogo.
+El navegador llama a Next; Next llama a NestJS; sólo NestJS llama al origen G6. No se consulta la BD de otro grupo. No se reenvían cookies o identidad del visitante a G6.
 
 | BFF de G1 | G6 | Mapeo |
 |---|---|---|
-| `GET /api/v1/catalog/home` | `GET /api/v1/categorias` | `categories`, sólo `status=ACTIVA`, sin inventar destacados |
+| `GET /api/v1/catalog/home` | `GET /api/v1/categorias` | Sólo `status=ACTIVA`; `categoria_id` → `categoryId`; sin inventar destacados |
 | `GET /api/v1/catalog/products` | `GET /api/v1/productos?canal=MARKETPLACE` | `q`; `pagina=page+1`; `tamanio=pageSize`; `categoriaId`; `NOMBRE_ASC/DESC` |
 | Correlación | `X-Correlation-Id` | Mismo UUID que G1 devuelve como `X-Request-Id` |
-| Tarjeta | `ProductoResumenComercial` | Identidad/nombre/categoría/marca; `images` omitido o vacío → `image:null` |
+| Tarjeta | `ProductoResumenComercial` | Campos públicos; imagen ausente/vacía → `image:null`; imagen presente exige HTTPS y host permitido |
 
-Una imagen informada exige HTTPS y hostname permitido. 401/403 del token técnico, 429, 503, timeout o respuesta inválida producen un error recuperable del catálogo, nunca un listado vacío ni un fallback silencioso a MOCK. Un 401 de G6 no cierra la sesión del visitante.
+`PRODUCTOS_AUTH_MODE` se configura sólo en Backend:
 
-## Configuración privada necesaria
+| Valor | Comportamiento |
+|---|---|
+| `service-token` (predeterminado) | Requiere `PRODUCTOS_SERVICE_TOKEN`; añade `Authorization: Bearer ...` |
+| `demo-no-auth` | Opción explícita para la demo temporal anunciada por G6. No necesita token y omite Authorization, incluso si quedó una credencial antigua configurada |
 
-Añadir al `.env` existente de Backend los valores acordados, sin reemplazar su configuración propia. `.env` está ignorado por Git y excluido de las imágenes. La URL comunicada por G6 es un origen, sin `/api/v1` al final.
+Un modo desconocido se rechaza. Ambos modos mantienen origen HTTPS, revisión contractual fijada, configuración explícita `CATALOG_INTEGRATION_APPROVED=true`, timeout, correlación y validación del DTO. Esta bandera habilita la prueba acordada; no certifica homologación bilateral ni grants.
 
-```dotenv
-PRODUCTOS_BASE_URL=https://g6-productos-ofertas.duckdns.org
-PRODUCTOS_CONTRACT_VERSION=0.6.0-rc.1
-PRODUCTOS_CONTRACT_SHA=f64bfe9a097b2a0f74c2600988305443d92f640e
-PRODUCTOS_TIMEOUT_MS=5000
+401/403, 429, 503, timeout o JSON inválido producen `CATALOG_UNAVAILABLE` con 503. El diagnóstico sanitizado `PROVIDER_HTTP_503` distingue una respuesta externa de un error de configuración. Los errores de proveedor nunca cierran la sesión del visitante ni activan un fallback.
+
+## Demo conectada a G6: localhost:3300
+
+Requiere Docker Desktop y Compose 2.24.4 o posterior por `!override`. Backend y Frontend deben estar en carpetas hermanas. Desde Backend:
+
+```powershell
+docker compose -p g1-marketplace-h3-g6-demo -f compose.h3.yaml -f compose.h3.g6-demo.yaml config --quiet
+docker compose -p g1-marketplace-h3-g6-demo -f compose.h3.yaml -f compose.h3.g6-demo.yaml up --build --detach --wait --wait-timeout 180
+npm run check:g6 -- --home-only --base-url http://127.0.0.1:10300
+npm run check:g6 -- --home-only --via-web --base-url http://127.0.0.1:3300
 ```
 
-Completar por canal privado `PRODUCTOS_SERVICE_TOKEN` con una credencial efectiva y `PRODUCTOS_MEDIA_HOSTS` con los hostnames de medios confirmados (separados por coma, sin esquema/ruta ni comodines). Puede estar vacío si todos los productos carecen de imagen; no admite imágenes de cualquier origen. Registrar la homologación correspondiente antes de poner `CATALOG_INTEGRATION_APPROVED=true`; la bandera no concede permisos ni certifica un acuerdo.
+Abrir `http://localhost:3300/`. El override ya contiene los datos públicos del entorno acordado: origen G6 sin `/api/v1`, contrato fijado, `CATALOG_SOURCE=real` y `PRODUCTOS_AUTH_MODE=demo-no-auth`. No se necesita editar `.env` ni inventar un token. Se conserva `USE_MOCKS` de los otros adaptadores.
 
-G6/G7 deben confirmar audiencia `api-productos`, scope `catalogo:leer`, tipo de servicio e identidad propuesta `modulo-marketplace`. El Gateway actual compara `sub` con su allowlist: contrastar el token emitido y el acuerdo real. Acordar también cómo obtenerlo/renovarlo. El adaptador actual usa un token configurado: no implementa adquisición ni renovación automática y no inventa un endpoint OAuth. Una credencial vencida exige su sustitución y recreación del Backend.
+Este proyecto usa su propia red/volumen y los puertos 3300/10300. La demo habitual puede seguir en 3000/10000 con `compose.h3.yaml`. El `.env` privado permanece ignorado y excluido de las imágenes; el override demo vacía expresamente el token de Productos.
 
-## Ensayo local independiente de G6
+En Inicio, Network debe mostrar `/api/catalog/home`, 200, `X-Catalog-Source: REAL`, `X-Request-Id` y JSON de categorías. Después, ir a `/catalogo?q=zapatillas`: si productos conserva el 503 público, la web debe mostrar error con Reintentar y la petición `/api/catalog/products` debe devolver 503 REAL. Una fuente REAL indica ejecución del adaptador; asociarla a la configuración pública de este proyecto y las trazas, no sólo a la cabecera.
+
+`check:g6 --home-only` devuelve `PASS_CATEGORIES` (0) o `PARTIAL_NO_DATA` (2). Sólo verifica Inicio; no afirma haber validado búsqueda/productos. El comando completo conserva su exigencia de respuestas positivas para home/productos/validación:
+
+```powershell
+npm run check:g6 -- --via-web --base-url http://127.0.0.1:3300 --query zapatillas
+```
+
+Mientras productos devuelva 503, el comprobador completo termina en `FAIL / CHECK_HTTP_503` (1). Esa salida es esperada para ese estado del proveedor y no se declara PASS de la integración completa.
+
+Para logs sanitizados:
+
+```powershell
+docker compose -p g1-marketplace-h3-g6-demo -f compose.h3.yaml -f compose.h3.g6-demo.yaml logs --since 5m --no-log-prefix backend |
+  Select-String '"event":"catalog_(read|error)"'
+```
+
+Localizar el mismo `X-Request-Id` mostrado en Network. No imprimir `.env`, tokens, cookies ni la salida completa de `docker compose config`. La readiness comprueba PostgreSQL y no acredita disponibilidad del catálogo.
+
+Para detener sólo esta demo, conservando el volumen:
+
+```powershell
+docker compose -p g1-marketplace-h3-g6-demo -f compose.h3.yaml -f compose.h3.g6-demo.yaml down
+```
+
+## Volver a autenticación de servicio
+
+Cuando se acuerde la operación autenticada, usar `PRODUCTOS_AUTH_MODE=service-token` y configurar por canal privado un token válido, audiencia `api-productos`, scope `catalogo:leer`, identidad/grant acordados con G6/G7 y su renovación. El adaptador utiliza una credencial configurada; no obtiene ni renueva JWT automáticamente.
+
+El override `compose.h3.g6.yaml` sigue disponible para activar REAL en el stack habitual, tomando las demás variables del `.env`. Su origen debe ser sólo `https://g6-productos-ofertas.duckdns.org`, sin añadir rutas. Mantener `PRODUCTOS_CONTRACT_VERSION=0.6.0-rc.1` y `PRODUCTOS_CONTRACT_SHA=f64bfe9a097b2a0f74c2600988305443d92f640e` hasta revisar un cambio contractual. `PRODUCTOS_MEDIA_HOSTS` debe contener hostnames confirmados sin comodines; puede estar vacío mientras no se reciban imágenes.
+
+## Pruebas y evidencia
 
 ```powershell
 npm run test:g6:contract
+npm run test:g6:probe
+npm run test:unit -- --runTestsByPath src/catalog/catalog.spec.ts
+npm run typecheck
 ```
 
-La suite arranca un proveedor HTTP sólo en `127.0.0.1` y utiliza `CatalogModule` con su factory y adaptador reales, sin sustituir `fetch` ni `CATALOG_PROVIDER`. No carga `.env`, no inicia PostgreSQL ni aplica migraciones. Usa un token estático sintético para verificar transporte de la cabecera; no simula una concesión real de G7.
+Las suites HTTP usan servidores aislados en loopback y no cargan `.env`. Comprueban los dos modos de autenticación, no filtrado de identidad del visitante, correlación, categorías, mapeos, imágenes opcionales, errores y timeout. La prueba de demo reproduce categorías 200/productos 503 y valida el CLI de categorías. Estos fixtures no sustituyen la comprobación pública ni el recorrido conectado de navegador.
 
-Cubre categorías, token de servidor distinto al del navegador, correlación, segunda página, DTO público, imágenes opcionales, vacío, errores 401/403/429/503, respuesta Caddy, timeout, rechazo de redirecciones, validación previa y medios no autorizados. `X-Catalog-Source: REAL` identifica que se ejecutó el adaptador; en esta suite el upstream sigue siendo un servidor local sintético.
-
-## Activar la conexión cuando G6 esté listo
-
-La configuración base de [Docker H3](DOCKER-H3.md) continúa explícitamente en MOCK. Para usar el entorno aprobado, combinar ambos archivos desde Backend:
-
-```powershell
-docker compose -f compose.h3.yaml -f compose.h3.g6.yaml config --quiet
-docker compose -f compose.h3.yaml -f compose.h3.g6.yaml up --detach --wait --wait-timeout 180
-npm run check:g6
-npm run check:g6 -- --via-web --base-url http://127.0.0.1:3000
-```
-
-Si las imágenes aún no están construidas, añadir `--build` al comando `up`. El override cambia únicamente `CATALOG_SOURCE=real`; el resto proviene del `.env` privado y del Compose base. No crea servicios G6 ni altera volúmenes, BD, guards o identidades de otros bloques. No establecer `USE_MOCKS=false` globalmente para esta integración: pertenece a otros adaptadores del baseline.
-
-El comando `check:g6` no lee `.env` ni maneja el token: consulta anónimamente nuestro BFF. Comprueba home, productos y validación de consulta, exige fuente REAL, no-store y correlación en la ruta BFF. Tras integrar la corrección de Sebastián, el proxy Next propaga `X-Request-Id` y el BFF lo conserva en inicio, búsqueda y detalle. Para acreditar el enlace con G6 asociar esa correlación a la comprobación directa al BFF y a los logs sanitizados. El comprobador vía web conserva compatibilidad con revisiones anteriores donde esta cabecera era opcional. Se pueden pasar `--base-url https://HOST_G1_APROBADO` y `--query zapatillas` para el entorno/búsqueda elegidos.
-
-Salida: `PASS_READS` (código 0), `PARTIAL_NO_DATA` (código 2 si falta categoría o producto) o `FAIL` (código 1). Sólo muestra conteos, IDs de correlación y códigos seguros; no cuerpos, nombres de productos, consultas, URLs privadas ni credenciales. Un PASS necesita asociarse a la configuración del upstream aprobado y a la traza correspondiente para acreditar que respondió G6. No publica ni acepta el hito automáticamente.
-
-La readiness del Backend comprueba PostgreSQL, no el catálogo: un contenedor healthy no implica que G6 funcione. Una lista vacía válida no es un error, pero tampoco acredita el caso positivo con productos.
-
-## Evidencia final y vuelta al entorno de demostración
-
-Registrar fecha, versiones desplegadas de G1/G6, entorno, contrato, búsqueda/resultado positivo autorizado, vacío y errores, y correlación BFF/G6 sanitizada. Capturar navegador sin sesión y anotar fuente REAL. No guardar Authorization ni un HAR completo con credenciales. Las capturas MOCK anteriores conservan su etiqueta.
-
-Para volver al entorno habitual, ejecutar el Compose base, sin el override:
-
-```powershell
-docker compose -f compose.h3.yaml up --detach --wait --wait-timeout 180
-node scripts/check-docker-h3.mjs
-```
-
-Se conserva el volumen. No usar `down -v`. La configuración REAL está preparada; el despliegue y acceso efectivos siguen siendo dependencias de G6/G7 y del equipo.
+Registrar fecha/hora, commits de G1, entorno/proyecto, contrato, rutas, fuente, IDs de correlación y alcance. Las capturas MOCK anteriores conservan su etiqueta; las nuevas deben distinguir categorías REAL, productos con error y pruebas sintéticas. No acreditar búsqueda positiva, autenticación G7, despliegue público de G1 ni aceptación H3 con el éxito parcial de categorías.

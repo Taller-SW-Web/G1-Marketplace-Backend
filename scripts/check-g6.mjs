@@ -1,7 +1,7 @@
 // Read-only probe of OUR BFF/web. The G6 technical token stays in the BFF.
 import { pathToFileURL } from 'node:url';
 
-export async function checkG6({ baseUrl = 'http://127.0.0.1:10000', query = '', viaWeb = false, fetchImpl = fetch } = {}) {
+export async function checkG6({ baseUrl = 'http://127.0.0.1:10000', query = '', viaWeb = false, homeOnly = false, fetchImpl = fetch } = {}) {
   let base;
   try { base = new URL(baseUrl); } catch { throw new Error('CHECK_INVALID_ORIGIN'); }
   const localHttp = base.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
@@ -31,6 +31,12 @@ export async function checkG6({ baseUrl = 'http://127.0.0.1:10000', query = '', 
   }
   const home = await get(`${prefix}/home`);
   if (!Array.isArray(home?.categories) || !Array.isArray(home?.featuredProducts)) throw new Error('CHECK_HOME_SHAPE');
+  if (homeOnly) return {
+    status: home.categories.length ? 'PASS_CATEGORIES' : 'PARTIAL_NO_DATA',
+    transport: viaWeb ? 'NEXT_TO_BFF' : 'BFF', source: 'REAL',
+    categories: home.categories.length, correlationIds: correlations,
+    scope: 'Categories only. Does not verify products, search, authentication grants or H3 acceptance.',
+  };
   const params = new URLSearchParams({ page: '0', pageSize: '4' });
   if (query) params.set('q', query);
   const products = await get(`${prefix}/products?${params}`);
@@ -62,13 +68,14 @@ async function main(args) {
   const options = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--via-web') options.viaWeb = true;
+    else if (args[i] === '--home-only') options.homeOnly = true;
     else if (args[i] === '--base-url' && args[i + 1]) options.baseUrl = args[++i];
     else if (args[i] === '--query' && args[i + 1]) options.query = args[++i].trim();
     else throw new Error('CHECK_INVALID_ARGUMENTS');
   }
   const result = await checkG6(options);
   console.log(JSON.stringify(result, null, 2));
-  if (result.status !== 'PASS_READS') process.exitCode = 2;
+  if (!['PASS_READS', 'PASS_CATEGORIES'].includes(result.status)) process.exitCode = 2;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
