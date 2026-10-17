@@ -59,15 +59,27 @@
             }
           },
           "400": {
-            "description": "Cuerpo o producto inválido: INVALID_REQUEST / INVALID_PRODUCT_ID",
+            "description": "Cuerpo o producto inválido",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 },
-                "example": {
-                  "code": "INVALID_REQUEST",
-                  "message": "Cuerpo o producto inválido: INVALID_REQUEST / INVALID_PRODUCT_ID"
+                "examples": {
+                  "invalidRequest": {
+                    "summary": "Cuerpo inválido o campos adicionales",
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Solicitud inválida"
+                    }
+                  },
+                  "invalidProductId": {
+                    "summary": "productId inválido",
+                    "value": {
+                      "code": "INVALID_PRODUCT_ID",
+                      "message": "Identificador de producto inválido"
+                    }
+                  }
                 }
               }
             }
@@ -215,7 +227,13 @@
                   "$ref": "#/components/schemas/Health"
                 },
                 "example": {
-                  "status": "UP"
+                  "status": "UP",
+                  "service": "g1-marketplace-backend",
+                  "environment": "development",
+                  "database": {
+                    "connected": true
+                  },
+                  "timestamp": "2026-10-16T12:00:00.000Z"
                 }
               }
             }
@@ -228,7 +246,13 @@
                   "$ref": "#/components/schemas/Health"
                 },
                 "example": {
-                  "status": "DOWN"
+                  "status": "DOWN",
+                  "service": "g1-marketplace-backend",
+                  "environment": "development",
+                  "database": {
+                    "connected": false
+                  },
+                  "timestamp": "2026-10-16T12:00:00.000Z"
                 }
               }
             }
@@ -282,7 +306,11 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "status"
+          "status",
+          "service",
+          "environment",
+          "database",
+          "timestamp"
         ],
         "properties": {
           "status": {
@@ -291,6 +319,30 @@
               "UP",
               "DOWN"
             ]
+          },
+          "service": {
+            "type": "string",
+            "example": "g1-marketplace-backend"
+          },
+          "environment": {
+            "type": "string",
+            "example": "development"
+          },
+          "database": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "connected"
+            ],
+            "properties": {
+              "connected": {
+                "type": "boolean"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

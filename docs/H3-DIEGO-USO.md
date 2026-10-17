@@ -112,3 +112,9 @@ Mantener `H3_SANDBOX_ENABLED=false` o ausente en producción. Activarlo con `NOD
 Render conserva `build → prisma generate + tsc`, migración previa al arranque y `node dist/main.js`. No se ha desplegado este corte ni comprobado una URL pública. La integración real de favoritos requiere adaptadores de Seguridad/Productos homologados, no habilitar este sandbox en producción.
 
 Fuentes técnicas consultadas: [validación NestJS](https://docs.nestjs.com/techniques/validation), [errores Prisma](https://www.prisma.io/docs/orm/reference/error-reference), [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken).
+
+## Compatibilidad de salud tras auditoria del PR #15
+
+`/`, `/health` y `/ready` mantienen `status`, `service`, `environment`, `database.connected` y `timestamp`, con HTTP 200/503. Se retiran los conteos opcionales `database.carts` y `database.wishlistItems` para evitar consultas y exposicion de datos de negocio. Los consumidores deben usar `database.connected` para comprobar PostgreSQL. `/live` conserva su contrato y Render lo utiliza sin consultar la base.
+
+La inspeccion del repositorio encontro consumidores por codigo HTTP en smoke y por `status` en pruebas; Render usa `/live`. No se encontraron consumidores locales de los conteos. Esta revision no acredita consumidores externos: confirmar su uso con el equipo antes de aprobar el PR.

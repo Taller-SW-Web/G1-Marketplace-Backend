@@ -39,7 +39,13 @@ describe('Wishlist PostgreSQL 16 integration (MOCK identity/catalog)', () => {
   it('uses PostgreSQL 16 and reports real readiness', async () => {
     const version = await prisma.$queryRawUnsafe<Array<{ server_version: string }>>('SHOW server_version');
     expect(version[0].server_version).toMatch(/^16\./);
-    await request(app.getHttpServer()).get('/health').expect(200).expect({ status: 'UP' });
+    for (const path of ['/', '/health', '/ready']) {
+      await request(app.getHttpServer()).get(path).expect(200).expect(({ body }) => {
+        expect(body).toEqual({ status: 'UP', service: 'g1-marketplace-backend',
+          environment: 'test', database: { connected: true }, timestamp: expect.any(String) });
+        expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
+      });
+    }
   });
 
   it('persists, preserves createdAt, survives app restart and deletes idempotently', async () => {

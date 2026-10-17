@@ -1,17 +1,30 @@
-# Título propuesto
+## Alcance
 
-feat(favoritos): implementar agregar y quitar favoritos para el sandbox H3
+Implementa el backend de F-036 (agregar favorito) y F-038 (quitar favorito) sobre NestJS, Prisma y PostgreSQL local. Es un avance parcial H3: identidad y elegibilidad de Productos son MOCK de sandbox.
 
-## Descripción propuesta
+## Comportamiento y cambios
 
-El backend no tenía operaciones de favoritos. Este corte agrega POST y DELETE de F-036/F-038 sobre la base NestJS de develop, con Prisma/PostgreSQL, validación y aislamiento por cliente. Repetir POST devuelve el registro existente sin duplicarlo; DELETE solo modifica favoritos del titular y es idempotente.
+- `POST /api/v1/wishlist/items`: 201 al crear y 200 si ya existe; conserva `createdAt`, incluso ante concurrencia, respaldado por la unicidad cliente/producto.
+- `DELETE /api/v1/wishlist/items/{productId}`: 204 al eliminar o si ya estaba ausente, acotado al cliente autenticado y sin consultar catálogo.
+- Identidad derivada del Bearer token, cuerpo limitado a `productId`, validación y errores sanitizados.
+- JWT sandbox con validación de algoritmo, emisor, audiencia y expiración; bloqueo en producción y puertos inyectables para sustituir los mocks.
+- Integración con el carrito de `develop`, conservando autenticación RS256/JWKS, validación, errores y CORS compartido.
+- PostgreSQL 16 temporal aislado, scripts de tokens, integración y smoke; OpenAPI, guía de uso y evidencias.
+- Pruebas para idempotencia, aislamiento A/B, concurrencia, persistencia y regresiones del carrito.
 
-Identidad y elegibilidad son adaptadores MOCK explícitos de sandbox. Se impiden en producción y no acreditan integración con Seguridad/Productos. Sin adaptador real, las rutas protegidas fallan cerradas. No incluye UI ni listado F-037.
+## Validación registrada antes de la auditoría
 
-Validación local: build, typecheck, lint TypeScript, Prisma validate, 22 unitarias, 36 HTTP y 5 de integración PostgreSQL 16. Se verifica concurrencia de diez POST, persistencia tras reinicio y aislamiento A/B. Audit de producción: cero alertas al corte. Ver evidencia y logs para el resultado final.
+Tras integrar `develop`: 25 unitarias, 53 HTTP y 4 del servidor mock aprobadas; build, typecheck e instalación limpia verificados. Integración local: 5 pruebas aprobadas con PostgreSQL 16. Resultados y ajustes posteriores: [resolución](docs/evidencias/h3/resolucion-pr-15.md).
 
-Cambios compartidos: configuración/CORS, health mínimo sin conteos y scripts; se conserva compatibilidad Render y rutas de salud de la base. Las precisiones contractuales están registradas en docs/contratos/h3-favoritos.md y pendientes de revisión.
+## Ajustes por auditoría
 
-Referencias: TASK-F036-BE-001, TASK-F038-BE-001 y DB/QA/DOC relacionados; plan raíz, docs/H3-DIEGO-USO.md, docs/evidencias/h3/diego-backend.md. Revisores: Fernando principal; Leonidas/Andres para contratos/seguridad. Integraciones y revisión humana pendientes.
+- Se restauran `service`, `environment`, `database.connected` y `timestamp` en `/`, `/health` y `/ready`. Se retiran solo los conteos opcionales de negocio; consumidores locales revisados y migración documentada. Confirmación de consumidores externos pendiente con el equipo.
+- Evidencias y log sincronizados con la rama publicada y el corte conjunto: 25 unitarias, 53 HTTP, 4 del servidor mock y 5 de integración PostgreSQL aprobadas tras la auditoría.
+- OpenAPI documenta ambos códigos 400 del POST mediante ejemplos nombrados; esquema y ejemplos de salud actualizados desde el generador.
+- Typecheck, compilación TypeScript y smoke del artefacto compilado aprobados. `npm run build` encuentra un bloqueo `EPERM` al regenerar el motor Prisma en Windows; ver la resolución.
 
-Este archivo es un borrador local. No se creó ni publicó un PR.
+## Pendientes
+
+No incluye UI, listado F-037, autenticación real ni elegibilidad real de Productos. La restauración de deshacer depende de F-036 y G-UNDO. No cierra tareas de integración ni acredita el flujo integral o un despliegue de producción.
+
+Relacionados: `TASK-F036-BE-001`, `TASK-F038-BE-001` y DB/QA/DOC. Revisor principal según SPECS: Fernando Saire; aprobación pendiente. Ver [guía](docs/H3-DIEGO-USO.md) y [evidencia individual](docs/evidencias/h3/diego-backend.md).

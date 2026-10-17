@@ -18,7 +18,16 @@ const document = {
       requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/WishlistItem' } } } },
       responses: {
         '201': saved('Creado'), '200': saved('Ya existente; no altera createdAt'),
-        '400': error('Cuerpo o producto inválido: INVALID_REQUEST / INVALID_PRODUCT_ID', 'INVALID_REQUEST'),
+        '400': { description: 'Cuerpo o producto inválido', content: { 'application/json': {
+          schema: { $ref: '#/components/schemas/ApiError' }, examples: {
+            invalidRequest: { summary: 'Cuerpo inválido o campos adicionales', value: {
+              code: 'INVALID_REQUEST', message: 'Solicitud inválida',
+            } },
+            invalidProductId: { summary: 'productId inválido', value: {
+              code: 'INVALID_PRODUCT_ID', message: 'Identificador de producto inválido',
+            } },
+          },
+        } } },
         '401': error('Autenticación requerida', 'UNAUTHORIZED'),
         '404': error('Producto no disponible', 'PRODUCT_NOT_AVAILABLE'),
         '503': error('Catálogo no disponible', 'CATALOG_UNAVAILABLE'),
@@ -35,8 +44,8 @@ const document = {
         '500': error('Error interno del servicio', 'INTERNAL_ERROR') },
     } },
     '/health': { get: { operationId: 'readiness', security: [], responses: {
-      '200': { description: 'PostgreSQL disponible', content: { 'application/json': { schema: { $ref: '#/components/schemas/Health' }, example: { status: 'UP' } } } },
-      '503': { description: 'PostgreSQL no disponible', content: { 'application/json': { schema: { $ref: '#/components/schemas/Health' }, example: { status: 'DOWN' } } } },
+      '200': { description: 'PostgreSQL disponible', content: { 'application/json': { schema: { $ref: '#/components/schemas/Health' }, example: { status: 'UP', service: 'g1-marketplace-backend', environment: 'development', database: { connected: true }, timestamp: '2026-10-16T12:00:00.000Z' } } } },
+      '503': { description: 'PostgreSQL no disponible', content: { 'application/json': { schema: { $ref: '#/components/schemas/Health' }, example: { status: 'DOWN', service: 'g1-marketplace-backend', environment: 'development', database: { connected: false }, timestamp: '2026-10-16T12:00:00.000Z' } } } },
     } } },
   },
   components: {
@@ -46,7 +55,15 @@ const document = {
         productId: { type: 'string', minLength: 1, maxLength: 100, example: 'PRD-1', description: 'Sin espacios exteriores ni caracteres de control; conserva capitalización.' },
       } },
       ApiError: { type: 'object', additionalProperties: false, required: ['code', 'message'], properties: { code: { type: 'string' }, message: { type: 'string' } } },
-      Health: { type: 'object', additionalProperties: false, required: ['status'], properties: { status: { type: 'string', enum: ['UP', 'DOWN'] } } },
+      Health: { type: 'object', additionalProperties: false,
+        required: ['status', 'service', 'environment', 'database', 'timestamp'], properties: {
+          status: { type: 'string', enum: ['UP', 'DOWN'] },
+          service: { type: 'string', example: 'g1-marketplace-backend' },
+          environment: { type: 'string', example: 'development' },
+          database: { type: 'object', additionalProperties: false, required: ['connected'],
+            properties: { connected: { type: 'boolean' } } },
+          timestamp: { type: 'string', format: 'date-time' },
+        } },
     },
   },
 };

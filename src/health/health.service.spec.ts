@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { HealthService } from './health.service';
 
 describe('HealthService', () => {
@@ -11,7 +12,7 @@ describe('HealthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new HealthService(prisma);
+    service = new HealthService(prisma, new ConfigService({ NODE_ENV: 'test' }));
   });
 
   it('reports readiness without reading business counts', async () => {
@@ -22,7 +23,9 @@ describe('HealthService', () => {
     const result = await service.checkReadiness();
 
     expect(result.httpStatus).toBe(200);
-    expect(result.body).toEqual({ status: 'UP' });
+    expect(result.body).toEqual({ status: 'UP', service: 'g1-marketplace-backend',
+      environment: 'test', database: { connected: true }, timestamp: expect.any(String) });
+    expect(new Date(result.body.timestamp).toISOString()).toBe(result.body.timestamp);
     expect(prisma.cart.count).not.toHaveBeenCalled();
     expect(prisma.wishlistItem.count).not.toHaveBeenCalled();
   });
@@ -35,7 +38,10 @@ describe('HealthService', () => {
     const result = await service.checkReadiness();
 
     expect(result.httpStatus).toBe(503);
-    expect(result.body).toEqual({ status: 'DOWN' });
+    expect(result.body).toEqual({ status: 'DOWN', service: 'g1-marketplace-backend',
+      environment: 'test', database: { connected: false }, timestamp: expect.any(String) });
+    expect(prisma.cart.count).not.toHaveBeenCalled();
+    expect(prisma.wishlistItem.count).not.toHaveBeenCalled();
     expect(JSON.stringify(result.body)).not.toContain('secret connection details');
   });
 });

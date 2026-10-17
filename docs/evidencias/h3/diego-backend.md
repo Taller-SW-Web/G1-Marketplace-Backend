@@ -2,9 +2,11 @@
 
 Fecha: 16/10/2026. Entorno: Windows, PowerShell, Node 24.16.0, npm 11.13.0, Docker Desktop, PostgreSQL 16 temporal.
 
-Repositorio: G1-Marketplace-Backend. Rama: `feat/s1-f036-f038-backend`, creada desde `origin/develop`.
+Repositorio: G1-Marketplace-Backend. Rama: `feat/s1-f036-f038-favoritos`, creada desde `origin/develop`.
 
-Commit base verificado: `ed9582e55da30007620d5740f9e4c80d41d5ad8b`. Por instrucción de Diego, los cambios se organizan en cinco commits locales: contrato, configuración, API de favoritos, pruebas y documentación/evidencias. El plan raíz y AGENTS.md se conservan como archivos locales y no se incluyen en estos commits. Consultar sus hashes mediante `git log --oneline ed9582e..HEAD`. Sin push ni PR creado. Revisor solicitado en el paquete: Fernando Saire; aprobación todavía pendiente. No se realizó comunicación a terceros.
+Base inicial: `ed9582e55da30007620d5740f9e4c80d41d5ad8b`. La rama integra `develop` en `e6fc7f25e78a8b34316096839f44863f37f5e2c9` y la resolucion `f9b22a6`. Los commits estan publicados en el [PR #15](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/15), destino `develop`. Revisor principal segun SPECS: Fernando Saire; aprobacion pendiente. El plan raiz, AGENTS.md y `.audit/` son locales y no se incluyen.
+
+Version de evidencia: revision posterior a la auditoria del PR #15, 16/10/2026. Las 22 unitarias y 36 HTTP correspondian al corte anterior a integrar carrito; el resultado conjunto es 25 unitarias, 53 HTTP y 4 del servidor mock. Ver [resolucion y validacion final](resolucion-pr-15.md).
 
 ## Clasificación y alcance
 
@@ -28,6 +30,13 @@ Implementación por módulos de favoritos, identidad, elegibilidad y configuraci
 
 ## Verificación ejecutada
 
+La tabla combina el registro original y los resultados actualizados indicados.
+Para la revisión posterior a la auditoría, consultar la sección final de
+[resolución del PR](resolucion-pr-15.md): typecheck, 25/53/4 pruebas, 5 de integración,
+compilación TypeScript y smoke aprobados. El comando completo `npm run build`
+encuentra actualmente `EPERM` al regenerar el motor Prisma en Windows; su resultado
+aprobado de la tabla corresponde a la ejecución histórica anterior, no a esta revisión.
+
 | Comando / prueba | Resultado observado |
 |---|---|
 | `npm ci` con lockfile final | Aprobado; instalación limpia con scripts, 606 paquetes instalados |
@@ -35,7 +44,7 @@ Implementación por módulos de favoritos, identidad, elegibilidad y configuraci
 | `npm run typecheck` | Aprobado |
 | `npm run lint` | Aprobado; es revisión TypeScript heredada, no ESLint/SAST |
 | `npm run prisma:validate` con URL local ficticia | Esquema válido |
-| `npm test` | 22 unitarias + 36 HTTP aprobadas |
+| `npm test` | 25 unitarias + 53 HTTP + 4 del servidor mock aprobadas (version conjunta; ver resolucion) |
 | `npm run test:integration` | 5 pruebas aprobadas con PostgreSQL 16 |
 | `npm run test:smoke` | Artefacto compilado arranca; health 200 y flujo 201/200/204/204/401/404/503 aprobado |
 | `npm run docs:openapi` | OpenAPI versionado generado |
@@ -70,6 +79,6 @@ Revisión humana del código, explicación individual por Diego y aprobación de
 
 - Revisión de Fernando y técnica de Leonidas/Andres donde corresponda.
 - Confirmación/validación de precisiones y seguimiento en SPECS.
-- Publicación de los commits, PR hacia develop y aprobación según política del equipo.
+- PR #15 publicado hacia `develop`; revision y aprobacion del equipo pendientes.
 - Handoff a UI y evidencia individual punta a punta.
 - Integraciones reales y eventual despliegue, sin habilitar mocks en producción.

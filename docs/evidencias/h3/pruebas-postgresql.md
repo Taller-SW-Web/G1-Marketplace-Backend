@@ -10,7 +10,7 @@ Resultado final: código 0; 1 suite aprobada, 5 pruebas aprobadas. Migración `0
 
 Casos aprobados:
 
-1. Readiness real devuelve 200 `{status:"UP"}`.
+1. Readiness real devuelve 200 con `status: "UP"`, `service`, `environment`, `database.connected` y `timestamp` en `/`, `/health` y `/ready` (verificado nuevamente tras la auditoria del PR #15).
 2. POST crea, repetición mantiene UUID/createdAt, el registro permanece después de cerrar/recrear la aplicación, DELETE repetido termina sin fila.
 3. Diez solicitudes POST concurrentes: un 201, nueve 200 y una fila en PostgreSQL.
 4. B no elimina registro A; A y B pueden guardar el mismo producto independientemente.
