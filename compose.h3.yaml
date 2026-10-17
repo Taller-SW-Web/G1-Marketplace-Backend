@@ -16,6 +16,9 @@ services:
 
   backend:
     build: .
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: development
       PORT: "10000"

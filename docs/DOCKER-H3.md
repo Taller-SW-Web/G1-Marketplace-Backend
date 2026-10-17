@@ -48,3 +48,19 @@ La comprobación de CI ejecuta scripts/check-docker-h3.mjs en el host del runner
 Esta ejecución muestra Frontend→BFF→PostgreSQL propios y catálogo con fixtures, sin token de G6 ni emisor de identidad ficticia automático. Docker es la forma de ejecutar el entorno, no una sustitución de la integración REAL. Conectar G6 requiere configurar una URL accesible desde Backend, la identidad técnica y el contrato aprobados; el Compose actual no activa REAL ni inventa ese servicio.
 
 Los documentos originales de H3 todavía exigen nube/URL pública y Productos REAL. La instrucción actual del equipo cambia el entorno a Docker; corresponde registrar con el responsable del hito qué evidencia se aceptará. Este ajuste no reescribe esas condiciones ni marca tareas Done. La presentación personal debe explicar Docker como entorno actual y mantener identificada la suposición de cierre usada en el ensayo.
+
+## Archivo .env privado de Backend
+
+Colocar el archivo con nombre exacto `.env` en la raíz Backend, junto a package.json. Git lo ignora y .dockerignore lo excluye del contexto de construcción: no se incorpora al repositorio ni a las imágenes. No utilizar `env` sin punto.
+
+Compose carga ese archivo opcional sólo en el servicio backend mediante env_file. No lo necesita Frontend ni CI; si no existe, el entorno conserva sus fixtures. Requiere Compose 2.24 o posterior (la instalación local usa 5.6.0).
+
+El bloque environment del Compose conserva la prioridad para DATABASE_URL (PostgreSQL interno), PORT, NODE_ENV, CORS_ORIGINS, CATALOG_SOURCE=mock y USE_MOCKS. Guardar una URL de BD externa en .env no redirige las migraciones de este entorno. Las otras variables se cargan en Backend sin publicarlas en Next. La presencia de un campo en .env no significa que la aplicación implemente su flujo de autenticación ni habilita automáticamente Productos REAL.
+
+Después de modificar .env, recrear los servicios para que lean sus valores nuevos:
+
+```powershell
+docker compose -f compose.h3.yaml up --detach --wait --wait-timeout 180
+```
+
+No hace falta reconstruir las imágenes por un cambio de configuración. Para verificar sólo sintaxis, usar `docker compose -f compose.h3.yaml config --quiet`: la salida completa de config o inspect puede mostrar valores privados y no debe publicarse como evidencia. No copiar el archivo a artefactos, guías ni descripciones de PR.
