@@ -11,9 +11,10 @@ async function bootstrap(): Promise<void> {
   const corsOrigins = config.get<string[]>('CORS_ORIGINS', []);
 
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : false,
-    methods: ['GET', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-customer-id'],
+    credentials: true,
   });
   app.useGlobalPipes(
     new ValidationPipe({

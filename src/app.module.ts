@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { CartModule } from './cart/cart.module';
 
 function validateEnvironment(config: Record<string, unknown>) {
   const port = Number(config.PORT ?? 10000);
@@ -30,11 +31,13 @@ function validateEnvironment(config: Record<string, unknown>) {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const useMocksValue = String(config.USE_MOCKS ?? 'true').toLowerCase();
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'unconfigured'].includes(ordersSource)) {
     throw new Error('ORDERS_SOURCE must be mock or unconfigured');
   }
-  if (ordersSource === 'mock' && config.NODE_ENV === 'production') {
+  if (ordersSource === 'mock' && nodeEnv === 'production') {
     throw new Error('ORDERS_SOURCE=mock is not allowed in production');
   }
 
@@ -43,6 +46,10 @@ function validateEnvironment(config: Record<string, unknown>) {
     PORT: port,
     CORS_ORIGINS: corsOrigins,
     ORDERS_SOURCE: ordersSource,
+    NODE_ENV: nodeEnv,
+    USE_MOCKS: useMocksValue === 'true',
+    AUTH_ISSUER: config.AUTH_ISSUER ?? 'http://127.0.0.1:4010',
+    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? 'http://127.0.0.1:4010/jwks',
   };
 }
 
@@ -55,6 +62,7 @@ function validateEnvironment(config: Record<string, unknown>) {
     PrismaModule,
     HealthModule,
     OrdersModule,
+    CartModule,
   ],
 })
 export class AppModule {}
