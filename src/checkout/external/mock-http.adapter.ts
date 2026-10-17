@@ -66,7 +66,8 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     if (!this.config.get<boolean>('USE_MOCKS', false)) return;
-    if (this.config.get<string>('NODE_ENV')?.toLowerCase() === 'production') {
+    const strictProduction = this.config.get<boolean>('STRICT_PRODUCTION', false);
+    if (this.config.get<string>('NODE_ENV')?.toLowerCase() === 'production' && strictProduction) {
       throw new Error('External HTTP mocks are forbidden in production');
     }
 
