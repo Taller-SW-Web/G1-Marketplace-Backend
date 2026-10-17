@@ -1,27 +1,13 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { corsOptions } from './http/cors-options';
-import { NotFoundFilter } from './http/not-found.filter';
-import { validationExceptionFactory } from './http/validation-exception.factory';
+import { configureApp } from './http/configure-app';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
-  const corsOrigins = config.get<string[]>('CORS_ORIGINS', []);
-
-  app.enableCors(corsOptions(corsOrigins));
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      exceptionFactory: validationExceptionFactory,
-    }),
-  );
-  app.useGlobalFilters(new NotFoundFilter());
+  configureApp(app);
   app.enableShutdownHooks();
 
   const port = config.get<number>('PORT', 10000);

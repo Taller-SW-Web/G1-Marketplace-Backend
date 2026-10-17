@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
 import { AuthenticatedRequest, CheckoutPrincipal } from './auth.types';
+import { verifySandboxToken } from '../identity/sandbox-token';
 
 interface JwtHeader {
   alg?: unknown;
@@ -44,15 +45,29 @@ export class AuthGuard implements CanActivate {
     const match = typeof value === 'string' ? /^Bearer\s+([^\s]+)$/i.exec(value) : null;
     if (!match) throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
 
+    request.user = await this.authenticate(match[1]);
+    return true;
+  }
+
+  async authenticate(token: string): Promise<CheckoutPrincipal> {
+    // Algorithm selection grants no identity: verifyToken still checks signature,
+    // claims and the explicit sandbox/environment restrictions.
+    let algorithm: unknown;
+    try {
+      if (token.length > 8192) throw new Error('Token too large');
+      algorithm = this.decodeJson<JwtHeader>(token.split('.')[0])?.alg;
+    } catch {
+      throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
+    }
+    if (algorithm === 'HS256') return this.verifyToken(token, '', '');
+    if (algorithm !== 'RS256') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
     const issuer = this.config.get<string>('AUTH_ISSUER');
     const jwksUrl = this.config.get<string>('AUTH_JWKS_URL');
     if (!issuer || !jwksUrl) {
       throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
     }
 
-    const principal = await this.verifyToken(match[1], issuer, jwksUrl);
-    request.user = principal;
-    return true;
+    return this.verifyToken(token, issuer, jwksUrl);
   }
 
   protected async verifyToken(
@@ -67,6 +82,12 @@ export class AuthGuard implements CanActivate {
         throw new Error('Malformed token');
       }
       const header = this.decodeJson<JwtHeader>(parts[0]);
+      if (header.alg === 'HS256') {
+        const environment = this.config.get<string>('NODE_ENV', process.env.NODE_ENV ?? 'development');
+        if (!this.config.get<boolean>('H3_SANDBOX_ENABLED', false)
+          || !['development', 'test'].includes(environment)) throw new Error('Sandbox disabled');
+        return { sub: verifySandboxToken(token, this.config.getOrThrow<string>('H3_JWT_SECRET')) };
+      }
       const claims = this.decodeJson<JwtClaims>(parts[1]);
       if (header.alg !== 'RS256' || typeof header.kid !== 'string') {
         throw new Error('Unsupported token algorithm');
@@ -104,9 +125,10 @@ export class AuthGuard implements CanActivate {
       claims.iss !== issuer ||
       claims.tipo !== 'acceso' ||
       typeof claims.exp !== 'number' ||
+      !Number.isFinite(claims.exp) ||
       claims.exp <= now ||
       (claims.nbf !== undefined && typeof claims.nbf !== 'number') ||
-      (typeof claims.nbf === 'number' && claims.nbf > now) ||
+      (typeof claims.nbf === 'number' && (!Number.isFinite(claims.nbf) || claims.nbf > now)) ||
       typeof claims.sub !== 'string' ||
       !UUID_PATTERN.test(claims.sub)
     ) {

@@ -1,0 +1,48 @@
+
+> g1-marketplace-backend@1.0.0 test
+> npm run test:unit && npm run test:e2e && npm run test:mock-auth
+
+
+> g1-marketplace-backend@1.0.0 test:unit
+> jest --runInBand
+
+[Nest] 29600  - 16/10/2026, 10:04:09 p. m.    WARN [HealthService] Readiness check failed: database unavailable
+node.exe :
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+Test Suites: 4 passed, 4 total
+Tests:       25 passed, 25 total
+Snapshots:   0 total
+Time:        1.017 s
+Ran all test suites.
+
+> g1-marketplace-backend@1.0.0 test:e2e
+> jest --config ./test/jest-e2e.json --runInBand
+
+[Nest] 20196  - 16/10/2026, 10:04:14 p. m.   ERROR [ApiErrorFilter] Request failed: internal error
+
+Test Suites: 4 passed, 4 total
+Tests:       53 passed, 53 total
+Snapshots:   0 total
+Time:        5.391 s
+Ran all test suites.
+
+> g1-marketplace-backend@1.0.0 test:mock-auth
+> node --test scripts/mock-auth-server.test.mjs
+
+✔ serves a loopback JWKS and a signed access token accepted by the auth guard contract (273.7123ms)
+✔ limits token issuance to the documented mock identities (83.329ms)
+✔ rejects requests with a non-loopback Host header (93.3594ms)
+✔ refuses to start when production or external-auth mode is configured (1.64ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 680.6005

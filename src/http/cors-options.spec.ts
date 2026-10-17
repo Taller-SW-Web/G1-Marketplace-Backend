@@ -5,8 +5,8 @@ describe('corsOptions', () => {
     expect(corsOptions(['http://localhost:3000'])).toEqual({
       origin: ['http://localhost:3000'],
       credentials: true,
-      methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'x-customer-id'],
     });
   });
 
