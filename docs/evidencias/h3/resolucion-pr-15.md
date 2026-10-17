@@ -1,6 +1,12 @@
 # Resolucion del PR #15 hacia develop
 
 Fecha local: 2026-10-16.
+
+Seguimiento vigente: el build completo de `de049b1` se confirmó en una copia limpia
+el 16/10/2026; ver [comandos, salida y límites](build-limpio-pr-15.md).
+Los resultados de los cortes anteriores que siguen se conservan como históricos.
+Sigue pendiente confirmar con el equipo el uso externo de los conteos retirados de salud.
+
 PR: https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/15
 Rama: `feat/s1-f036-f038-favoritos`; destino: `develop`.
 Base integrada: `e6fc7f25e78a8b34316096839f44863f37f5e2c9`.

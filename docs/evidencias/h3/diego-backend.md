@@ -33,9 +33,11 @@ Implementación por módulos de favoritos, identidad, elegibilidad y configuraci
 La tabla combina el registro original y los resultados actualizados indicados.
 Para la revisión posterior a la auditoría, consultar la sección final de
 [resolución del PR](resolucion-pr-15.md): typecheck, 25/53/4 pruebas, 5 de integración,
-compilación TypeScript y smoke aprobados. El comando completo `npm run build`
-encuentra actualmente `EPERM` al regenerar el motor Prisma en Windows; su resultado
-aprobado de la tabla corresponde a la ejecución histórica anterior, no a esta revisión.
+compilación TypeScript y smoke aprobados. El bloqueo `EPERM` de ese corte se conserva
+como resultado histórico. En el seguimiento del 16/10/2026, `npm run build` completo
+pasó en una copia limpia de `de049b1`, con instalación nueva y descarga autorizada
+del motor Prisma fuera del sandbox. Ver [evidencia reproducible](build-limpio-pr-15.md).
+Las otras suites no se repitieron en este último corte.
 
 | Comando / prueba | Resultado observado |
 |---|---|
@@ -79,6 +81,8 @@ Revisión humana del código, explicación individual por Diego y aprobación de
 
 - Revisión de Fernando y técnica de Leonidas/Andres donde corresponda.
 - Confirmación/validación de precisiones y seguimiento en SPECS.
+- Confirmación del equipo sobre consumidores externos de `database.carts` y
+  `database.wishlistItems` retirados de salud; registrar responsable, fecha y sistemas revisados.
 - PR #15 publicado hacia `develop`; revision y aprobacion del equipo pendientes.
 - Handoff a UI y evidencia individual punta a punta.
 - Integraciones reales y eventual despliegue, sin habilitar mocks en producción.

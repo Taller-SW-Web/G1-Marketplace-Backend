@@ -21,9 +21,11 @@ Tras integrar `develop`: 25 unitarias, 53 HTTP y 4 del servidor mock aprobadas; 
 - Se restauran `service`, `environment`, `database.connected` y `timestamp` en `/`, `/health` y `/ready`. Se retiran solo los conteos opcionales de negocio; consumidores locales revisados y migración documentada. Confirmación de consumidores externos pendiente con el equipo.
 - Evidencias y log sincronizados con la rama publicada y el corte conjunto: 25 unitarias, 53 HTTP, 4 del servidor mock y 5 de integración PostgreSQL aprobadas tras la auditoría.
 - OpenAPI documenta ambos códigos 400 del POST mediante ejemplos nombrados; esquema y ejemplos de salud actualizados desde el generador.
-- Typecheck, compilación TypeScript y smoke del artefacto compilado aprobados. `npm run build` encuentra un bloqueo `EPERM` al regenerar el motor Prisma en Windows; ver la resolución.
+- Typecheck, compilación TypeScript y smoke del artefacto compilado aprobados en el corte anterior. En el seguimiento del 16/10/2026, `npm run build` completo pasó en una copia limpia de `de049b1` con dependencias nuevas y descarga autorizada del motor Prisma fuera del sandbox. Ver [evidencia del build](docs/evidencias/h3/build-limpio-pr-15.md); es validación local, no un check publicado en GitHub. Las otras suites no se repitieron en este seguimiento.
 
 ## Pendientes
+
+Confirmar con el equipo el uso externo de los conteos retirados de salud, registrando responsable, fecha y sistemas revisados. Sin consumidores externos, no se requiere otro cambio de código por ese punto.
 
 No incluye UI, listado F-037, autenticación real ni elegibilidad real de Productos. La restauración de deshacer depende de F-036 y G-UNDO. No cierra tareas de integración ni acredita el flujo integral o un despliegue de producción.
 
