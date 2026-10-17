@@ -79,9 +79,7 @@ export class ProblemDetailsFilter implements ExceptionFilter<HttpException> {
       'Content-Type',
       'application/problem+json; charset=utf-8',
     );
-    if (request.requestId) {
-      response.setHeader(REQUEST_ID_HEADER, request.requestId);
-    }
+    response.setHeader(REQUEST_ID_HEADER, problem.requestId);
     response.end(JSON.stringify(problem));
 
     // Diagnóstico técnico sin PII: sólo código, estado y correlación.

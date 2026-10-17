@@ -1,5 +1,7 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Entorno actual solicitado: Docker local.** Render queda como referencia futura. Consultar [Docker H3](docs/DOCKER-H3.md) para levantar los tres servicios. No se ha desplegado en Render.
+
 > **Resolución vigente del PR #15:** [conflictos, decisiones y registro para auditoría](docs/evidencias/h3/resolucion-conflictos-pr15.md).
 > Restricción del usuario: no operar sobre bases de datos. CI actual sin PostgreSQL,
 > migraciones ni pruebas con escrituras reales. Favoritos no agrega cambios de esquema;
@@ -136,6 +138,21 @@ Este modo no valida JWT y no integra Ventas; el principal fijo sólo permite ren
 1. **Spec-First:** Antes de implementar cualquier cambio funcional en el código, la modificación debe reflejarse y validarse en su correspondiente documento `SPEC`.
 2. **Branching:** Cada integrante trabaja sobre ramas asociadas a su módulo (e.g. `feat/SPEC-0X-nombre-historia`).
 3. **Definition of Done:** Cada entrega debe cumplir con los criterios de aceptación BDD, tipado estricto, manejo de errores HTTP y cobertura de pruebas estipulada en su SPEC.
+
+
+## Catálogo H3 (F-006/F-007)
+
+CatalogModule integra inicio/búsqueda en este baseline NestJS, sin otro servidor HTTP ni cambios a Prisma/health/Render. Consultar [ejecución y pruebas](docs/CATALOGO-S1.md) y [elementos compartidos](docs/ELEMENTOS-COMPARTIDOS.md).
+
+El modo MOCK acredita avance parcial. Las asignaciones vigentes están en la matriz punta a punta de G1-Marketplace-SPECS; la migración no reasigna bloques ni cierra integración real/H3. Los cambios se publican sólo en la rama de Giuliano, sin modificar main/develop ni abrir PR.
+
+## Adaptación a develop y preparación de despliegue — 16/10/2026
+
+Se incorpora el carrito del develop actual sin sustituir el catálogo. Se restaura el arranque Render y se elimina la identidad de prueba automática del proxy de carrito. Consultar [preparación y límites del despliegue](docs/DESPLIEGUE-H3.md). Los PR existentes siguen en draft hacia develop; no se publica ni se modifica main/develop.
+
+## Preparacion de integracion G6 — H3
+
+[Guia de integracion G6](docs/INTEGRACION-G6-H3.md): ensayo HTTP local (`npm run test:g6:contract`), comprobacion de lecturas REAL (`npm run check:g6`) y override Docker opcional. La demo habitual sigue en MOCK; el despliegue, acceso y datos efectivos de G6 se verifican por separado.
 
 ## Configuración de autenticación en Render
 

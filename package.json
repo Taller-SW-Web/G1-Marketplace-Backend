@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "test": "npm run test:unit && npm run test:e2e && npm run test:mock-auth",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe",
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
@@ -28,7 +28,10 @@
     "prisma:resolve": "prisma migrate resolve --applied 0_init",
     "prisma:pull": "prisma db pull",
     "prisma:studio": "prisma studio",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "test:g6:contract": "jest --config ./test/jest-e2e.json --runInBand test/catalog-g6-contract.e2e-spec.ts",
+    "test:g6:probe": "node --test scripts/check-g6.test.mjs",
+    "check:g6": "node scripts/check-g6.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

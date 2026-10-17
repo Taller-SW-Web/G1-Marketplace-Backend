@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { validateEnvironment as validateH3Environment } from './config/environment';
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { ProductDetailModule } from './catalog/product-detail.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 
@@ -22,6 +23,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
     AuthModule,
     OrdersModule,
     CartModule,
+    CatalogModule,
     ProductDetailModule,
     CheckoutModule,
   ],
