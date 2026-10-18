@@ -80,8 +80,9 @@ export class CheckoutService {
     customerId: string,
     accessToken: string,
     input: CreateQuoteDto,
+    sessionHash?: string,
   ): Promise<CheckoutQuote> {
-    const cart = await this.findActiveCart(customerId);
+    const cart = await this.findActiveCart(customerId, sessionHash);
     if (!cart) this.fail(409, 'CART_NOT_FOUND');
     if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
     if (cart.items.length === 0) this.fail(409, 'CART_EMPTY');
@@ -142,6 +143,7 @@ export class CheckoutService {
     customerId: string,
     input: PrepareCheckoutDto,
     idempotencyKey: string | undefined,
+    sessionHash?: string,
   ): Promise<CheckoutOperationView> {
     this.assertIdempotencyKey(idempotencyKey, false);
     if (!input.simulationConfirmed) this.fail(400, 'SIMULATION_NOT_CONFIRMED');
@@ -153,6 +155,9 @@ export class CheckoutService {
     let context: PreparedContext | null = null;
 
     if (operation) {
+      if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+        throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+      }
       if (operation.state === CheckoutOperationState.FAILED) {
         this.fail(409, operation.failureCode ?? 'PREPARATION_FAILED');
       }
@@ -169,7 +174,7 @@ export class CheckoutService {
       const quote = this.quotes.get(customerId, input.quoteId);
       if (!quote) this.fail(409, 'QUOTE_EXPIRED');
       if (quote.cartVersion !== input.cartVersion) this.fail(409, 'CART_CHANGED');
-      const cart = await this.findActiveCart(customerId);
+      const cart = await this.findActiveCart(customerId, sessionHash);
       if (!cart) this.fail(409, 'CART_NOT_FOUND');
       if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
       const preparedContext = this.createPreparedContext(quote, cart.version);
@@ -224,11 +229,7 @@ export class CheckoutService {
       });
       this.fail(409, 'QUOTE_EXPIRED');
     }
-    if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
-
-    const cart = await this.prisma.cart.findFirst({
-      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-    });
+    const cart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
     if (!cart || cart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
@@ -236,6 +237,7 @@ export class CheckoutService {
       });
       this.fail(409, 'REVALIDATION_CHANGED');
     }
+    if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
 
     let revalidation: { available: boolean; revalidatedAt: string };
     try {
@@ -256,9 +258,7 @@ export class CheckoutService {
       this.fail(409, 'STOCK_NOT_AVAILABLE');
     }
 
-    const latestCart = await this.prisma.cart.findFirst({
-      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-    });
+    const latestCart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
     if (!latestCart || latestCart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
@@ -306,12 +306,16 @@ export class CheckoutService {
     customerId: string,
     input: { checkoutOperationId: string; contact: CheckoutContactDto },
     idempotencyKey: string | undefined,
+    sessionHash?: string,
   ): Promise<ApiResult<CheckoutOperationView>> {
     this.assertIdempotencyKey(idempotencyKey, true);
     let operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: input.checkoutOperationId, customerId },
     });
     if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+      throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    }
     const context = this.readPreparedContext(operation);
 
     const requestFingerprint = this.fingerprint({
@@ -345,9 +349,7 @@ export class CheckoutService {
         });
         this.fail(409, 'QUOTE_EXPIRED');
       }
-      const cart = await this.prisma.cart.findFirst({
-        where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-      });
+      const cart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
       if (!cart || cart.version !== context.cartVersion) {
         operation = await this.prisma.checkoutOperation.update({
           where: { id: operation.id },
@@ -434,11 +436,15 @@ export class CheckoutService {
   async getOperation(
     customerId: string,
     operationId: string,
+    sessionHash?: string,
   ): Promise<ApiResult<CheckoutOperationStatusView>> {
     const operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: operationId, customerId },
     });
     if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+      throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    }
 
     if (operation.state === CheckoutOperationState.PREPARED) {
       this.fail(409, 'ORDER_NOT_SUBMITTED');
@@ -566,11 +572,39 @@ export class CheckoutService {
     };
   }
 
-  private async findActiveCart(customerId: string) {
+  private async findActiveCart(customerId: string, sessionHash?: string) {
+    if (sessionHash) {
+      const customerCart = await this.prisma.cart.findFirst({
+        where: { customerId, state: 'ACTIVE' },
+        include: { items: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      const sessionCart = await this.prisma.cart.findFirst({
+        where: { anonymousSessionHash: sessionHash, state: 'ACTIVE' },
+        include: { items: true },
+      });
+      if (customerCart && sessionCart && customerCart.id !== sessionCart.id) {
+        this.fail(409, 'CART_OWNERSHIP_CONFLICT');
+      }
+      return customerCart ?? sessionCart;
+    }
+
     return this.prisma.cart.findFirst({
       where: { customerId, state: 'ACTIVE' },
       include: { items: true },
       orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  private async findOwnedCart(cartId: string, customerId: string, sessionHash?: string) {
+    return this.prisma.cart.findFirst({
+      where: {
+        id: cartId,
+        state: 'ACTIVE',
+        ...(sessionHash
+          ? { OR: [{ customerId }, { anonymousSessionHash: sessionHash }] }
+          : { customerId }),
+      },
     });
   }
 
