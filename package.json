@@ -29,7 +29,7 @@
     "prisma:pull": "prisma db pull",
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
-    "test:g6:contract": "jest --config ./test/jest-e2e.json --runInBand test/catalog-g6-contract.e2e-spec.ts",
+    "test:g6:contract": "jest --config ./test/jest-e2e.json --runInBand test/catalog-g6-contract.e2e-spec.ts test/catalog-g6-demo.e2e-spec.ts",
     "test:g6:probe": "node --test scripts/check-g6.test.mjs",
     "check:g6": "node scripts/check-g6.mjs"
   },
