@@ -18,7 +18,7 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
     'eyJhbGciOiJub25lIn0.' +
     Buffer.from(JSON.stringify({ sub: mockCustomer })).toString('base64url') +
     '.sig';
-  const mockAddressId = 'ADR-MOCK-0001';
+  let mockAddressId: string;
 
   beforeAll(async () => {
     process.env.USE_MOCKS = 'true';
@@ -53,19 +53,34 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    // En CI (GitHub Actions) DATABASE_URL apunta a 127.0.0.1:1/not_connected (sin servicio de BD).
-    // Si la BD no está conectada, se omite la interacción directa para no romper el pipeline.
-    const dbUrl = process.env.DATABASE_URL || '';
-    const isExplicitlyDisconnected =
-      dbUrl.includes('not_connected') || dbUrl.includes('127.0.0.1:1');
-    if (!isExplicitlyDisconnected) {
-      try {
-        await prisma.$queryRaw`SELECT 1`;
-        dbAvailable = true;
-      } catch {
-        dbAvailable = false;
-      }
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      dbAvailable = true;
+    } catch {
+      dbAvailable = false;
     }
+
+    if (!dbAvailable) {
+      throw new Error(
+        'PostgreSQL database is required for E2E tests, but could not connect.',
+      );
+    }
+
+    // Registrar una dirección de entrega válida para el customer mock
+    const addrRes = await request(app.getHttpServer())
+      .post('/api/v1/checkout/delivery-addresses')
+      .set('Authorization', `Bearer ${mockToken}`)
+      .send({
+        label: 'Casa Principal',
+        street: 'Av. Javier Prado Este 1234',
+        district: 'San Isidro',
+        province: 'Lima',
+        department: 'Lima',
+        phone: '987654321',
+      })
+      .expect(201);
+
+    mockAddressId = addrRes.body.data.addressId;
   });
 
   afterAll(async () => {
@@ -84,7 +99,6 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
   });
 
   beforeEach(async () => {
-    if (!dbAvailable) return;
     // Limpiar carritos previos del usuario mock para aislamiento de pruebas
     await prisma.checkoutOperation.deleteMany({
       where: { customerId: mockCustomer },
@@ -98,7 +112,6 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
   });
 
   it('1. Checkout rechaza cotizar si el usuario aún no tiene carrito activo (409 CART_NOT_FOUND)', async () => {
-    if (!dbAvailable) return;
     const res = await request(app.getHttpServer())
       .post('/api/v1/checkout/quotes')
       .set('Authorization', `Bearer ${mockToken}`)
@@ -109,7 +122,6 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
   });
 
   it('2. El usuario agrega un ítem en Carrito y Checkout cotiza exitosamente el snapshot con cartVersion', async () => {
-    if (!dbAvailable) return;
     // Paso A: Carrito crea la línea e incrementa versión
     const addRes = await request(app.getHttpServer())
       .post('/api/v1/carts/current/items')
@@ -147,7 +159,6 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
   });
 
   it('3. Checkout detecta modificaciones concurrentes en el Carrito y previene cotizaciones obsoletas (409 CART_CHANGED)', async () => {
-    if (!dbAvailable) return;
     // Paso A: Crear carrito inicial con primer ítem
     const firstAddRes = await request(app.getHttpServer())
       .post('/api/v1/carts/current/items')
@@ -188,7 +199,6 @@ describe('Integración Carrito ↔ Checkout (E2E)', () => {
   });
 
   it('4. Flujo de punta a punta: Carrito -> Cotización -> Preparación de Checkout -> Creación de Orden confirmada', async () => {
-    if (!dbAvailable) return;
     // 1. Agregar producto al carrito
     const addRes = await request(app.getHttpServer())
       .post('/api/v1/carts/current/items')
