@@ -585,7 +585,7 @@ export class CheckoutService {
       if (anonCart) {
         cart = await this.prisma.cart.update({
           where: { id: anonCart.id },
-          data: { customerId },
+          data: { customerId, anonymousSessionHash: null },
           include: { items: true },
         });
       }

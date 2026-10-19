@@ -62,7 +62,7 @@ export class CartService {
         if (anonCart) {
           cart = await tx.cart.update({
             where: { id: anonCart.id },
-            data: { customerId },
+            data: { customerId, anonymousSessionHash: null },
             include: { items: true },
           });
         }
