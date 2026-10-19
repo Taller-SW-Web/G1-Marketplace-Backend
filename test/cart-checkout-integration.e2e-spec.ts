@@ -6,8 +6,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthGuard } from '../src/security/auth.guard';
 import { OptionalAuthGuard } from '../src/security/optional-auth.guard';
+const dbUrl = process.env.DATABASE_URL || '';
+const isExplicitlyDisconnected =
+  !dbUrl ||
+  dbUrl.includes('not_connected') ||
+  dbUrl.includes('127.0.0.1:1');
 
-describe('Integración Carrito ↔ Checkout (E2E)', () => {
+const describeE2E = isExplicitlyDisconnected ? describe.skip : describe;
+
+describeE2E('Integración Carrito ↔ Checkout (E2E)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let dbAvailable = false;
