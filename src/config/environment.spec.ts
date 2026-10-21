@@ -53,4 +53,23 @@ describe('Environment boundaries', () => {
     const url = 'postgresql://localhost:55432/marketplace_h3_test';
     expect(validateTestDatabase({ TEST_DATABASE_URL: url, DATABASE_URL: base.DATABASE_URL })).toBe(url);
   });
+  const g7 = { ...base, AUTH_ENABLED: 'true', G7_API_URL: 'https://g7.example/api/v1',
+    G1_WEB_ORIGIN: 'https://g1.example', AUTH_SESSION_KEY: Buffer.alloc(32, 1).toString('base64') };
+  it('derives G7 issuer and JWKS without inheriting the local mock issuer', () => {
+    expect(validateEnvironment(g7)).toMatchObject({ AUTH_ENABLED: 'true',
+      AUTH_ISSUER: 'https://g7.example/api/v1/auth', AUTH_JWKS_URL: 'https://g7.example/api/v1/auth/.well-known/jwks.json' });
+  });
+  it('requires a private encryption key and explicit web origin for sessions', () => {
+    expect(() => validateEnvironment({ ...g7, AUTH_SESSION_KEY: '' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G1_WEB_ORIGIN: 'https://g1.example/path' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '30000' })).toThrow();
+  });
+  it('rejects mixing real G7 sessions with mock identity', () => {
+    expect(() => validateEnvironment({ ...g7, H3_AUTH_MOCK: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'x'.repeat(32) })).toThrow();
+  });
+  it('requires HTTPS for production web and provider endpoints', () => {
+    expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G7_API_URL: 'http://localhost:4012/api/v1' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G1_WEB_ORIGIN: 'http://127.0.0.1:3000' })).toThrow();
+  });
 });

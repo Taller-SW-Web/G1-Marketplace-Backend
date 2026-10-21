@@ -30,6 +30,23 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     }
   }
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const authEnabled = String(config.AUTH_ENABLED ?? 'false');
+  if (!['true', 'false'].includes(authEnabled)) throw new Error('AUTH_ENABLED must be true or false');
+  if (authEnabled === 'true') {
+    if (String(config.H3_AUTH_MOCK) === 'true' || sandbox) throw new Error('G7 auth cannot be combined with mock identity');
+    for (const name of ['G7_API_URL', 'G1_WEB_ORIGIN']) {
+      let value: URL;
+      try { value = new URL(String(config[name])); } catch { throw new Error(`${name} is required for G7 auth`); }
+      if (value.username || value.password || value.search || value.hash
+        || (value.protocol !== 'https:' && !(nodeEnv !== 'production' && value.protocol === 'http:'
+          && ['localhost', '127.0.0.1'].includes(value.hostname)))) throw new Error(`${name} must use HTTPS (loopback allowed outside production)`);
+      if (name === 'G1_WEB_ORIGIN' && value.origin !== config[name]) throw new Error('G1_WEB_ORIGIN must be an exact origin');
+    }
+    const key = String(config.AUTH_SESSION_KEY ?? '');
+    if (!/^[A-Za-z0-9+/]{43}=$/.test(key) || Buffer.from(key, 'base64').length !== 32) {
+      throw new Error('AUTH_SESSION_KEY requires 32 random bytes encoded as base64');
+    }
+  }
   const useMocks = String(config.USE_MOCKS ?? 'false').toLowerCase();
   if (!['true', 'false'].includes(useMocks)) throw new Error('USE_MOCKS must be true or false');
   if (useMocks === 'true' && nodeEnv === 'production') throw new Error('USE_MOCKS cannot be enabled in production');
@@ -37,14 +54,15 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (!Number.isInteger(httpTimeoutMs) || httpTimeoutMs < 1 || httpTimeoutMs > 30000) {
     throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
   }
+  if (authEnabled === 'true' && httpTimeoutMs > 5000) throw new Error('G7 session flow requires HTTP_TIMEOUT_MS <= 5000');
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
   return {
-    ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins,
+    ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
     ORDERS_SOURCE: ordersSource,
-    AUTH_ISSUER: config.AUTH_ISSUER ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
-    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
+    AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
+    AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
   };
 }

@@ -1,0 +1,37 @@
+name: H4 G7 contract fixture and persisted sessions
+on:
+  pull_request:
+    paths: ['src/auth/**', 'src/config/**', 'prisma/**', 'test/auth-g7.e2e-spec.ts', '.github/workflows/auth-h4.yml']
+permissions:
+  contents: read
+jobs:
+  auth-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: g1_auth_test
+          POSTGRES_PASSWORD: temporary_h4_ci_only
+          POSTGRES_DB: g1_auth_h4_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U g1_auth_test -d g1_auth_h4_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://g1_auth_test:temporary_h4_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+      AUTH_TEST_DATABASE_URL: postgresql://g1_auth_test:temporary_h4_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      # Disposable schema only. This does not certify migration deployability;
+      # the inherited duplicate-index migration remains a separate deployment gate.
+      - run: npx prisma db push --skip-generate
+      - run: npm run test:e2e -- test/auth-g7.e2e-spec.ts test/auth.e2e-spec.ts
+      - run: npm run typecheck
