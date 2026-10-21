@@ -1,6 +1,6 @@
 # G7 H4 — cuenta y sesión del BFF
 
-Responsable: Jim Segovia. Revisor: Andrés Morales. Estado: implementación local F-002/F-003; integración REAL y despliegue pendientes. No activar por la existencia de esta guía.
+Responsable: Jim Segovia. Revisor: Andrés Morales. Estado: implementación local F-001–F-005; integración REAL y despliegue pendientes. No activar por la existencia de esta guía.
 
 ## Fuentes y responsabilidades
 
@@ -28,6 +28,18 @@ Operación debe purgar filas con `expires_at <= now()` de `auth_sessions` en el 
 
 `POST /api/v1/auth/logout` devuelve cierre local y `remoteRevocationPending`. Si G7 no responde, el cliente cierra localmente e informa que no confirmó revocación remota. No promete invalidación inmediata de JWT ya emitidos. La indisponibilidad de DB devuelve error y no anuncia cierre confirmado.
 
+## Registro y recuperación preparados, aún no publicados por G7
+
+Mantener `G7_REGISTRATION_ENABLED=false` y `G7_RECOVERY_ENABLED=false`. Sólo activar cada bloque tras confirmar implementación, revisión desplegada y prueba conjunta. `GET /api/v1/auth/capabilities` informa capacidades habilitadas por configuración; no realiza una prueba de disponibilidad del proveedor.
+
+- Registro fija `canalOrigen=MARKETPLACE` en el BFF. El navegador no puede enviar canal, confirmación de contraseña, UUID ni URL de retorno. `201/PENDIENTE_VERIFICACION` no crea sesión. Verificación y reenvío pertenecen a la pantalla de G7, con regreso `/login` configurado por ellos; falta probar enlaces válido/vencido/usado.
+- `GET /api/v1/password/politica` transporta únicamente campos públicos validados. Si falla o cambia el contrato, no se sustituyen los requisitos por valores supuestos.
+- Recuperación devuelve `202` uniforme. `429` conserva, si existe, el `Retry-After` numérico acotado; Next lo expone y la UI espera sin reintento automático. El límite y los correos pertenecen a G7; el fixture no certifica latencia ni entrega real.
+- Restablecimiento envía sólo token y contraseña nueva y requiere `204` sin cuerpo. No crea sesión ni almacena el enlace. G7 consume el token y revoca las sesiones del usuario afectado. El `204` no proporciona UUID: G1 no inventa una identidad para borrar sesiones de otros dispositivos. Homologar con G7 la revocación efectiva de JWT emitidos y la continuidad en varios dispositivos.
+- La web elimina el token de URL/historial y aplica no-referrer. Configurar por separado redacción de query en hosting/proxies/analítica; el código local no acredita esa configuración. Publicar y configurar `G1_TERMS_URL` y `G1_PRIVACY_URL` HTTPS en frontend antes de habilitar consentimiento/registro. Los enlaces sintéticos de las pruebas no son documentos publicados.
+
+La confirmación O-004 se implementó con foco inicial en continuar, Escape/cierre, foco de retorno y errores. La política específica durante `SUBMITTED`, recuperación de contexto y validación mobile/independiente siguen abiertas. F-002 conserva su dependencia de fusión de carrito F-020; login por sí solo no la implementa.
+
 ## Prueba REAL pendiente
 
 Web y API: login inválido neutro, login válido, MFA efectivo, recarga, refresh, expiración, logout repetido, fallo/timeout del proveedor y cambio de pestaña. A sólo ve sus datos, B sólo los suyos, sin sesión se rechaza, Bearer adulterado no cae a cookie válida. Rechazar selección de dueño por query/body y mutaciones con Origin externo.
@@ -41,5 +53,7 @@ Guardar entorno, commits, casos, estado HTTP y resultados sanitizados. No guarda
 Crear PostgreSQL temporal con base **g1_auth_h4_test**, sólo loopback, esquema public; usar credenciales sintéticas propias. Instalar dependencias y generar Prisma. `AUTH_TEST_DATABASE_URL` debe apuntar exclusivamente a esa base; el test rechaza otros nombres y hosts externos y borra sus filas.
 
 Para esa base desechable y vacía: `DATABASE_URL` igual a la URL temporal, `npx prisma db push --skip-generate`; después `npm run test:e2e -- test/auth-g7.e2e-spec.ts test/auth.e2e-spec.ts`. Esto verifica esquema actual y sesiones, no la cadena histórica de migraciones. El workflow `auth-h4.yml` reproduce ese alcance en PostgreSQL 16.
+
+Añadir `test/account-g7.e2e-spec.ts` para registro, recuperación, política y reset: proveedor HTTP local, gates apagados/encendidos, inyección, estados esperados, neutralidad y CSRF. No necesita cuentas G7 ni prueba de correos reales. [Evidencia ampliada F-001–F-005](evidencias/H4/jim-segovia/F001-F005-cuenta.md).
 
 Demo web optativa: `G7_FIXTURE_ACK=local-only`, `NODE_ENV=test`, ejecutar `node scripts/g7-contract-fixture.mjs`; sirve sólo loopback 4012. Identidades: a/b/mfa@fixture.test, contraseña sintética `Fixture-only!123`, OTP sintético `123456`. No se envían correos. No representan cuentas de G7. Configurar BFF local 10002, web 3002 y ambos orígenes a `http://127.0.0.1:3002`; issuer/JWKS al emisor local. Usar una clave efímera y la base temporal. Web: `npm run dev -- --port 3002`; ejecutar en frontend `npx playwright test --config playwright.auth.config.ts`. No usar credenciales reales con este simulador.
