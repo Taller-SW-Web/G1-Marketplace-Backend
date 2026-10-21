@@ -38,3 +38,7 @@ Jim confirmó pendientes cuentas A/B y URL/revisión desplegada del BFF. G7 aún
 La migración heredada `20261018135249_npm_run_prisma_migrate` falla en base vacía por índice duplicado (`P3018/42P07`). `db push` se usó sólo en base desechable: no certifica instalación ni repara Render. Favoritos con productos conserva dependencia del adaptador G6 del responsable; no se activa identidad sandbox para sortearlo. F-020 y política por etapa de O-004 continúan pendientes.
 
 Las issues y las tareas INT siguen abiertas; esta evidencia permite revisión de implementación local, no cierre de H4.
+
+## Ampliación de QA de seguridad — 21/10/2026
+
+SAST/SCA/secrets e inventario de licencias ya ejecutados en CI Linux; [evidencia de seguridad](SEGURIDAD-H4.md). Los 19 moderados de desarrollo requieren revisión; runtime sin avisos en este corte. DAST y prueba REAL siguen pendientes.
