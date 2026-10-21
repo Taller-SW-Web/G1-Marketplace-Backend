@@ -6,7 +6,7 @@ Responsable: Jim Segovia. Revisor: Andrés Morales. Estado: implementación loca
 
 - G1 SPECS: propuesta `docs/s2-auth-sesion-g7`, contratos F-002/F-003.
 - G7 documentación: `1b034d2b1db0a19bb5c12c1c5426c797f47864b5`, OpenAPI v1.1.0 y `docs/integracion/hito-4-marketplace.md`.
-- G7 backend consultado: develop `4bd7b61`, main `d51ac2e`. Se contrastaron DTO, login/MFA, refresh de un uso y logout. Consultar código no prueba el despliegue.
+- Base G7 contrastada: develop `4bd7b61`, main `d51ac2e`. Revalidación del 21/10: develop `813b8099a59974c172d95a0b45b23d125e58caa6`, main continúa `d51ac2e`. Se contrastaron DTO, login/MFA, refresh de un uso y logout; consultar código no prueba el despliegue.
 - Contacto técnico G7: David Morales Brenis. Contratos/scopes: Sergio. Cuentas A/B por canal privado.
 
 ## Preparación del entorno REAL
@@ -41,6 +41,14 @@ Mantener `G7_REGISTRATION_ENABLED=false` y `G7_RECOVERY_ENABLED=false`. Sólo ac
 La confirmación O-004 se implementó con foco inicial en continuar, Escape/cierre, foco de retorno y errores. La política específica durante `SUBMITTED`, recuperación de contexto y validación mobile/independiente siguen abiertas. F-002 conserva su dependencia de fusión de carrito F-020; login por sí solo no la implementa.
 
 ## Prueba REAL pendiente
+
+### Actualización de G7 develop — 21/10/2026
+
+`813b809` incorpora tokens de servicio/introspección y soporte interno de tokens de un uso. `LoginController` no cambió respecto de `4bd7b61`; el perfil de usuario sigue sin `aud`, mientras el servicio usa `tipo=servicio`, `aud` y `scope`. No se encontraron controladores públicos de registro, recuperación ni restablecimiento en ese corte: la mejora de tokens internos no acredita esos recorridos HTTP.
+
+Fuente nueva: `IntegracionController`, `IntrospeccionResponse`, `IntrospeccionService` y `docs/capacidades/identidad.md` de ese SHA. `POST /auth/token` recibe formulario `grant_type=client_credentials`, `client_id`, `client_secret`; devuelve `accessToken`, `tokenType`, `expiresIn`, `scopes`. `POST /auth/introspeccion` recibe JSON `{token}` con Bearer de servicio y exige `tokens:introspeccion`; devuelve `activo` y, sólo si activo, identidad/roles/permisos/exp. Comprueba `jti`/familia vigente, estado de cuenta y roles. Esto permite preparar homologación de revocación, pero G1 todavía no consume ese endpoint ni cuenta con concesión/credencial/despliegue confirmados.
+
+Coordinar cliente técnico propio G1, audiencia `api-seguridad` y scope mínimo con Sergio/Brenis, por canal privado. No reutilizar credenciales de Chatbot ni inferir permiso G1 por código o SQL de ejemplo; no exponer secreto ni token de servicio al navegador. Confirmar revisión desplegada y comportamiento real antes de añadir/activar introspección. G6 conserva sus scopes/audiencias independientes.
 
 Web y API: login inválido neutro, login válido, MFA efectivo, recarga, refresh, expiración, logout repetido, fallo/timeout del proveedor y cambio de pestaña. A sólo ve sus datos, B sólo los suyos, sin sesión se rechaza, Bearer adulterado no cae a cookie válida. Rechazar selección de dueño por query/body y mutaciones con Origin externo.
 
