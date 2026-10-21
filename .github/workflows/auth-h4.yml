@@ -1,13 +1,13 @@
 name: H4 G7 contract fixture and persisted sessions
 on:
   pull_request:
-    paths: ['src/auth/**', 'src/config/**', 'prisma/**', 'test/auth-g7.e2e-spec.ts', 'test/account-g7.e2e-spec.ts', '.github/workflows/auth-h4.yml']
+    paths: ['src/auth/**', 'src/config/**', 'prisma/**', 'test/auth-g7.e2e-spec.ts', 'test/account-g7.e2e-spec.ts', 'scripts/security-check.py', 'scripts/install-gitleaks.py', '.security/**', '.github/workflows/auth-h4.yml']
 permissions:
   contents: read
 jobs:
   auth-session:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -23,8 +23,11 @@ jobs:
       DATABASE_URL: postgresql://g1_auth_test:temporary_h4_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
       AUTH_TEST_DATABASE_URL: postgresql://g1_auth_test:temporary_h4_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
           cache: npm
@@ -35,3 +38,23 @@ jobs:
       - run: npx prisma db push --skip-generate
       - run: npm run test:e2e -- test/auth-g7.e2e-spec.ts test/account-g7.e2e-spec.ts test/auth.e2e-spec.ts
       - run: npm run typecheck
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r .security/requirements.txt
+      - run: python scripts/install-gitleaks.py
+      - name: Scan source, PR history, build, dependencies and license inventory
+        env:
+          AUTH_SECURITY_BASE: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/security-check.py --base "$AUTH_SECURITY_BASE" --artifact dist
+      - name: Sanitized security metadata only
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: h4-auth-bff-security
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .local-security/summary.json
+            .local-security/licenses.json
