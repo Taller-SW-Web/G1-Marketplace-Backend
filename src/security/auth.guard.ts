@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
 import { AuthenticatedRequest, CheckoutPrincipal } from './auth.types';
 import { verifySandboxToken } from '../identity/sandbox-token';
+import { G7IntrospectionService } from '../auth/g7-introspection.service';
 
 interface JwtHeader {
   alg?: unknown;
@@ -36,7 +38,7 @@ export class AuthGuard implements CanActivate {
   private cachedKeys?: JsonWebKeySet;
   private keysFetchedAt = 0;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService, @Optional() private readonly introspection?: G7IntrospectionService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -59,7 +61,10 @@ export class AuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
     }
-    if (algorithm === 'HS256') return this.verifyToken(token, '', '');
+    if (algorithm === 'HS256') {
+      if (this.config.get('G7_INTROSPECTION_ENABLED') === 'true') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
+      return this.verifyToken(token, '', '');
+    }
     if (algorithm !== 'RS256') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
     const issuer = this.config.get<string>('AUTH_ISSUER');
     const jwksUrl = this.config.get<string>('AUTH_JWKS_URL');
@@ -67,7 +72,12 @@ export class AuthGuard implements CanActivate {
       throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
     }
 
-    return this.verifyToken(token, issuer, jwksUrl);
+    const principal = await this.verifyToken(token, issuer, jwksUrl);
+    if (this.config.get('G7_INTROSPECTION_ENABLED') === 'true') {
+      if (!this.introspection) throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
+      await this.introspection.assertActive(token, principal.sub);
+    }
+    return principal;
   }
 
   protected async verifyToken(

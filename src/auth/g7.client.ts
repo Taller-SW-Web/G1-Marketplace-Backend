@@ -14,7 +14,7 @@ export function record(value: unknown): value is Record<string, unknown> {
 export class G7Client {
   constructor(private readonly config: ConfigService) {}
 
-  async call(path: string, body?: unknown, token?: string, expectedStatus?: number): Promise<unknown> {
+  async call(path: string, body?: unknown, token?: string, expectedStatus?: number, form = false): Promise<unknown> {
     let response: Response;
     try {
       const base = new URL(this.config.getOrThrow<string>('G7_API_URL'));
@@ -25,9 +25,9 @@ export class G7Client {
       response = await fetch(`${base.href.replace(/\/$/, '')}/${path}`, {
         method: body === undefined ? 'GET' : 'POST', redirect: 'error', cache: 'no-store',
         signal: AbortSignal.timeout(this.config.get<number>('HTTP_TIMEOUT_MS', 5000)),
-        headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': form ? 'application/x-www-form-urlencoded' : 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(body !== undefined ? { body: form ? new URLSearchParams(body as Record<string, string>).toString() : JSON.stringify(body) } : {}),
       });
     } catch { throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.'); }
     if (response.ok && expectedStatus !== undefined && response.status !== expectedStatus) {

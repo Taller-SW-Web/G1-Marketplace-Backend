@@ -38,12 +38,12 @@ export class ApiErrorFilter implements ExceptionFilter {
       response.status(404).json({ error: 'Ruta no encontrada' });
       return;
     }
-    const codes: Record<number, string> = { 400: 'INVALID_REQUEST', 401: 'UNAUTHORIZED', 413: 'PAYLOAD_TOO_LARGE', 415: 'UNSUPPORTED_MEDIA_TYPE' };
-    const publicStatus = status >= 400 && status < 500 ? status : 500;
+    const codes: Record<number, string> = { 400: 'INVALID_REQUEST', 401: 'UNAUTHORIZED', 413: 'PAYLOAD_TOO_LARGE', 415: 'UNSUPPORTED_MEDIA_TYPE', 503: 'AUTH_UNAVAILABLE' };
+    const publicStatus = status === 503 ? 503 : status >= 400 && status < 500 ? status : 500;
     if (publicStatus === 500) this.logger.error('Request failed: internal error');
     response.status(publicStatus).json({
       code: codes[publicStatus] ?? 'INTERNAL_ERROR',
-      message: publicStatus === 500 ? 'Error interno del servicio' : 'Solicitud rechazada',
+      message: publicStatus === 500 ? 'Error interno del servicio' : publicStatus === 503 ? 'Acceso no disponible temporalmente' : 'Solicitud rechazada',
     });
   }
 }

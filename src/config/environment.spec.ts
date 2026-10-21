@@ -72,4 +72,15 @@ describe('Environment boundaries', () => {
     expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G7_API_URL: 'http://localhost:4012/api/v1' })).toThrow();
     expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G1_WEB_ORIGIN: 'http://127.0.0.1:3000' })).toThrow();
   });
+  it('keeps introspection gated and requires private service credentials when enabled', () => {
+    expect(validateEnvironment(g7).G7_INTROSPECTION_ENABLED).toBeUndefined();
+    expect(() => validateEnvironment({ ...base, G7_INTROSPECTION_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true',
+      G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: 'short' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'maybe' })).toThrow();
+    expect(validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true',
+      G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: 'x'.repeat(43) }))
+      .toMatchObject({ G7_INTROSPECTION_ENABLED: 'true' });
+  });
 });

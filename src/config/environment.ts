@@ -31,11 +31,20 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   }
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
   const authEnabled = String(config.AUTH_ENABLED ?? 'false');
-  for (const name of ['G7_REGISTRATION_ENABLED', 'G7_RECOVERY_ENABLED']) {
+  for (const name of ['G7_REGISTRATION_ENABLED', 'G7_RECOVERY_ENABLED', 'G7_INTROSPECTION_ENABLED']) {
     if (!['true', 'false'].includes(String(config[name] ?? 'false'))) throw new Error(`${name} must be true or false`);
     if (String(config[name]) === 'true' && authEnabled !== 'true') throw new Error(`${name} requires AUTH_ENABLED=true`);
   }
   if (!['true', 'false'].includes(authEnabled)) throw new Error('AUTH_ENABLED must be true or false');
+  if (String(config.G7_INTROSPECTION_ENABLED) === 'true') {
+    if (typeof config.G7_SERVICE_CLIENT_ID !== 'string' || !/^[A-Za-z0-9._-]{1,100}$/.test(config.G7_SERVICE_CLIENT_ID)) {
+      throw new Error('G7_SERVICE_CLIENT_ID is required for introspection');
+    }
+    if (typeof config.G7_SERVICE_CLIENT_SECRET !== 'string' || config.G7_SERVICE_CLIENT_SECRET.length < 32
+      || config.G7_SERVICE_CLIENT_SECRET.length > 1024 || /[\r\n\0]/.test(config.G7_SERVICE_CLIENT_SECRET)) {
+      throw new Error('G7_SERVICE_CLIENT_SECRET is required from the private secret manager');
+    }
+  }
   if (authEnabled === 'true') {
     if (String(config.H3_AUTH_MOCK) === 'true' || sandbox) throw new Error('G7 auth cannot be combined with mock identity');
     for (const name of ['G7_API_URL', 'G1_WEB_ORIGIN']) {

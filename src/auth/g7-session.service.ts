@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
@@ -151,22 +151,41 @@ export class G7SessionService {
     }
     throw unavailable();
   }
+  private async recheck(data: AuthenticatedData, opaque: string | undefined, response?: CookieResponse) {
+    if (this.config.get('G7_INTROSPECTION_ENABLED') !== 'true') return;
+    try { await this.verifier.authenticate(data.tokens.accessToken); }
+    catch (error) {
+      if (error instanceof UnauthorizedException) {
+        await this.store.remove(opaque);
+        if (response) this.setCookie(response, '', 0);
+        throw unauthenticated();
+      }
+      // Transient provider failure denies this read but does not claim revocation
+      // or discard a still-valid refresh/session. Never return cached identity.
+      throw unavailable();
+    }
+  }
   async session(request: CookieRequest, response?: CookieResponse) {
     if (!this.enabled()) return { authenticated: false, scope: 'anonymous' };
     const opaque = this.cookie(request);
+    let data: AuthenticatedData | null;
     try {
-      const data = await this.access(opaque);
-      if (!data && opaque && response) this.setCookie(response, '', 0);
-      return data ? this.publicSession(data) : { authenticated: false, scope: 'anonymous' };
+      data = await this.access(opaque);
     } catch (error) {
       if (opaque && response) this.setCookie(response, '', 0);
       throw error;
     }
+    if (!data && opaque && response) this.setCookie(response, '', 0);
+    if (!data) return { authenticated: false, scope: 'anonymous' };
+    await this.recheck(data, opaque, response);
+    return this.publicSession(data);
   }
   async refresh(request: CookieRequest) {
     this.assertOrigin(request);
-    const data = await this.access(this.cookie(request), true);
+    const opaque = this.cookie(request);
+    const data = await this.access(opaque, true);
     if (!data) throw unauthenticated();
+    await this.recheck(data, opaque);
     return this.publicSession(data);
   }
   async logout(request: CookieRequest, response: CookieResponse) {

@@ -26,6 +26,9 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
   let issuer: string; let refreshCalls = 0; let logoutFails = false; let refreshFails: boolean | 'timeout' = false; let sessionRole = 'CLIENTE';
   const refreshes = new Map<string, string>();
   const challenges = new Set<string>();
+  const serviceCredential = randomBytes(32).toString('base64url');
+  const serviceBearer = randomBytes(32).toString('base64url');
+  let introspectionInactive = false; let introspectionFails = false;
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const jwk = { ...publicKey.export({ format: 'jwk' }), alg: 'RS256', use: 'sig', kid: 'fixture-g7-h4' };
   function tokens(id: string) {
@@ -56,8 +59,20 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
       res.setHeader('Content-Type', 'application/json');
       if (req.url?.endsWith('/.well-known/jwks.json')) { res.end(JSON.stringify({ keys: [jwk] })); return; }
       let text = ''; for await (const chunk of req) text += chunk;
-      const body = JSON.parse(text || '{}') as Record<string, string>;
+      const body = (req.headers['content-type'] === 'application/x-www-form-urlencoded'
+        ? Object.fromEntries(new URLSearchParams(text)) : JSON.parse(text || '{}')) as Record<string, string>;
       const error = (status: number, code: string) => { res.statusCode = status; res.end(JSON.stringify({ status, code, detail: 'Do not forward this provider detail.' })); };
+      if (req.url === '/api/v1/auth/token') {
+        if (body.client_id !== 'fixture-client' || body.client_secret !== serviceCredential || body.grant_type !== 'client_credentials') return error(401, 'CLIENTE_INVALIDO');
+        res.end(JSON.stringify({ accessToken: serviceBearer, tokenType: 'Bearer', expiresIn: 3600, scopes: ['tokens:introspeccion'] })); return;
+      }
+      if (req.url === '/api/v1/auth/introspeccion') {
+        if (req.headers.authorization !== `Bearer ${serviceBearer}`) return error(401, 'TOKEN_INVALIDO');
+        if (introspectionFails) return error(503, 'NO_DISPONIBLE');
+        const claims = JSON.parse(Buffer.from(body.token.split('.')[1], 'base64url').toString());
+        res.end(JSON.stringify(introspectionInactive ? { activo: false, motivo: 'TOKEN_REVOCADO' }
+          : { activo: true, sub: claims.sub, email: claims.email, tipo: 'acceso', roles: ['CLIENTE'], permisos: [], exp: claims.exp })); return;
+      }
       if (req.url === '/api/v1/auth/login') {
         if (body.contrasena !== 'Fixture-only!123') return error(401, 'CREDENCIALES_INVALIDAS');
         if (body.correo === 'mfa@fixture.test') {
@@ -93,7 +108,8 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     const module = await Test.createTestingModule({ imports: [ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true,
       load: [() => ({ NODE_ENV: 'test', AUTH_ENABLED: 'true', G7_API_URL: base, AUTH_ISSUER: issuer,
         AUTH_JWKS_URL: `${issuer}/.well-known/jwks.json`, AUTH_SESSION_KEY: randomBytes(32).toString('base64'),
-        G1_WEB_ORIGIN: origin, HTTP_TIMEOUT_MS: 500, CORS_ORIGINS: [origin], H3_SANDBOX_ENABLED: false })] }), AuthModule, WishlistModule] })
+        G1_WEB_ORIGIN: origin, HTTP_TIMEOUT_MS: 500, CORS_ORIGINS: [origin], H3_SANDBOX_ENABLED: false,
+        G7_INTROSPECTION_ENABLED: 'false', G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: serviceCredential })] }), AuthModule, WishlistModule] })
       .overrideProvider(WishlistCatalog).useValue({ project: async (id: string) => ({ name: id, slug: 'fixture-product',
         brand: 'Fixture', image: null, price: null, availability: 'AVAILABLE' }) }).compile();
     app = module.createNestApplication(); configureApp(app); await app.init();
@@ -101,6 +117,8 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
   });
   beforeEach(async () => {
     refreshCalls = 0; logoutFails = false; refreshFails = false; sessionRole = 'CLIENTE';
+    introspectionInactive = false; introspectionFails = false;
+    app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'false');
     await prisma.authSession.deleteMany(); await prisma.wishlistItem.deleteMany();
   });
   afterAll(async () => {
@@ -185,6 +203,30 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', 'https://evil.test').send({}).expect(403);
     await request(app.getHttpServer()).post('/api/v1/auth/refresh').set('Cookie', value).set('Origin', origin).send({ refreshToken: 'injected' }).expect(400);
     await request(app.getHttpServer()).delete('/api/v1/wishlist/items/ONLY-A').set('Cookie', value).expect(403);
+  });
+  it('rejects revoked cookie and direct bearer access, then clears the persisted session on reload', async () => {
+    app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'true');
+    const value = cookie(await login().expect(200));
+    const bearer = tokens(A).accessToken;
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', value).expect(200);
+    introspectionInactive = true;
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', value).expect(401);
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Authorization', `Bearer ${bearer}`).expect(401);
+    const reloaded = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(401);
+    expect(String(reloaded.headers['set-cookie'])).toContain('Max-Age=0');
+    expect(await prisma.authSession.count()).toBe(0);
+    expect(JSON.stringify(reloaded.body)).not.toMatch(/TOKEN_REVOCADO|accessToken|refreshToken/);
+  });
+  it('denies private access while introspection is unavailable without claiming logout or losing the refresh', async () => {
+    app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'true');
+    const value = cookie(await login().expect(200));
+    introspectionFails = true;
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', value).expect(503);
+    const reloaded = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(503);
+    expect(reloaded.headers['set-cookie']).toBeUndefined(); expect(await prisma.authSession.count()).toBe(1);
+    introspectionFails = false;
+    const recovered = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200);
+    expect(recovered.body.user.id).toBe(A); expect(refreshCalls).toBe(0);
   });
   it('closes locally during a provider logout failure and supports repeated logout', async () => {
     const value = cookie(await login().expect(200)); logoutFails = true;
