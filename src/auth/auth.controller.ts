@@ -29,7 +29,7 @@ export class AuthController {
 
   @Get('session')
   @Header('Cache-Control', 'no-store, private')
-  session(@Req() request: CookieRequest) { return this.real().session(request); }
+  session(@Req() request: CookieRequest, @Res({ passthrough: true }) response: CookieResponse) { return this.real().session(request, response); }
 
   @Post('otp/solicitar') @HttpCode(200)
   @Header('Cache-Control', 'no-store, private')

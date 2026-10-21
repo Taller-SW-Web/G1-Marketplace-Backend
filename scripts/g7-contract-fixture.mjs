@@ -14,10 +14,10 @@ function session(id) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   const now = Math.floor(Date.now() / 1000);
   const unsigned = `${encode({ alg: 'RS256', kid: jwk.kid })}.${encode({ iss: issuer, sub: id,
-    tipo: 'acceso', roles: ['CLIENTE'], iat: now, exp: now + 900, jti: randomUUID() })}`;
+    tipo: 'acceso', roles: ['CLIENTE'], permisos: [], email: id === A ? 'a@fixture.test' : 'b@fixture.test', iat: now, exp: now + 900, jti: randomUUID() })}`;
   const refreshToken = randomBytes(32).toString('base64url'); refreshes.set(refreshToken, id);
   return { accessToken: `${unsigned}.${sign('RSA-SHA256', Buffer.from(unsigned), privateKey).toString('base64url')}`,
-    refreshToken, expiresIn: 900, tokenType: 'Bearer', usuario: { id, nombreCompleto: 'Cliente de prueba H4', roles: ['CLIENTE'] } };
+    refreshToken, expiresIn: 900, tokenType: 'Bearer', usuario: { id, nombreCompleto: 'Cliente de prueba H4', correo: id === A ? 'a@fixture.test' : 'b@fixture.test', roles: ['CLIENTE'] } };
 }
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -27,8 +27,27 @@ createServer(async (request, response) => {
   try {
     if (request.url === '/live') return send(200, { mode: 'G7-CONTRACT-FIXTURE' });
     if (request.url === '/api/v1/auth/.well-known/jwks.json') return send(200, { keys: [jwk] });
+    if (request.url === '/api/v1/password/politica') return send(200, { longitudMinima: 10, requiereMayuscula: true,
+      requiereMinuscula: true, requiereDigito: true, requiereCaracterEspecial: true, historial: 5,
+      rechazaComunes: true, rechazaDatosPersonales: true });
     let raw = ''; for await (const chunk of request) { raw += chunk; if (raw.length > 4096) return send(413, { code: 'VALIDACION' }); }
     const body = JSON.parse(raw || '{}');
+    if (request.url === '/api/v1/auth/registro') {
+      if (body.canalOrigen !== 'MARKETPLACE') return send(400, { code: 'VALIDACION' });
+      if (body.correo === 'conflict@fixture.test') return send(409, { code: 'CORREO_NO_DISPONIBLE' });
+      if (body.contrasena === 'Password2026!') return send(422, { code: 'POLITICA_INCUMPLIDA' });
+      return send(201, { id: randomUUID(), estado: 'PENDIENTE_VERIFICACION' });
+    }
+    if (request.url === '/api/v1/password/recuperar') {
+      if (body.correo === 'limit@fixture.test') { response.setHeader('Retry-After', '5'); return send(429, { code: 'DEMASIADAS_SOLICITUDES' }); }
+      return send(202);
+    }
+    if (request.url === '/api/v1/password/restablecer') {
+      if (body.token === 'expired-fixture') return send(410, { code: 'TOKEN_RECUPERACION_EXPIRADO' });
+      if (body.token !== 'valid-fixture') return send(401, { code: 'TOKEN_RECUPERACION_INVALIDO' });
+      if (body.nuevaContrasena === 'Password2026!') return send(422, { code: 'POLITICA_INCUMPLIDA' });
+      return send(204);
+    }
     if (request.url === '/api/v1/auth/login') {
       if (!['a@fixture.test', 'b@fixture.test', 'mfa@fixture.test'].includes(body.correo)
         || body.contrasena !== 'Fixture-only!123') return send(401, { code: 'CREDENCIALES_INVALIDAS' });

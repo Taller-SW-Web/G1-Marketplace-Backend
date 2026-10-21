@@ -30,10 +30,10 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
   const jwk = { ...publicKey.export({ format: 'jwk' }), alg: 'RS256', use: 'sig', kid: 'fixture-g7-h4' };
   function tokens(id: string) {
     const refreshToken = randomBytes(32).toString('base64url'); refreshes.set(refreshToken, id);
-    return { accessToken: sign({ tipo: 'acceso', roles: [sessionRole], jti: randomUUID() }, privateKey,
+    return { accessToken: sign({ tipo: 'acceso', roles: [sessionRole], permisos: [], email: id === A ? 'a@fixture.test' : 'b@fixture.test', jti: randomUUID() }, privateKey,
       { algorithm: 'RS256', keyid: jwk.kid, issuer, subject: id, expiresIn: 900 }),
       refreshToken, tokenType: 'Bearer', expiresIn: 900,
-      usuario: { id, nombreCompleto: id === A ? 'Cuenta A fixture' : 'Cuenta B fixture', roles: [sessionRole] } };
+      usuario: { id, nombreCompleto: id === A ? 'Cuenta A fixture' : 'Cuenta B fixture', correo: id === A ? 'a@fixture.test' : 'b@fixture.test', roles: [sessionRole] } };
   }
   const cookie = (response: request.Response, name = 'g1_session') => {
     const values = response.headers['set-cookie'] as unknown as string[];
@@ -158,6 +158,7 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     await prisma.authSession.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     const response = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200);
     expect(response.body.authenticated).toBe(false); expect(refreshCalls).toBe(0);
+    expect(String(response.headers['set-cookie'])).toContain('Max-Age=0');
     const challenge = cookie(await login('mfa@fixture.test').expect(200), 'g1_challenge');
     await prisma.authSession.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     await request(app.getHttpServer()).post('/api/v1/auth/otp/verificar').set('Cookie', challenge).set('Origin', origin).send({ codigo: '123456' }).expect(410);

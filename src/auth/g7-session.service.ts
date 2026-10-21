@@ -151,10 +151,17 @@ export class G7SessionService {
     }
     throw unavailable();
   }
-  async session(request: CookieRequest) {
+  async session(request: CookieRequest, response?: CookieResponse) {
     if (!this.enabled()) return { authenticated: false, scope: 'anonymous' };
-    const data = await this.access(this.cookie(request));
-    return data ? this.publicSession(data) : { authenticated: false, scope: 'anonymous' };
+    const opaque = this.cookie(request);
+    try {
+      const data = await this.access(opaque);
+      if (!data && opaque && response) this.setCookie(response, '', 0);
+      return data ? this.publicSession(data) : { authenticated: false, scope: 'anonymous' };
+    } catch (error) {
+      if (opaque && response) this.setCookie(response, '', 0);
+      throw error;
+    }
   }
   async refresh(request: CookieRequest) {
     this.assertOrigin(request);

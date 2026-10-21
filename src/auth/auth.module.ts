@@ -7,11 +7,13 @@ import { G7Client } from './g7.client';
 import { G7SessionService } from './g7-session.service';
 import { SessionStore } from './session.store';
 import { SessionMiddleware } from './session.middleware';
+import { AccountController } from './account.controller';
+import { AccountService } from './account.service';
 
 @Module({
   imports: [PrismaModule, CartModule],
-  controllers: [AuthController],
-  providers: [AuthService, G7Client, G7SessionService, SessionStore, SessionMiddleware],
+  controllers: [AuthController, AccountController],
+  providers: [AuthService, G7Client, G7SessionService, SessionStore, SessionMiddleware, AccountService],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

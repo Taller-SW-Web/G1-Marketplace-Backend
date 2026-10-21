@@ -31,6 +31,10 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   }
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
   const authEnabled = String(config.AUTH_ENABLED ?? 'false');
+  for (const name of ['G7_REGISTRATION_ENABLED', 'G7_RECOVERY_ENABLED']) {
+    if (!['true', 'false'].includes(String(config[name] ?? 'false'))) throw new Error(`${name} must be true or false`);
+    if (String(config[name]) === 'true' && authEnabled !== 'true') throw new Error(`${name} requires AUTH_ENABLED=true`);
+  }
   if (!['true', 'false'].includes(authEnabled)) throw new Error('AUTH_ENABLED must be true or false');
   if (authEnabled === 'true') {
     if (String(config.H3_AUTH_MOCK) === 'true' || sandbox) throw new Error('G7 auth cannot be combined with mock identity');
