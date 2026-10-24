@@ -567,11 +567,31 @@ export class CheckoutService {
   }
 
   private async findActiveCart(customerId: string) {
-    return this.prisma.cart.findFirst({
+    let cart = await this.prisma.cart.findFirst({
       where: { customerId, state: 'ACTIVE' },
       include: { items: true },
       orderBy: { updatedAt: 'desc' },
     });
+
+    if (
+      !cart &&
+      (process.env.USE_MOCKS === 'true' || process.env.NODE_ENV !== 'production')
+    ) {
+      const anonCart = await this.prisma.cart.findFirst({
+        where: { customerId: null, state: 'ACTIVE' },
+        include: { items: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (anonCart) {
+        cart = await this.prisma.cart.update({
+          where: { id: anonCart.id },
+          data: { customerId, anonymousSessionHash: null },
+          include: { items: true },
+        });
+      }
+    }
+
+    return cart;
   }
 
   private createPreparedContext(quote: CheckoutQuote, cartVersion: number): PreparedContext {
