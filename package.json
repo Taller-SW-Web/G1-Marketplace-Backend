@@ -63,6 +63,11 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
+  "overrides": {
+    "@nestjs/platform-express": {
+      "multer": "2.5.0"
+    }
+  },
   "engines": {
     "node": ">=22 <25"
   }
