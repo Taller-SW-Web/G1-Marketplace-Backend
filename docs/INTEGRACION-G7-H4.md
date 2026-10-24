@@ -4,6 +4,16 @@ Responsable: Jim Segovia. Revisor: Andrés Morales. Estado: implementación loca
 
 ## Fuentes y responsabilidades
 
+### Actualización de coordinación — 23/10/2026
+
+Jim recibió las dos cuentas CLIENTE de G7: A con MFA por correo, B sin MFA. Accesos privados conservados localmente en el worktree SPECS, excluidos de Git; no copiar a este repositorio ni a evidencias. El pendiente de entrega queda resuelto; el funcionamiento aún no está validado.
+
+Fetch: documentación G7 main `d44dafb`, backend develop `66853992b2cd2a728ad3379e03d6f7dac2d56031` y main `d51ac2e`. Develop ya publica controladores de recuperación/restablecimiento, cambio MFA y consulta de identidad. Las peticiones/respuestas de recuperación y reset coinciden con el adaptador preparado G1; mantener flags desactivados hasta confirmar despliegue y homologar. Las referencias anteriores de esta guía conservan el corte histórico del 21/10.
+
+Primera comprobación real, directamente desde el equipo local a G7: SPA HTTP 200, API salud/discovery/JWKS timeout 45 s; curl adicional de JWKS timeout 25 s con TLS establecido; único login B timeout 20 s. No se solicitó OTP, no se obtuvieron tokens y no se ejecutaron refresh/logout/favoritos. El bundle público de la SPA sigue apuntando a `https://g7-auth-service.onrender.com/api/v1`. No atribuir el timeout a contraseña incorrecta ni anunciar validación. No reintentar automáticamente login/refresh inciertos.
+
+Jim pide por ahora probar sólo la API G7; la prueba BFF/FE+PostgreSQL y el despliegue quedan pendientes. URLs/SHAs efectivos G1/G7, G-DB y revisión independiente no se liberan por entrega de cuentas. [Registro y siguientes casos](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/docs/s2-auth-sesion-g7/plan/coordinacion/G7-H4-2026-10-23.md).
+
 - G1 SPECS: propuesta `docs/s2-auth-sesion-g7`, contratos F-002/F-003.
 - G7 documentación: `1b034d2b1db0a19bb5c12c1c5426c797f47864b5`, OpenAPI v1.1.0 y `docs/integracion/hito-4-marketplace.md`.
 - Base G7 contrastada: develop `4bd7b61`, main `d51ac2e`. Revalidación del 21/10: develop `813b8099a59974c172d95a0b45b23d125e58caa6`, main continúa `d51ac2e`. Se contrastaron DTO, login/MFA, refresh de un uso y logout; consultar código no prueba el despliegue.
