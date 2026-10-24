@@ -1,0 +1,186 @@
+{
+  "recordedAt": "2026-10-24T02:49:51.494Z",
+  "scope": "API G7 directa desde equipo local; no BFF/FE G1 desplegados",
+  "apiBase": "https://g7-auth-service.onrender.com/api/v1",
+  "deployedSha": null,
+  "sourceBackendRevision": "66853992b2cd2a728ad3379e03d6f7dac2d56031",
+  "accounts": {
+    "A": {
+      "role": "CLIENTE",
+      "mfa": "EMAIL",
+      "emailReceivedAndCodeSuppliedByJim": true,
+      "login": 200,
+      "otpRequest": 202,
+      "otpVerify": 200,
+      "signatureAndClaims": "PASS",
+      "profile": 200,
+      "profileSameIdentity": true,
+      "refresh": 200,
+      "rotatedRefreshAndAccess": true,
+      "logout": 204,
+      "refreshAfterLogout": 401
+    },
+    "B": {
+      "role": "CLIENTE",
+      "mfa": false,
+      "login": 200,
+      "signatureAndClaims": "PASS",
+      "profile": 200,
+      "profileSameIdentity": true,
+      "refresh": 200,
+      "rotatedRefreshAndAccess": true,
+      "logout": 204,
+      "refreshAfterLogout": 401
+    }
+  },
+  "discovery": {
+    "status": 200,
+    "issuerMatches": true,
+    "jwksUriMatches": true
+  },
+  "health": {
+    "status": 200,
+    "health": "UP"
+  },
+  "passwordPolicy": {
+    "status": 200,
+    "publicFieldsPresent": true,
+    "acceptedByG1Parser": true
+  },
+  "requests": [
+    {
+      "path": "auth/login",
+      "error": "TimeoutError",
+      "milliseconds": 20006
+    },
+    {
+      "path": "auth/login",
+      "status": 200,
+      "milliseconds": 7027
+    },
+    {
+      "path": "auth/.well-known/jwks.json",
+      "status": 200,
+      "milliseconds": 178
+    },
+    {
+      "case": "B.signature-and-claims",
+      "result": "PASS"
+    },
+    {
+      "path": "auth/me",
+      "status": 200,
+      "milliseconds": 846
+    },
+    {
+      "path": "auth/refresh",
+      "status": 200,
+      "milliseconds": 1451
+    },
+    {
+      "case": "B.refresh-rotation",
+      "result": "PASS",
+      "sameIdentity": true,
+      "refreshChanged": true,
+      "accessChanged": true
+    },
+    {
+      "path": "auth/logout",
+      "status": 204,
+      "milliseconds": 900
+    },
+    {
+      "path": "auth/refresh",
+      "status": 401,
+      "milliseconds": 495
+    },
+    {
+      "case": "B.closed-refresh-rejected",
+      "result": "PASS"
+    },
+    {
+      "path": "auth/login",
+      "status": 200,
+      "milliseconds": 1642
+    },
+    {
+      "path": "auth/otp/solicitar",
+      "status": 202,
+      "milliseconds": 1208
+    },
+    {
+      "path": "auth/otp/verificar",
+      "status": 200,
+      "milliseconds": 1029
+    },
+    {
+      "case": "A.MFA-signature-and-claims",
+      "result": "PASS"
+    },
+    {
+      "path": "auth/me",
+      "status": 200,
+      "milliseconds": 259
+    },
+    {
+      "case": "A.profile-same-identity",
+      "result": "PASS"
+    },
+    {
+      "path": "auth/refresh",
+      "status": 200,
+      "milliseconds": 981
+    },
+    {
+      "case": "A.refresh-rotation",
+      "result": "PASS",
+      "sameIdentity": true,
+      "refreshChanged": true,
+      "accessChanged": true
+    },
+    {
+      "path": "auth/logout",
+      "status": 204,
+      "milliseconds": 712
+    },
+    {
+      "path": "auth/refresh",
+      "status": 401,
+      "milliseconds": 226
+    },
+    {
+      "case": "A.closed-refresh-rejected",
+      "result": "PASS"
+    },
+    {
+      "path": "password/politica",
+      "status": 200,
+      "milliseconds": 153
+    },
+    {
+      "path": "auth/.well-known/openid-configuration",
+      "status": 200,
+      "milliseconds": 197
+    },
+    {
+      "path": "/actuator/health",
+      "status": 200,
+      "health": "UP"
+    },
+    {
+      "path": "auth/me",
+      "status": 401,
+      "milliseconds": 197
+    }
+  ],
+  "limitations": [
+    "API directa G7; no sesión opaca, cookies, recarga o proxy G1 probados en este corte",
+    "Sin prueba de favoritos A/B ni contratos G6",
+    "Sin SHA desplegado certificado de G7 ni URLs/SHAs efectivos G1",
+    "No cierre de issue ni aprobación independiente"
+  ],
+  "anonymousProfile": {
+    "status": 401,
+    "acceptedAsUnauthorized": true
+  }
+}
