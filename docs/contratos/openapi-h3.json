@@ -1,20 +1,269 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Marketplace H3 — Favoritos",
-    "version": "0.2.0",
-    "description": "F-036–F-039 sandbox conectado: identidad, catálogo y condiciones comerciales MOCK; HTTP y persistencia PostgreSQL reales locales; agregar al carrito conserva el favorito, sin idempotencia durable. No acredita homologación externa."
+    "title": "Marketplace — API BFF Carrito y Favoritos (Hito 3 / Hito 4)",
+    "version": "0.3.0",
+    "description": "Especificación OpenAPI para las operaciones de Carrito de Compras (F-016 a F-021) y Favoritos (F-036 a F-039). Soporta autenticación dual: Bearer JWT (RS256) para clientes autenticados y cookie HttpOnly (cart_session) para invitados."
   },
   "servers": [
     {
       "url": "http://localhost:10000",
-      "description": "Sandbox local, no producción"
+      "description": "Sandbox / Desarrollo local"
+    },
+    {
+      "url": "https://g1-marketplace-backend.onrender.com",
+      "description": "Servidor Render Producción"
     }
   ],
   "paths": {
+    "/api/v1/carts/current/items": {
+      "post": {
+        "operationId": "addCartItem",
+        "tags": [
+          "Cart"
+        ],
+        "summary": "F-016: Agregar ítem al carrito actual (alta o incremento)",
+        "description": "Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCartItemPayload"
+              },
+              "example": {
+                "sku": "AERO-42-BLK",
+                "quantity": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Línea existente incrementada (ITEM_INCREMENTED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartMutationResponse"
+                },
+                "example": {
+                  "status": "ITEM_INCREMENTED",
+                  "data": {
+                    "cartId": "11111111-1111-4111-8111-111111111111",
+                    "version": 3,
+                    "items": [
+                      {
+                        "sku": "AERO-42-BLK",
+                        "quantity": 2,
+                        "unitPrice": {
+                          "amount": 89.9,
+                          "currency": "PEN",
+                          "version": 1
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Nueva línea creada en el carrito (ITEM_CREATED).",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Cookie de sesión anónima HttpOnly (solo para invitados)",
+                "schema": {
+                  "type": "string",
+                  "example": "cart_session=uuid; Path=/; HttpOnly; SameSite=Lax"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartMutationResponse"
+                },
+                "example": {
+                  "status": "ITEM_CREATED",
+                  "data": {
+                    "cartId": "11111111-1111-4111-8111-111111111111",
+                    "version": 2,
+                    "items": [
+                      {
+                        "sku": "AERO-42-BLK",
+                        "quantity": 1,
+                        "unitPrice": {
+                          "amount": 89.9,
+                          "currency": "PEN",
+                          "version": 1
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validación fallida: SKU ausente o cantidad fuera del rango permitido [1, 99].",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "invalidSku": {
+                    "value": {
+                      "code": "INVALID_SKU",
+                      "message": "El parámetro sku es requerido."
+                    }
+                  },
+                  "invalidQuantity": {
+                    "value": {
+                      "code": "INVALID_QUANTITY",
+                      "message": "La cantidad debe ser un entero entre 1 y 99."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token de autenticación inválido, expirado o firma corrupta.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "UNAUTHENTICATED",
+                  "message": "Token de autenticación inválido, expirado o firma corrupta."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Producto o SKU no disponible para venta.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "SKU_NOT_AVAILABLE",
+                  "message": "Producto o SKU no disponible para venta."
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de negocio: límite de stock excedido o error de cotización.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "stockLimitReached": {
+                    "value": {
+                      "code": "STOCK_LIMIT_REACHED",
+                      "message": "La cantidad excede el límite permitido de 99 unidades por ítem."
+                    }
+                  },
+                  "commerceDataUnavailable": {
+                    "value": {
+                      "code": "COMMERCE_DATA_UNAVAILABLE",
+                      "message": "Cotización no válida o datos comerciales no disponibles."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servidor."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/carts/current": {
+      "get": {
+        "operationId": "getCurrentCart",
+        "tags": [
+          "Cart"
+        ],
+        "summary": "F-019: Obtener el carrito actual del titular o invitado",
+        "description": "Recupera el snapshot del carrito activo asociado al customer_id (vía Bearer token) o a la sesión anónima (vía cookie cart_session). Devuelve items, cantidades, snapshots de precios y la versión actual.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Carrito recuperado exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "data"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartSnapshot"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servidor."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/wishlist": {
       "get": {
         "operationId": "listWishlist",
+        "tags": [
+          "Wishlist"
+        ],
         "summary": "F-037: favoritos del titular por createdAt DESC",
         "security": [
           {
@@ -122,6 +371,9 @@
     "/api/v1/wishlist/items/{productId}/add-to-cart": {
       "post": {
         "operationId": "addWishlistItemToCart",
+        "tags": [
+          "Wishlist"
+        ],
         "summary": "Agregar una unidad al carrito conservando el favorito",
         "security": [
           {
@@ -312,6 +564,9 @@
     "/api/v1/wishlist/items": {
       "post": {
         "operationId": "saveWishlistItem",
+        "tags": [
+          "Wishlist"
+        ],
         "summary": "F-036: guardar favorito propio",
         "security": [
           {
@@ -453,6 +708,9 @@
     "/api/v1/wishlist/items/{productId}": {
       "delete": {
         "operationId": "readdWishlistItemToCart",
+        "tags": [
+          "Wishlist"
+        ],
         "summary": "F-038: eliminar favorito propio, sin consultar catálogo",
         "security": [
           {
@@ -542,6 +800,9 @@
     "/health": {
       "get": {
         "operationId": "readiness",
+        "tags": [
+          "System"
+        ],
         "security": [],
         "responses": {
           "200": {
@@ -595,6 +856,126 @@
       }
     },
     "schemas": {
+      "AddCartItemPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sku"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Identificador único del SKU del producto.",
+            "example": "AERO-42-BLK"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99,
+            "default": 1,
+            "description": "Cantidad de unidades a sumar al carrito (entero entre 1 y 99).",
+            "example": 1
+          }
+        }
+      },
+      "CartMutationResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ITEM_CREATED",
+              "ITEM_INCREMENTED"
+            ],
+            "example": "ITEM_CREATED"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CartSnapshot"
+          }
+        }
+      },
+      "CartSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cartId",
+          "version",
+          "items"
+        ],
+        "properties": {
+          "cartId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador único UUID del carrito.",
+            "example": "11111111-1111-4111-8111-111111111111"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Versión incremental del carrito para control de concurrencia optimista.",
+            "example": 2
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartItemSnapshot"
+            }
+          }
+        }
+      },
+      "CartItemSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sku",
+          "quantity"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "example": "AERO-42-BLK"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99,
+            "example": 1
+          },
+          "unitPrice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "currency",
+              "version"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "minimum": 0,
+                "example": 89.9
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$",
+                "example": "PEN"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "example": 1
+              }
+            }
+          }
+        }
+      },
       "WishlistItemView": {
         "type": "object",
         "additionalProperties": false,
@@ -693,68 +1074,7 @@
             "type": "string"
           },
           "cart": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "cartId",
-              "version",
-              "items"
-            ],
-            "properties": {
-              "cartId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "version": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "items": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "sku",
-                    "quantity"
-                  ],
-                  "properties": {
-                    "sku": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "quantity": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 99
-                    },
-                    "unitPrice": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "amount",
-                        "currency",
-                        "version"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "currency": {
-                          "type": "string",
-                          "pattern": "^[A-Z]{3}$"
-                        },
-                        "version": {
-                          "type": "integer",
-                          "minimum": 0
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/schemas/CartSnapshot"
           }
         }
       },
