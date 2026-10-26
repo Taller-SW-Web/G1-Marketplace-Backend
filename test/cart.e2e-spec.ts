@@ -13,6 +13,7 @@ describe('CartController (e2e)', () => {
   const mockCartService = {
     addItemToCart: jest.fn(),
     getCurrentCart: jest.fn(),
+    updateItemQuantity: jest.fn(),
   };
 
   const issuer = 'http://127.0.0.1:4010';
@@ -251,5 +252,70 @@ describe('CartController (e2e)', () => {
     );
     expect(res.body.data.cartId).toBe('cart-mock-user');
     expect(res.body.data.version).toBe(1);
+  });
+
+  describe('TASK-F017-BE-001: PATCH /api/v1/carts/current/items/:sku', () => {
+    it('updates quantity and returns updated snapshot (200 OK)', async () => {
+      mockCartService.updateItemQuantity.mockResolvedValue({
+        cartId: 'cart-123',
+        version: 3,
+        items: [{ sku: 'SKU-001', quantity: 5, unitPrice: { amount: 89.9, currency: 'PEN', version: 1 } }],
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/v1/carts/current/items/SKU-001')
+        .send({ quantity: 5 })
+        .expect(200);
+
+      expect(mockCartService.updateItemQuantity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sku: 'SKU-001',
+          quantity: 5,
+        }),
+      );
+      expect(res.body.status).toBe('OK');
+      expect(res.body.data.version).toBe(3);
+      expect(res.body.data.items[0].quantity).toBe(5);
+    });
+
+    it('passes If-Match version to service for optimistic concurrency', async () => {
+      mockCartService.updateItemQuantity.mockResolvedValue({
+        cartId: 'cart-123',
+        version: 3,
+        items: [{ sku: 'SKU-001', quantity: 4 }],
+      });
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/carts/current/items/SKU-001')
+        .set('if-match', '2')
+        .send({ quantity: 4 })
+        .expect(200);
+
+      expect(mockCartService.updateItemQuantity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sku: 'SKU-001',
+          quantity: 4,
+          expectedVersion: 2,
+        }),
+      );
+    });
+
+    it('rejects quantity 0 with 400 Bad Request (API-CA-F017-01: no implicit delete)', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/v1/carts/current/items/SKU-001')
+        .send({ quantity: 0 })
+        .expect(400);
+
+      expect(mockCartService.updateItemQuantity).not.toHaveBeenCalled();
+    });
+
+    it('rejects quantity > 99 with 400 Bad Request', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/v1/carts/current/items/SKU-001')
+        .send({ quantity: 100 })
+        .expect(400);
+
+      expect(mockCartService.updateItemQuantity).not.toHaveBeenCalled();
+    });
   });
 });
