@@ -6,6 +6,20 @@ info:
     Contrato de las rutas Checkout implementadas en el BFF. MOCK no acredita
     integración REAL ni despliegue. La identidad se deriva del principal
     autenticado; customerId no se acepta en payloads.
+  x-g6-compatibility:
+    catalog: quote lines y versión vienen del snapshot vigente del carrito; no se aceptan importes del cliente
+    dispatch: addressId se valida contra el proveedor de direcciones antes de cotizar cobertura y envío
+    benefits: el proveedor decide elegibilidad y descuento; quitar beneficio requiere obtener una cotización base
+    inventory: preparación revalida quote/cart context; PREPARED no significa pedido ni reserva
+    sales: solo la respuesta autoritativa de Ventas puede establecer PAGADO; timeout queda incierto/pendiente
+    g-g6-compat: >-
+      El contrato BFF es el adaptador de compatibilidad; los esquemas externos G6 no se declaran
+      implementados ni verificados hasta contar con contrato/provider y pruebas sanitizadas.
+  x-g7-compatibility:
+    identity: customerId se deriva del subject autenticado; operación consultable solo por su titular
+    token: credencial Bearer se propaga servidor a servidor, nunca desde un campo del payload
+    browser: el navegador consume el BFF y no llama directamente a proveedores internos
+  x-runtime-status: implemented-mock-only
 servers:
   - url: http://localhost:10000
     description: Desarrollo local
