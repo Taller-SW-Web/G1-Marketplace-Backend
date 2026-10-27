@@ -42,6 +42,23 @@ export const MOCK_PRODUCT_NO_SPECS: ProductDetailResponseDTO = {
   data: { ...MOCK_PRODUCT_SIMPLE.data, technicalSpecifications: [] },
 };
 
+/**
+ * Producto MOCK con variantes (F-013): permite probar selección de color y
+ * talla, precio por SKU y disponibilidad por SKU sin inventar datos reales.
+ * Slug: 'producto-variable-mock'.
+ */
+export const MOCK_PRODUCT_VARIABLE: ProductDetailResponseDTO = {
+  ...MOCK_PRODUCT_SIMPLE,
+  data: {
+    ...MOCK_PRODUCT_SIMPLE.data,
+    productId: 'PRD-VAR-MOCK-001',
+    slug: 'producto-variable-mock',
+    name: 'Zapatillas Variable Mock [MOCK]',
+    description:
+      'Producto ficticio con color y talla. La variante se elige en la ficha [MOCK].',
+  },
+};
+
 // ─────────────────────────────────────────────────────────────
 // Slugs especiales para pruebas (unit FE, unit BE y e2e):
 //   'producto-no-existente-mock'  → responde 404 (cae al lookup: no existe)
@@ -109,6 +126,7 @@ export const MOCK_DEMO_PRODUCTS: ProductDetailResponseDTO[] = Array.from(
 const slugEntries: Array<[string, ProductDetailResponseDTO]> =
   MOCK_DEMO_PRODUCTS.map((product) => [product.data.slug, product]);
 slugEntries.push([MOCK_PRODUCT_SIMPLE.data.slug, MOCK_PRODUCT_SIMPLE]);
+slugEntries.push([MOCK_PRODUCT_VARIABLE.data.slug, MOCK_PRODUCT_VARIABLE]);
 
 export const MOCK_PRODUCTS_BY_SLUG: ReadonlyMap<string, ProductDetailResponseDTO> =
   new Map(slugEntries);
