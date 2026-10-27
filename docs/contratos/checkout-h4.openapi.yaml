@@ -1,0 +1,299 @@
+openapi: 3.0.3
+info:
+  title: Marketplace Checkout BFF — H4
+  version: 1.0.0
+  description: >-
+    Contrato de las rutas Checkout implementadas en el BFF. MOCK no acredita
+    integración REAL ni despliegue. La identidad se deriva del principal
+    autenticado; customerId no se acepta en payloads.
+servers:
+  - url: http://localhost:10000
+    description: Desarrollo local
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/checkout/delivery-addresses:
+    get:
+      operationId: listDeliveryAddresses
+      tags: [Checkout, Security]
+      summary: Listar direcciones del titular
+      responses:
+        '200':
+          description: Direcciones propias
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    post:
+      operationId: createDeliveryAddress
+      tags: [Checkout, Security]
+      summary: Crear dirección para el titular autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddressInput' }
+      responses:
+        '201':
+          description: Dirección creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/quotes:
+    post:
+      operationId: createCheckoutQuote
+      tags: [Checkout, Catalog, Cart]
+      summary: Cotizar el carrito vigente para una dirección
+      description: >-
+        cartVersion es control optimista; el servidor obtiene el carrito y el
+        titular de la sesión autenticada. No se aceptan importes del cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteInput' }
+      responses:
+        '200':
+          description: Cotización autoritativa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/benefits:
+    post:
+      operationId: applyCheckoutBenefit
+      tags: [Checkout, Benefits]
+      summary: Aplicar o quitar un cupón
+      description: Omitir couponCode solicita una cotización base sin beneficio.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BenefitInput' }
+      responses:
+        '200':
+          description: Beneficio validado y cotización actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/preparations:
+    post:
+      operationId: prepareCheckout
+      tags: [Checkout, Inventory]
+      summary: Revalidar y preparar la compra
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrepareInput' }
+      responses:
+        '201':
+          description: Operación preparada; no representa pedido pagado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/orders:
+    post:
+      operationId: createCheckoutOrder
+      tags: [Checkout, Sales]
+      summary: Solicitar creación idempotente de pedido
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderInput' }
+      responses:
+        '200':
+          description: Resultado final autoritativo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '202':
+          description: Resultado pendiente; no presentar como pago exitoso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/operations/{operationId}:
+    get:
+      operationId: getCheckoutOperation
+      tags: [Checkout, Sales]
+      summary: Consultar operación del titular
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Estado de la operación
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '202':
+          description: Estado aún pendiente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+  responses:
+    InvalidRequest:
+      description: DTO inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Autenticación inválida o ausente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: Cotización, stock, contexto o idempotencia en conflicto
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unprocessable:
+      description: Beneficio no aplicable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unavailable:
+      description: Proveedor externo no disponible o timeout mapeado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Operación no encontrada o no pertenece al titular
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string }
+    AddressInput:
+      type: object
+      additionalProperties: false
+      required: [street, district, province, department, phone]
+      properties:
+        label: { type: string, maxLength: 80 }
+        street: { type: string, minLength: 1, maxLength: 180 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        province: { type: string, minLength: 1, maxLength: 100 }
+        department: { type: string, minLength: 1, maxLength: 100 }
+        reference: { type: string, maxLength: 180 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+    Address:
+      allOf:
+        - $ref: '#/components/schemas/AddressInput'
+        - type: object
+          required: [addressId]
+          properties:
+            addressId: { type: string }
+    AddressResult:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Address' }
+    AddressList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+    QuoteInput:
+      type: object
+      additionalProperties: false
+      required: [addressId, cartVersion]
+      properties:
+        addressId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+    BenefitInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        couponCode: { type: string, maxLength: 30 }
+    PrepareInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId, cartVersion, simulationConfirmed]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+        simulationConfirmed: { type: boolean }
+    OrderInput:
+      type: object
+      additionalProperties: false
+      required: [checkoutOperationId, contact]
+      properties:
+        checkoutOperationId: { type: string, format: uuid }
+        contact:
+          type: object
+          required: [fullName, documentType, documentNumber, phone, email]
+          properties:
+            fullName: { type: string, minLength: 2, maxLength: 120 }
+            documentType: { type: string, enum: [DNI, RUC, CE, PASAPORTE] }
+            documentNumber: { type: string, minLength: 5, maxLength: 24 }
+            phone: { type: string, minLength: 5, maxLength: 40 }
+            email: { type: string, format: email, maxLength: 254 }
+    QuoteResult:
+      type: object
+      description: Respuesta data basada en la cotización del proveedor.
+      required: [data]
+      properties:
+        data: { type: object }
+    OperationResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [state]
+          properties:
+            checkoutOperationId: { type: string, format: uuid }
+            state: { type: string, enum: [PREPARED, SUBMITTED, SUCCEEDED, FAILED] }
+            failureCode: { type: string }
+            recoveryRequired: { type: boolean }
+            order: { type: object, description: Pedido autoritativo cuando Sales lo devuelve. }
