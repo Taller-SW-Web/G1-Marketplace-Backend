@@ -61,6 +61,13 @@ Dos hechos relevantes que no están en la spec de G1:
    regla RN-F014-02 de G1 describe justamente una agregación sobre «ubicaciones elegibles»:
    el conflicto no es sólo el ancho del enum.
 
+Observación adicional (a confirmar con G6): el mismo contrato usa **dos enums distintos**.
+`DisponibilidadComercial.status` tiene cuatro valores, pero `EstadoStock` —el que usan
+`/recomendaciones` y otras operaciones— tiene sólo `DISPONIBLE | STOCK_BAJO | AGOTADO`. Es decir,
+una recomendación no puede expresar `INDETERMINADO` con el esquema actual. Si la homologación
+adopta cuatro estados, conviene que G6 indique si `EstadoStock` también cambia o si la
+recomendación queda deliberadamente en tres.
+
 ### Fuente C — registro bilateral M-01
 
 `G6-Productos-Ofertas-docs@c36bd9a`, `integraciones/ACUERDOS_G1_MARKETPLACE_2026-10-13.md`, línea M-01:
