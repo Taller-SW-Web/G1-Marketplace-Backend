@@ -453,10 +453,11 @@ export class CheckoutService {
       const result = await this.refreshOrder(operation);
       return { status: result.status, data: this.operationStatusView(result.data) };
     }
+    if (operation.state === CheckoutOperationState.FAILED) {
+      this.fail(409, operation.failureCode ?? 'ORDER_NOT_COMPLETED');
+    }
     if (
-      operation.externalOrderId &&
-      (operation.state === CheckoutOperationState.SUCCEEDED ||
-        operation.state === CheckoutOperationState.FAILED)
+      operation.externalOrderId && operation.state === CheckoutOperationState.SUCCEEDED
     ) {
       try {
         const order = await this.gateway.getOrder(operation.externalOrderId);

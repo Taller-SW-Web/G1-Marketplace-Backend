@@ -847,6 +847,22 @@ describe('CheckoutService', () => {
     expect(operation.externalOrderId).toBeNull();
   });
 
+  it('returns 409 when a previously terminal FAILED operation is queried again', async () => {
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.FAILED,
+      failureCode: 'PAGO_NO_COMPLETADO',
+      externalOrderId: null,
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+
+    await expect(service.getOperation(customerId, operationId)).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'PAGO_NO_COMPLETADO' } },
+    });
+    expect(gateway.getOrder).not.toHaveBeenCalled();
+  });
+
   it('does not reveal an operation to a different customer', async () => {
     prisma.checkoutOperation.findFirst.mockResolvedValue(null);
     await expect(service.getOperation('99999999-9999-4999-8999-999999999999', operationId)).rejects.toBeInstanceOf(
