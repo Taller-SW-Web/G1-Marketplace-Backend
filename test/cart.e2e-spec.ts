@@ -140,6 +140,24 @@ describe('CartController (e2e)', () => {
     }));
   });
 
+  it('accepts the explicitly selected SKU for a variable catalog product', async () => {
+    mockCartService.addItemToCart.mockResolvedValue({
+      status: 201,
+      code: 'ITEM_CREATED',
+      data: { cartId: 'cart-123', version: 1, items: [{ sku: 'SKU-MOCK-VAR-1', quantity: 1 }] },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/carts/current/items')
+      .send({ sku: 'SKU-MOCK-VAR-1', quantity: 1 })
+      .expect(201);
+
+    expect(mockCartService.addItemToCart).toHaveBeenCalledWith(expect.objectContaining({
+      sku: 'SKU-MOCK-VAR-1',
+      quantity: 1,
+    }));
+  });
+
   it('rejects a productId without a server-owned MOCK SKU mapping', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/carts/current/items')

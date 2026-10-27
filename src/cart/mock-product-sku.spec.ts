@@ -18,8 +18,15 @@ describe('mockSkuForProductId', () => {
   });
 
   it('maps each catalog demo fixture without exposing a SKU in the product contract', () => {
-    expect(mockSkuForProductId('mock-product-7')).toBe('SKU-MOCK-007');
-    expect(mockSkuForProductId('mock-product-32')).toBe('SKU-MOCK-032');
+    expect(mockSkuForProductId('mock-product-1')).toBe('SKU-MOCK-002');
+    expect(mockSkuForProductId('mock-product-7')).toBe('SKU-MOCK-008');
+    expect(mockSkuForProductId('mock-product-32')).toBe('SKU-MOCK-033');
+  });
+
+  it('does not choose a variant SKU when only the variable productId is provided', () => {
+    expect(() => mockSkuForProductId('PRD-VAR-MOCK-001')).toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects unknown or out-of-range products instead of inventing a SKU', () => {

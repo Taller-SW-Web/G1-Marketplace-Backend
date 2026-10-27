@@ -8,12 +8,14 @@ export function mockSkuForProductId(productId: string): string {
     });
   }
 
+  // Keep this in sync with src/catalog/mock-sku.ts. Variable products must be
+  // added with their selected SKU; productId alone cannot identify a variant.
   if (productId === 'PRD-MOCK-001') return 'SKU-MOCK-001';
 
   const demoProduct = /^mock-product-(\d{1,2})$/.exec(productId);
   const number = demoProduct ? Number(demoProduct[1]) : 0;
   if (number >= 1 && number <= 32) {
-    return `SKU-MOCK-${String(number).padStart(3, '0')}`;
+    return `SKU-MOCK-${String(number + 1).padStart(3, '0')}`;
   }
 
   throw new BadRequestException({
