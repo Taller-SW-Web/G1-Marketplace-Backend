@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cart, CartItem, CartState, Prisma } from '@prisma/client';
@@ -203,6 +204,110 @@ export class CartService {
             : undefined,
         })),
       },
+    };
+  }
+
+  /**
+   * TASK-F017-BE-001: Actualizar cantidad de un ítem en el carrito
+   */
+  async updateItemQuantity(params: {
+    sessionHash?: string;
+    customerId?: string;
+    sku: string;
+    quantity: number;
+    expectedVersion?: number;
+  }): Promise<CartSnapshotDto> {
+    return this.prisma.$transaction((tx) => this.updateItemQuantityInTransaction(tx, params));
+  }
+
+  async updateItemQuantityInTransaction(
+    tx: Prisma.TransactionClient,
+    params: {
+      sessionHash?: string;
+      customerId?: string;
+      sku: string;
+      quantity: number;
+      expectedVersion?: number;
+    },
+  ): Promise<CartSnapshotDto> {
+    const { sessionHash, customerId, sku, quantity, expectedVersion } = params;
+
+    if (!sku || typeof sku !== 'string' || sku.trim() === '') {
+      throw new BadRequestException({
+        code: 'INVALID_SKU',
+        message: 'El parámetro sku es requerido.',
+      });
+    }
+
+    const parsedQty = Number(quantity);
+    if (!Number.isInteger(parsedQty) || parsedQty < 1 || parsedQty > 99) {
+      throw new BadRequestException({
+        code: 'INVALID_QUANTITY',
+        message: 'La cantidad debe ser un entero entre 1 y 99. La cantidad 0 no es admitida.',
+      });
+    }
+
+    await this.lockOwner(tx, { sessionHash, customerId });
+    const cart = await this.getOrCreateCart(tx, { sessionHash, customerId });
+
+    if (expectedVersion !== undefined && cart.version !== expectedVersion) {
+      throw new ConflictException({
+        code: 'CART_CONFLICT',
+        message: `Conflicto de versión en carrito: versión actual ${cart.version}, versión esperada ${expectedVersion}.`,
+      });
+    }
+
+    const existingItem = await tx.cartItem.findUnique({
+      where: {
+        cartId_sku: {
+          cartId: cart.id,
+          sku: sku.trim(),
+        },
+      },
+    });
+
+    if (!existingItem) {
+      throw new NotFoundException({
+        code: 'CART_ITEM_NOT_FOUND',
+        message: `El ítem con SKU ${sku} no existe en el carrito.`,
+      });
+    }
+
+    if (parsedQty > 99) {
+      throw new ConflictException({
+        code: 'STOCK_LIMIT_REACHED',
+        message: 'La cantidad excede el límite permitido de 99 unidades por ítem.',
+      });
+    }
+
+    await tx.cartItem.update({
+      where: { id: existingItem.id },
+      data: {
+        quantity: parsedQty,
+        updatedAt: new Date(),
+      },
+    });
+
+    const updatedCart = await tx.cart.update({
+      where: { id: cart.id },
+      data: { version: { increment: 1 } },
+      include: { items: true },
+    });
+
+    return {
+      cartId: updatedCart.id,
+      version: updatedCart.version,
+      items: updatedCart.items.map((it) => ({
+        sku: it.sku,
+        quantity: it.quantity,
+        unitPrice: it.unitPriceSnapshot
+          ? {
+              amount: Number(it.unitPriceSnapshot),
+              currency: updatedCart.currency,
+              version: parseInt(it.priceVersion || '1', 10),
+            }
+          : undefined,
+      })),
     };
   }
 

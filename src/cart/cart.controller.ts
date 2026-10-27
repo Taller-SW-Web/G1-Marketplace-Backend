@@ -3,6 +3,9 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
+  Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -10,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
+import { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto';
 import { OptionalAuthGuard } from '../security/optional-auth.guard';
 import { AuthenticatedRequest } from '../security/auth.types';
 import * as crypto from 'crypto';
@@ -76,6 +80,30 @@ export class CartController {
     return {
       status: result.code,
       data: result.data,
+    };
+  }
+
+  @Patch(['current/items/:sku', 'items/:sku'])
+  async updateItemQuantity(
+    @Param('sku') sku: string,
+    @Body() body: UpdateCartItemQuantityDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    const { sessionHash, customerId } = this.resolveSession(req, res);
+    const expectedVersion = ifMatch ? parseInt(ifMatch, 10) : undefined;
+    const snapshot = await this.cartService.updateItemQuantity({
+      sessionHash,
+      customerId,
+      sku,
+      quantity: body.quantity,
+      expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
+    });
+
+    return {
+      status: 'OK',
+      data: snapshot,
     };
   }
 
