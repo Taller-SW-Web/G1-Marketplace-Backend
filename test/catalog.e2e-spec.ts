@@ -10,7 +10,7 @@ import { configureApp } from '../src/http/configure-app';
 describe('CatalogModule with the baseline AppModule (e2e)', () => {
   let app: INestApplication;
   const mock = createMockProvider();
-  const provider = { source: mock.source, home: jest.fn(), search: jest.fn() };
+  const provider = { source: mock.source, home: jest.fn(), filters: jest.fn(), search: jest.fn() };
   const cartService = { getCurrentCart: jest.fn().mockResolvedValue({ cartId: null, version: 0, items: [] }) };
   const originalEnv = { BFF_MODE: process.env.BFF_MODE, DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
   const prisma = {
@@ -43,6 +43,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     provider.home.mockImplementation(() => mock.home());
+    provider.filters.mockImplementation(() => mock.filters!());
     provider.search.mockImplementation((query) => mock.search(query));
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
@@ -100,6 +101,26 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(result.headers['x-content-type-options']).toBe('nosniff');
     expect(result.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
     expect(provider.home).toHaveBeenCalledWith(result.headers['x-request-id']);
+  });
+
+  it('serves active filter masters publicly with no-store and shared correlation', async () => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/filters')
+      .set('X-Request-Id', 'h4-masters-01').expect(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.headers['x-request-id']).toBe('h4-masters-01');
+    expect(result.headers['x-catalog-source']).toBe('MOCK');
+    expect(result.body.brands).toEqual([{ brandId: 'mock-brand', name: 'Marca de demostraci\u00f3n' }]);
+    expect(provider.filters).toHaveBeenCalledWith('h4-masters-01');
+    await request(app.getHttpServer()).get('/api/v1/catalog/filters?estado=INACTIVO').expect(400);
+  });
+
+  it('combines filters server-side and rejects an invalid range before querying', async () => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products?brandIds=mock-brand&minPrice=10&maxPrice=20').expect(200);
+    expect(result.body.data).toHaveLength(2);
+    provider.search.mockClear();
+    const invalid = await request(app.getHttpServer()).get('/api/v1/catalog/products?minPrice=20&maxPrice=10').expect(400);
+    expect(invalid.body.code).toBe('INVALID_PRICE_RANGE');
+    expect(provider.search).not.toHaveBeenCalled();
   });
 
   it('serves normalized search and the same paging metadata', async () => {

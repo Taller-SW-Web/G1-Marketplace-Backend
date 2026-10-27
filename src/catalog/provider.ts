@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { CatalogError } from './errors';
 import { createMockProvider } from './fixtures';
-import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO } from './types';
+import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category } from './types';
 
 export const CONTRACT_VERSION = '0.6.0-rc.1';
 export const CONTRACT_SHA = 'f64bfe9a097b2a0f74c2600988305443d92f640e';
@@ -16,6 +16,18 @@ function validText(value: unknown): value is string {
 
 function invalidProvider(reason: string): CatalogError {
   return new CatalogError('CATALOG_UNAVAILABLE', 503, reason);
+}
+
+function categoriesFrom(payload: unknown): Category[] {
+  if (!record(payload) || !Array.isArray(payload.categories)) throw invalidProvider('INVALID_CATEGORIES');
+  const categories = payload.categories
+    .filter((item: unknown): item is Record<string, unknown> => record(item) && item.status === 'ACTIVA')
+    .map((item) => {
+      if (!validText(item.categoria_id) || !validText(item.name)) throw invalidProvider('INVALID_CATEGORY');
+      return { categoryId: item.categoria_id, name: item.name };
+    });
+  if (new Set(categories.map(item => item.categoryId)).size !== categories.length) throw invalidProvider('DUPLICATE_CATEGORY');
+  return categories;
 }
 
 export function projectProduct(product: unknown, mediaHosts: Set<string>): ProductCardDTO {
@@ -77,7 +89,14 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
         headers,
         redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
       });
-      if (!response.ok) throw invalidProvider(`PROVIDER_HTTP_${response.status}`);
+      if (!response.ok) {
+        if (response.status === 422) {
+          const problem: unknown = await response.json();
+          if (record(problem) && ['CATEGORIA_INVALIDA', 'MARCA_INVALIDA'].includes(String(problem.code)))
+            throw new CatalogError('INVALID_FILTER', 400);
+        }
+        throw invalidProvider(`PROVIDER_HTTP_${response.status}`);
+      }
       return await response.json();
     } catch (error: unknown) {
       if (error instanceof CatalogError) throw error;
@@ -90,25 +109,39 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
     source: 'REAL',
     async home(requestId) {
       const payload = await request('/api/v1/categorias', requestId);
-      if (!record(payload) || !Array.isArray(payload.categories)) throw invalidProvider('INVALID_CATEGORIES');
-      const categories = payload.categories
-        .filter((item: unknown): item is Record<string, unknown> => record(item) && item.status === 'ACTIVA')
-        .map((item) => {
-          if (!validText(item.categoria_id) || !validText(item.name)) throw invalidProvider('INVALID_CATEGORY');
-          return { categoryId: item.categoria_id, name: item.name };
-        });
+      const categories = categoriesFrom(payload);
       return { categories, featuredProducts: [] };
+    },
+    async filters(requestId) {
+      const [categoryPayload, payload] = await Promise.all([
+        request('/api/v1/categorias', requestId), request('/api/v1/marcas', requestId),
+      ]);
+      const categories = categoriesFrom(categoryPayload);
+      if (!record(payload) || !Array.isArray(payload.brands)) throw invalidProvider('INVALID_BRANDS');
+      const brands = payload.brands
+        .filter((item: unknown): item is Record<string, unknown> => record(item) && item.status === 'ACTIVA')
+        .map(item => {
+          if (!validText(item.marca_id) || !validText(item.name)) throw invalidProvider('INVALID_BRAND');
+          return { brandId: item.marca_id, name: item.name };
+        });
+      if (new Set(brands.map(item => item.brandId)).size !== brands.length) throw invalidProvider('DUPLICATE_BRAND');
+      return { categories, brands };
     },
     async search(query, requestId) {
       const params = new URLSearchParams({ canal: 'MARKETPLACE', pagina: String(query.page + 1), tamanio: String(query.pageSize) });
       if (query.q) params.set('q', query.q);
       if (query.categoryId) params.set('categoriaId', query.categoryId);
+      if (query.brandId) params.set('marcaId', query.brandId);
+      if (query.minPrice !== undefined) params.set('precioMin', String(query.minPrice));
+      if (query.maxPrice !== undefined) params.set('precioMax', String(query.maxPrice));
       if (query.sort) params.set('orden', query.sort === 'NAME_ASC' ? 'NOMBRE_ASC' : 'NOMBRE_DESC');
       const payload = await request(`/api/v1/productos?${params}`, requestId);
       if (
         !record(payload) || !Array.isArray(payload.items) || typeof payload.total !== 'number' ||
         !Number.isSafeInteger(payload.total) || payload.total < 0 || payload.pagina !== query.page + 1 ||
-        payload.tamanio !== query.pageSize || payload.items.length > query.pageSize || payload.items.length > payload.total
+        payload.tamanio !== query.pageSize || payload.items.length > query.pageSize || payload.items.length > payload.total ||
+        payload.items.length !== Math.max(0, Math.min(query.pageSize, payload.total - query.page * query.pageSize)) ||
+        new Set(payload.items.map((item: unknown) => record(item) ? item.product_id : undefined)).size !== payload.items.length
       ) throw invalidProvider('INVALID_PAGE_RESPONSE');
       return {
         data: payload.items.map((product: unknown) => projectProduct(product, mediaHosts)),
