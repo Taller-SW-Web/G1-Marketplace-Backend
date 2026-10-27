@@ -1,0 +1,545 @@
+openapi: 3.0.3
+info:
+  title: Marketplace Checkout BFF — H4
+  version: 1.0.0
+  description: >-
+    Contrato versionado del BFF Checkout. Las operaciones están implementadas
+    con adaptadores MOCK; esto no acredita integración REAL ni despliegue. La
+    identidad se deriva del principal autenticado y customerId no se acepta en
+    payloads.
+  x-g6-compatibility:
+    catalog-cart:
+      status: implemented-mock-only
+      behavior: Las líneas y la versión provienen del carrito vigente; el cliente no puede enviar importes.
+    dispatch-addresses:
+      status: implemented-mock-only
+      behavior: addressId se valida contra las direcciones del titular antes de cotizar cobertura y envío.
+    benefits:
+      status: implemented-mock-only
+      behavior: El adaptador devuelve elegibilidad y descuento; omitir couponCode solicita una cotización base.
+    inventory:
+      status: implemented-mock-only
+      behavior: La preparación revalida el contexto; PREPARED no representa pedido creado, pago ni reserva externa.
+    sales:
+      status: implemented-mock-only
+      behavior: Solo una respuesta autoritativa de Ventas con estado PAGADO permite SUCCEEDED; una respuesta incierta no es éxito.
+    G-G6-COMPAT:
+      status: pending-real-provider-contract-and-sanitized-integration-evidence
+      evidence: No se localizaron contrato/provider externos G6 ni pruebas REAL sanitizadas en los repositorios locales revisados.
+      closure: Requiere registrar la frontera/provider y pruebas positivas, negativas y timeout con respuesta sanitizada.
+  x-g7-compatibility:
+    status: implemented-mock-only
+    identity: customerId se deriva del subject autenticado; una operación solo es consultable por su titular.
+    token: El token Bearer entrante se propaga servidor a servidor en llamadas que lo requieren; nunca llega en el payload.
+    browser: El navegador consume el BFF y no llama directamente a proveedores internos.
+  x-runtime-status: implemented-mock-only
+servers:
+  - url: http://localhost:10000
+    description: Desarrollo local
+security:
+  - bearerAuth: []
+x-security-errors:
+  '401': [UNAUTHENTICATED]
+  '503': [AUTH_CONFIGURATION_UNAVAILABLE, AUTH_KEYS_UNAVAILABLE, AUTH_UNAVAILABLE]
+paths:
+  /api/v1/checkout/delivery-addresses:
+    get:
+      operationId: listDeliveryAddresses
+      tags: [Checkout, Security]
+      summary: Listar direcciones del titular
+      x-traceability:
+        featureIssues: ['#114']
+        implementation: 'CheckoutController.listAddresses -> CheckoutService.listAddresses'
+        authentication: 'AuthGuard; token Bearer requerido; el proveedor recibe el token en servidor.'
+        ownership: 'Las direcciones devueltas pertenecen al titular autenticado; no se acepta customerId del cliente.'
+        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        errorCodes:
+          '400': [ADDRESS_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE]
+        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Direcciones propias
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressList' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    post:
+      operationId: createDeliveryAddress
+      tags: [Checkout, Security]
+      summary: Crear dirección para el titular autenticado
+      x-traceability:
+        featureIssues: ['#114']
+        implementation: 'CheckoutController.createAddress -> CheckoutService.createAddress'
+        authentication: 'AuthGuard; customerId se deriva del subject y el token se propaga en servidor.'
+        ownership: 'No se admiten customerId/userId en el DTO; la dirección se crea para el titular autenticado.'
+        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        errorCodes:
+          '400': [ADDRESS_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE]
+        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddressInput' }
+      responses:
+        '201':
+          description: Dirección creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/quotes:
+    post:
+      operationId: createCheckoutQuote
+      tags: [Checkout, Catalog, Cart]
+      summary: Cotizar el carrito vigente para una dirección
+      x-traceability:
+        featureIssues: ['#118']
+        implementation: 'CheckoutController.createQuote -> CheckoutService.createQuote'
+        authentication: 'AuthGuard; customerId y carrito se resuelven desde el contexto autenticado.'
+        ownership: 'addressId debe pertenecer al titular; cartVersion debe coincidir con el carrito vigente.'
+        downstreamCompatibility: 'G6 Catalog/Cart y Dispatch (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
+          '401': [UNAUTHENTICATED]
+          '404': [ADDRESS_NOT_FOUND]
+          '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE, QUOTE_UNAVAILABLE]
+        timeoutBehavior: 'Timeout de direcciones o cotización se normaliza a 503; no se acepta una cotización parcial.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      description: >-
+        cartVersion es control optimista; el servidor obtiene el carrito y el
+        titular de la sesión autenticada. No se aceptan importes del cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteInput' }
+      responses:
+        '200':
+          description: Cotización autoritativa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/benefits:
+    post:
+      operationId: applyCheckoutBenefit
+      tags: [Checkout, Benefits]
+      summary: Aplicar o quitar un cupón
+      description: Omitir couponCode solicita una cotización base sin beneficio.
+      x-traceability:
+        featureIssues: ['#122']
+        implementation: 'CheckoutController.applyBenefit -> CheckoutService.applyBenefit'
+        authentication: 'AuthGuard; quoteId se valida dentro del contexto del titular autenticado.'
+        ownership: 'La cotización es propiedad del titular y expira; no se aceptan importes/descuentos del cliente.'
+        downstreamCompatibility: 'G6 Benefits (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [INVALID_COUPON_FORMAT, REQUEST_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '409': [QUOTE_EXPIRED]
+          '422': [COUPON_NOT_APPLICABLE]
+          '503': [BENEFITS_UNAVAILABLE]
+        timeoutBehavior: 'Timeout del proveedor de beneficios se normaliza a 503 BENEFITS_UNAVAILABLE.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BenefitInput' }
+      responses:
+        '200':
+          description: Beneficio validado y cotización actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/preparations:
+    post:
+      operationId: prepareCheckout
+      tags: [Checkout, Inventory]
+      summary: Revalidar y preparar la compra
+      x-traceability:
+        featureIssues: ['#126', '#127']
+        implementation: 'CheckoutController.prepare -> CheckoutService.prepare'
+        authentication: 'AuthGuard; operación y carrito se asocian al titular autenticado.'
+        ownership: 'Idempotency-Key se restringe al titular; quoteId/cartVersion se verifican contra el contexto vigente.'
+        idempotency: 'UUID con variante RFC; repetición idéntica recupera la operación, reutilización incompatible devuelve 409.'
+        downstreamCompatibility: 'G6 Inventory/revalidation (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [IDEMPOTENCY_KEY_REQUIRED, SIMULATION_NOT_CONFIRMED, REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [CART_NOT_FOUND, QUOTE_EXPIRED, CART_CHANGED, REVALIDATION_CHANGED, STOCK_NOT_AVAILABLE, IDEMPOTENCY_KEY_REUSED, PREPARATION_CONTEXT_UNAVAILABLE]
+          '503': [REVALIDATION_UNAVAILABLE]
+        timeoutBehavior: 'Una revalidación temporalmente no disponible conserva PREPARING para reintentar la misma clave; se responde 503.'
+        runtimeEvidence: 'MOCK; no acredita transacción/constraints PostgreSQL temporal ni integración REAL.'
+      parameters:
+        - $ref: '#/components/parameters/PreparationIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrepareInput' }
+      responses:
+        '201':
+          description: Operación preparada; no representa pedido pagado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/orders:
+    post:
+      operationId: createCheckoutOrder
+      tags: [Checkout, Sales]
+      summary: Solicitar creación idempotente de pedido
+      description: >-
+        La respuesta 202 representa un envío pendiente o resultado incierto;
+        no equivale a pedido pagado. Solo un resultado autoritativo de Ventas
+        con estado PAGADO se expone como SUCCEEDED.
+      x-traceability:
+        featureIssues: ['#131', '#132']
+        implementation: 'CheckoutController.createOrder -> CheckoutService.createOrder'
+        authentication: 'AuthGuard; el checkoutOperationId debe pertenecer al titular autenticado.'
+        ownership: 'La operación y carrito se consultan por customerId derivado del principal.'
+        idempotency: 'Idempotency-Key UUID v4; la clave y el fingerprint impiden crear pedidos duplicados.'
+        downstreamCompatibility: 'G6 Sales (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [IDEMPOTENCY_KEY_REQUIRED, CONTACT_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [IDEMPOTENCY_KEY_REUSED, OPERATION_NOT_PREPARED, ORDER_CREATION_PENDING, ORDER_NOT_COMPLETED, QUOTE_EXPIRED, CHECKOUT_CONTEXT_CHANGED, PAGO_NO_COMPLETADO]
+          '503': [SALES_UNAVAILABLE, ORDER_CREATION_PENDING]
+        timeoutBehavior: 'Timeout o respuesta incierta de creación/consulta mantiene el resultado no pagado: 202 con recoveryRequired cuando la operación queda incierta; nunca inferir SUCCEEDED.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL, persistencia externa ni despliegue.'
+      parameters:
+        - $ref: '#/components/parameters/OrderIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderInput' }
+      responses:
+        '200':
+          description: Resultado autoritativo final de Ventas (PAGADO o ANULADO)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '202':
+          description: Resultado pendiente; no presentar como pago exitoso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/checkout/operations/{operationId}:
+    get:
+      operationId: getCheckoutOperation
+      tags: [Checkout, Sales]
+      summary: Consultar operación del titular
+      description: >-
+        El estado y los datos del pedido se revelan únicamente al titular. El
+        estado final no se infiere de un timeout; una operación aún no verificable
+        se mantiene pendiente.
+      x-traceability:
+        featureIssues: ['#136', '#137']
+        implementation: 'CheckoutController.getOperation -> CheckoutService.getOperation'
+        authentication: 'AuthGuard; operationId se consulta con el customerId del principal.'
+        ownership: 'Operación ajena o inexistente devuelve 404 para evitar revelar su existencia.'
+        downstreamCompatibility: 'G6 Sales (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [INVALID_OPERATION_ID]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [ORDER_NOT_SUBMITTED]
+          '503': [SALES_UNAVAILABLE]
+        timeoutBehavior: 'Una operación SUBMITTED conserva 202/recoveryRequired mientras no se confirme; fallo al refrescar una operación final devuelve 503.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Estado de la operación; los datos de orden solo aparecen al verificarse con Ventas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
+        '202':
+          description: Estado aún pendiente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    PreparationIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID persistida por titular; el fingerprint debe coincidir al reintentar.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    OrderIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID versión 4; la misma clave y solicitud recuperan el resultado original.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+  responses:
+    InvalidRequest:
+      description: >-
+        DTO inválido o clave de idempotencia ausente/inválida. El código identifica
+        la causa; `fields` puede enumerar campos de DTO rechazados.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Autenticación inválida o ausente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: >-
+        Carrito/cotización/contexto/stock en conflicto, estado no preparado o
+        reutilización incompatible de una clave de idempotencia.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unprocessable:
+      description: Beneficio no aplicable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unavailable:
+      description: >-
+        Proveedor no disponible, timeout mapeado por el BFF o configuración de
+        autenticación no disponible. En creación de pedido una respuesta incierta
+        puede ser 202 o 409 ORDER_CREATION_PENDING; nunca se interpreta como pago exitoso.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Recurso no encontrado o fuera del contexto/propiedad del titular
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string, minLength: 1 }
+            fields:
+              type: array
+              items: { type: string }
+    AddressInput:
+      type: object
+      additionalProperties: false
+      required: [street, district, province, department, phone]
+      properties:
+        label: { type: string, maxLength: 80 }
+        street: { type: string, minLength: 1, maxLength: 180 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        province: { type: string, minLength: 1, maxLength: 100 }
+        department: { type: string, minLength: 1, maxLength: 100 }
+        reference: { type: string, maxLength: 180 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+    Address:
+      type: object
+      additionalProperties: false
+      required: [addressId, street, district, province, department, phone]
+      properties:
+        addressId: { type: string, minLength: 1 }
+        label: { type: string, maxLength: 80 }
+        street: { type: string, minLength: 1, maxLength: 180 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        province: { type: string, minLength: 1, maxLength: 100 }
+        department: { type: string, minLength: 1, maxLength: 100 }
+        reference: { type: string, maxLength: 180 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+    AddressResult:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Address' }
+    AddressList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+    QuoteInput:
+      type: object
+      additionalProperties: false
+      required: [addressId, cartVersion]
+      properties:
+        addressId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+    BenefitInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        couponCode: { type: string, maxLength: 30 }
+    PrepareInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId, cartVersion, simulationConfirmed]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+        simulationConfirmed: { type: boolean }
+    OrderInput:
+      type: object
+      additionalProperties: false
+      required: [checkoutOperationId, contact]
+      properties:
+        checkoutOperationId: { type: string, format: uuid }
+        contact:
+          type: object
+          additionalProperties: false
+          required: [fullName, documentType, documentNumber, phone, email]
+          properties:
+            fullName: { type: string, minLength: 2, maxLength: 120 }
+            documentType: { type: string, enum: [DNI, RUC, CE, PASAPORTE] }
+            documentNumber: { type: string, minLength: 5, maxLength: 24 }
+            phone: { type: string, minLength: 5, maxLength: 40 }
+            email: { type: string, format: email, maxLength: 254 }
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: number, minimum: 0 }
+        currency: { type: string, enum: [PEN] }
+    QuoteLine:
+      type: object
+      additionalProperties: false
+      required: [sku, quantity]
+      properties:
+        sku: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 1 }
+    SelectedBenefit:
+      type: object
+      additionalProperties: false
+      required: [type, id, discount]
+      properties:
+        type: { type: string, enum: [COUPON] }
+        id: { type: string, minLength: 1 }
+        discount: { $ref: '#/components/schemas/Money' }
+    QuoteResult:
+      type: object
+      description: Cotización recalculada por el servidor a partir del carrito y proveedor.
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [quoteId, expiresAt, subtotal, discount, shipping, total, lines, addressId, cartVersion]
+          properties:
+            quoteId: { type: string, minLength: 1 }
+            expiresAt: { type: string, format: date-time }
+            subtotal: { $ref: '#/components/schemas/Money' }
+            discount: { $ref: '#/components/schemas/Money' }
+            shipping:
+              type: object
+              additionalProperties: false
+              required: [amount, currency, estimatedDays]
+              properties:
+                amount: { type: number, minimum: 0 }
+                currency: { type: string, enum: [PEN] }
+                estimatedDays: { type: number, minimum: 0 }
+            total: { $ref: '#/components/schemas/Money' }
+            lines:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/QuoteLine' }
+            addressId: { type: string, minLength: 1 }
+            cartVersion: { type: integer, minimum: 0 }
+            selectedBenefit: { $ref: '#/components/schemas/SelectedBenefit' }
+    CheckoutOperation:
+      type: object
+      required: [checkoutOperationId, state]
+      properties:
+        checkoutOperationId: { type: string, format: uuid }
+        state: { type: string, enum: [PREPARED, SUBMITTED, SUCCEEDED, FAILED] }
+        orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+        orderState: { type: string, enum: [CREADO, PAGADO, ANULADO] }
+        total: { $ref: '#/components/schemas/Money' }
+        createdAt: { type: string, format: date-time }
+        revalidatedAt: { type: string, format: date-time }
+        simulationConsent: { type: string, enum: [RECORDED] }
+        failureCode: { type: string }
+        recoveryRequired: { type: boolean }
+    OperationResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/CheckoutOperation'
+    CheckoutOperationStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [PREPARED, SUBMITTED, SUCCEEDED, FAILED] }
+        order:
+          type: object
+          required: [orderId, state, total, createdAt]
+          properties:
+            orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+            state: { type: string, enum: [CREADO, PAGADO, ANULADO] }
+            total: { $ref: '#/components/schemas/Money' }
+            createdAt: { type: string, format: date-time }
+        failureCode: { type: string }
+        recoveryRequired: { type: boolean }
+    OperationStatusResult:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/CheckoutOperationStatus' }
