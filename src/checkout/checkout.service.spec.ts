@@ -191,6 +191,35 @@ describe('CheckoutService', () => {
     );
   });
 
+  it('claims the anonymous session cart for the authenticated MOCK checkout before quoting', async () => {
+    const anonymousCart = {
+      ...cart,
+      id: '66666666-6666-4666-8666-666666666666',
+      anonymousSessionHash: 'session-capability-123456',
+    };
+    prisma.cart.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(anonymousCart);
+
+    const created = await service.createQuote(
+      customerId,
+      'valid-test-token',
+      { addressId: 'ADR-1', cartVersion: 8 },
+      'session-capability-123456',
+    );
+
+    expect(created).toEqual(quote);
+    expect(prisma.cart.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { anonymousSessionHash: 'session-capability-123456', state: 'ACTIVE' },
+      include: { items: true },
+    });
+    expect(prisma.cart.findFirst).toHaveBeenCalledTimes(2);
+    expect(gateway.createQuote).toHaveBeenCalledWith(expect.objectContaining({
+      lines: [{ sku: 'AERO-42-BLK', quantity: 2 }],
+      cartVersion: 8,
+    }));
+  });
+
   it('does not finish preparation against a quote replaced during revalidation', async () => {
     quotes.replace(customerId, quote);
     const preparing = { ...baseOperation(), state: CheckoutOperationState.PREPARING };

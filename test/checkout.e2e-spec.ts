@@ -64,6 +64,7 @@ describe('CheckoutController (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/checkout/orders')
       .set('Authorization', 'Bearer e2e-token')
+      .set('Cookie', 'cart_session=checkout-session-hash-123456')
       .set('Idempotency-Key', orderKey)
       .send(input)
       .expect(202);
@@ -79,6 +80,7 @@ describe('CheckoutController (e2e)', () => {
       '11111111-1111-4111-8111-111111111111',
       input,
       orderKey,
+      'checkout-session-hash-123456',
     );
   });
 
