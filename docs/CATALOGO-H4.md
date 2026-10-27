@@ -21,3 +21,7 @@ Se contrastó el OpenAPI G6 publicado `0.6.0-rc.1`, blob `f64bfe9a097b2a0f74c260
 Pruebas relevantes: `npm run test:unit -- --testPathPatterns=catalog`, `npm run test:g6:contract`, `npm run test:e2e -- --testPathPatterns=catalog.e2e`, `npm run typecheck` y `npm run build` (regenerar Prisma antes del typecheck si cambia el esquema integrado). Las pruebas de contrato de este corte usan proveedores locales/sintéticos.
 
 Se usó Codex para implementación y pruebas; el código debe recibir revisión humana de Sebastian/Leonidas. Ninguna aprobación ni cierre de INT se atribuye a estas pruebas locales.
+
+## Verificación final de seguridad y CI
+
+El 26/10/2026 pasaron los controles existentes de Gitleaks 8.30.1 y Semgrep 1.181.0: detectores con controles positivos, fuente/historial/artefacto, cuatro reglas SAST y auditoría runtime/dev sin vulnerabilidades. Informes locales en `.local-security`. Las 169 pruebas unitarias completas pasaron. El contrato de catálogo se genera con `node scripts/openapi-catalog-h4.mjs` en `docs/contratos/openapi-catalogo-h4.json`. El workflow H4 valida esta rama al hacer push; no despliega. Su resultado remoto y el CD del corte aprobado deben verificarse aparte. [Evidencia SPECS](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/feat/giuliano-hito4/plan/evidencias/H4-GIULIANO-2026-10-26.md).
