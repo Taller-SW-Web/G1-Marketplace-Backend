@@ -82,7 +82,7 @@ Productos de demostración: `zapatillas-running-aero-x` (simple con oferta),
 
 | ID | Tema | Estado | Detalle |
 |---|---|---|---|
-| D-1 | Estados de disponibilidad | **Pendiente (G-G6-COMPAT)** | El alcance H4 menciona cuatro estados con `INDETERMINADO`; el contrato de F-014 publica tres. Se implementaron tres; el cuarto se rechaza de forma defensiva. Requiere acuerdo G6 + Giuliano. |
+| D-1 | Estados de disponibilidad | **Pendiente (G-G6-COMPAT)** | G1 ya aceptó el cuarto estado en M-01 (`INDETERMINADO`→`UNDETERMINED`, HTTP 200, nunca agotado). La spec vigente publica tres; se implementaron tres y el cuarto se rechaza de forma defensiva (502). Propuesta de specs en [SPECS #12](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/12), pendiente de conformidad G6 y de Giuliano. |
 | D-2 | Registro de SKU | **Pendiente (G-SKU)** | Registro local en `src/catalog/mock-sku.ts` (`PRD-MOCK-001 → SKU-MOCK-001`, demo 1..32 → `002..033`, variable → `VAR-1..3`). No sustituye el contrato externo. |
 | D-3 | PR #23 y SKU de carrito | **Pendiente de alineación** | PR #23 mapea `mock-product-1..32 → SKU-MOCK-001..032`, lo que colisiona con `SKU-MOCK-001` de `PRD-MOCK-001`. Debe adoptar el registro de D-2 antes de integrar F-016. |
 | D-4 | Fuente de recomendaciones | **Pendiente (G6)** | El MOCK demuestra la forma del contrato; falta definir origen, permisos y frecuencia. |
