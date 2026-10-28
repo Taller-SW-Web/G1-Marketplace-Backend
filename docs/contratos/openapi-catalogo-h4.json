@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Marketplace — Catálogo H4 (F-006–F-010)",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Contrato G1 implementado para revisión. Catálogo público; identidad técnica G1→G6 sólo en servidor. No acredita homologación ni despliegue."
   },
   "servers": [
@@ -90,7 +90,7 @@
             }
           },
           "503": {
-            "description": "Catálogo/maestros no disponibles; sin fallback MOCK",
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -204,7 +204,7 @@
             }
           },
           "503": {
-            "description": "Catálogo/maestros no disponibles; sin fallback MOCK",
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -421,7 +421,7 @@
             }
           },
           "503": {
-            "description": "Catálogo/maestros no disponibles; sin fallback MOCK",
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -603,6 +603,18 @@
       "CatalogPage": {
         "type": "object",
         "properties": {
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "NAME_ASC",
+              "NAME_DESC",
+              null
+            ],
+            "description": "Orden explícito delegado a G6; null conserva el orden predeterminado del proveedor. No acredita desempate global externo."
+          },
           "data": {
             "type": "array",
             "items": {
@@ -640,6 +652,7 @@
           }
         },
         "required": [
+          "sort",
           "data",
           "page"
         ],
@@ -668,7 +681,8 @@
               "INVALID_FILTER",
               "INVALID_PRICE_RANGE",
               "INVALID_SORT",
-              "CATALOG_UNAVAILABLE"
+              "CATALOG_UNAVAILABLE",
+              "CATALOG_TIMEOUT"
             ]
           },
           "requestId": {

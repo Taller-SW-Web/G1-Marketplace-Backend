@@ -191,4 +191,14 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(logs).toContain('requestId');
     expect(logs).not.toContain('private-search-term');
   });
+  it.each(['q=polo', 'q=', 'page=0', 'sort=NAME_ASC', 'unknown=value'])('home rejects any query: %s', async query => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/home?' + query).expect(400);
+    expect(result.body.code).toBe('INVALID_PARAMETERS');
+    expect(result.headers['cache-control']).toBe('no-store');
+  });
+  it.each(['NAME_ASC', 'NAME_DESC', ''])('includes delegated sort metadata for %s', async sort => {
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/products' + (sort ? '?sort=' + sort : '')).expect(200);
+    expect(result.body.sort).toBe(sort || null);
+  });
+
 });

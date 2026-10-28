@@ -13,6 +13,7 @@ export function problem(error: CatalogError, requestId: string) {
     INVALID_PRICE_RANGE: "Revisa el rango de precios en soles.",
     INVALID_PARAMETERS: "Revisa los criterios de búsqueda.",
     CATALOG_UNAVAILABLE: "No pudimos cargar el catálogo. Inténtalo nuevamente.",
+    CATALOG_TIMEOUT: "El catálogo tardó demasiado en responder. Inténtalo nuevamente.",
     METHOD_NOT_ALLOWED: "Esta operación no está disponible.",
     NOT_FOUND: "No encontramos este recurso.",
     ORIGIN_NOT_ALLOWED: "Este origen no está permitido.",

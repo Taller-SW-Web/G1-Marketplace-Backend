@@ -27,6 +27,7 @@ export interface CatalogFiltersDTO {
 }
 
 export interface CatalogPageDTO {
+  sort: 'NAME_ASC' | 'NAME_DESC' | null;
   data: ProductCardDTO[];
   page: { number: number; size: number; totalElements: number; totalPages: number };
 }

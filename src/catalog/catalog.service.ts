@@ -17,7 +17,7 @@ export class CatalogService {
   }
 
   home(params: URLSearchParams, requestId: string): Promise<HomeDTO> {
-    parseQuery(params);
+    if (params.size) throw new CatalogError('INVALID_PARAMETERS', 400);
     return this.provider.home(requestId);
   }
 

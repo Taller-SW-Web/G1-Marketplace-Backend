@@ -70,6 +70,7 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
     (base.protocol !== 'https:' && !(env.NODE_ENV !== 'production' && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname))) ||
     base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
     !['service-token', 'demo-no-auth'].includes(authMode) ||
+    (env.NODE_ENV === 'production' && authMode === 'demo-no-auth') ||
     (authMode === 'service-token' && !env.PRODUCTOS_SERVICE_TOKEN) ||
     !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
     env.PRODUCTOS_CONTRACT_VERSION !== CONTRACT_VERSION || env.PRODUCTOS_CONTRACT_SHA !== CONTRACT_SHA ||
@@ -101,7 +102,9 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
     } catch (error: unknown) {
       if (error instanceof CatalogError) throw error;
       const name = record(error) && typeof error.name === 'string' ? error.name : '';
-      throw invalidProvider(name === 'TimeoutError' || name === 'AbortError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_INVALID_RESPONSE');
+      if (name === 'TimeoutError' || name === 'AbortError')
+        throw new CatalogError('CATALOG_TIMEOUT', 503, 'PROVIDER_TIMEOUT');
+      throw invalidProvider('PROVIDER_INVALID_RESPONSE');
     }
   }
 
@@ -144,6 +147,7 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
         new Set(payload.items.map((item: unknown) => record(item) ? item.product_id : undefined)).size !== payload.items.length
       ) throw invalidProvider('INVALID_PAGE_RESPONSE');
       return {
+        sort: query.sort ?? null,
         data: payload.items.map((product: unknown) => projectProduct(product, mediaHosts)),
         page: { number: query.page, size: query.pageSize, totalElements: payload.total, totalPages: Math.ceil(payload.total / query.pageSize) },
       };

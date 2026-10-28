@@ -58,6 +58,7 @@ export function createMockProvider(): CatalogProvider {
         );
       const totalElements = results.length;
       return {
+        sort: query.sort ?? null,
         data: results.slice(
           query.page * query.pageSize,
           (query.page + 1) * query.pageSize,

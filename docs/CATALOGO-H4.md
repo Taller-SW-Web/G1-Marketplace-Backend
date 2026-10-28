@@ -25,3 +25,8 @@ Se usó Codex para implementación y pruebas; el código debe recibir revisión 
 ## Verificación final de seguridad y CI
 
 El 26/10/2026 pasaron los controles existentes de Gitleaks 8.30.1 y Semgrep 1.181.0: detectores con controles positivos, fuente/historial/artefacto, cuatro reglas SAST y auditoría runtime/dev sin vulnerabilidades. Informes locales en `.local-security`. Las 169 pruebas unitarias completas pasaron. El contrato de catálogo se genera con `node scripts/openapi-catalog-h4.mjs` en `docs/contratos/openapi-catalogo-h4.json`. El workflow H4 valida esta rama al hacer push; no despliega. Su resultado remoto y el CD del corte aprobado deben verificarse aparte. [Evidencia SPECS](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/feat/giuliano-hito4/plan/evidencias/H4-GIULIANO-2026-10-26.md).
+
+
+## Revisión de contrato y cierre de issues — 28/10/2026
+
+Se atienden las observaciones de PR #237: demo-no-auth se rechaza en producción; home rechaza cualquier query antes del proveedor; CatalogPage incluye sort NAME_ASC/NAME_DESC/null; y 503/CATALOG_TIMEOUT distingue presupuesto agotado de 503/CATALOG_UNAVAILABLE sin exponer detalles privados. OpenAPI 0.2.0 regenerado. La garantía externa de desempate por identificador sigue bajo I-01/G-SORT: no se infiere de MOCK ni se reordena una página en G1. Los 30 TASK de Giuliano requieren revisión independiente, gates y prueba de despliegue para cierre; la auditoría y relaciones se registran en SPECS y en las issues.

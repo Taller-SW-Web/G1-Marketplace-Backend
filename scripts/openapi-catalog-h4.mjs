@@ -14,11 +14,11 @@ const reply = (name, description) => ({ description, headers, content: { 'applic
 const failure = description => ({ description, headers, content: { 'application/problem+json': { schema: ref('Problem') } } });
 const get = (operationId, schema, parameters = []) => ({ operationId, tags: ['Catalog'], security: [], parameters,
   responses: { 200: reply(schema, 'Lectura pública válida; arreglos vacíos permitidos'), 400: failure('Criterios inválidos antes del proveedor'),
-    503: failure('Catálogo/maestros no disponibles; sin fallback MOCK') } });
+    503: failure('CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK') } });
 const parameter = (name, schema, description) => ({ name, in: 'query', required: false, schema, description });
 const document = {
   openapi: '3.1.0',
-  info: { title: 'Marketplace — Catálogo H4 (F-006–F-010)', version: '0.1.0',
+  info: { title: 'Marketplace — Catálogo H4 (F-006–F-010)', version: '0.2.0',
     description: 'Contrato G1 implementado para revisión. Catálogo público; identidad técnica G1→G6 sólo en servidor. No acredita homologación ni despliegue.' },
   servers: [{ url: '/', description: 'Origen del BFF desplegado o local' }],
   paths: {
@@ -42,10 +42,10 @@ const document = {
       categoryId: text, brandId: text, image: { anyOf: [{ type: 'null' }, object({ url: text, alt: text })] } }),
     Home: object({ categories: array(ref('Category')), featuredProducts: array(ref('ProductCard')) }),
     Filters: object({ categories: array(ref('Category')), brands: array(ref('Brand')) }),
-    CatalogPage: object({ data: array(ref('ProductCard')), page: object({ number: { type: 'integer', minimum: 0 },
+    CatalogPage: object({ sort: { type: ['string', 'null'], enum: ['NAME_ASC', 'NAME_DESC', null], description: 'Orden explícito delegado a G6; null conserva el orden predeterminado del proveedor. No acredita desempate global externo.' }, data: array(ref('ProductCard')), page: object({ number: { type: 'integer', minimum: 0 },
       size: { type: 'integer', minimum: 1, maximum: 48 }, totalElements: { type: 'integer', minimum: 0 }, totalPages: { type: 'integer', minimum: 0 } }) }),
     Problem: object({ type: text, title: text, status: { type: 'integer' }, code: { type: 'string', enum: [
-      'INVALID_SEARCH_QUERY', 'INVALID_PAGE', 'INVALID_PARAMETERS', 'INVALID_FILTER', 'INVALID_PRICE_RANGE', 'INVALID_SORT', 'CATALOG_UNAVAILABLE',
+      'INVALID_SEARCH_QUERY', 'INVALID_PAGE', 'INVALID_PARAMETERS', 'INVALID_FILTER', 'INVALID_PRICE_RANGE', 'INVALID_SORT', 'CATALOG_UNAVAILABLE', 'CATALOG_TIMEOUT',
     ] }, requestId: text }),
   } },
 };
