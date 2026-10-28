@@ -66,4 +66,22 @@ describe('CSAT PostgreSQL prompt persistence (MOCK Sales and identity)', () => {
     await expect(service.submit(SANDBOX_CUSTOMERS.B, orderId, 'synthetic', { sentiment: 'GOOD' })).rejects.toMatchObject({ status: 409 });
     expect(submit).not.toHaveBeenCalled();
   });
+
+  it('reconciles concurrent submissions through authoritative provider uniqueness', async () => {
+    let arrived = 0;
+    let release!: () => void;
+    const bothArrived = new Promise<void>(resolve => { release = resolve; });
+    submit.mockImplementation(async () => {
+      const requestNumber = ++arrived;
+      if (arrived === 2) release();
+      await bothArrived;
+      if (requestNumber === 2) throw new ApiError(409, 'CSAT_ALREADY_SUBMITTED', 'Duplicate');
+    });
+    const results = await Promise.allSettled([service.submit(customerId, orderId, 'synthetic', { sentiment: 'GOOD' }),
+      service.submit(customerId, orderId, 'synthetic', { sentiment: 'GOOD' })]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.find(result => result.status === 'rejected')).toMatchObject({ reason: { status: 409 } });
+    expect(await prisma.postDeliveryPrompt.findUnique({ where })).toMatchObject({ state: 'SUBMITTED',
+      submittedAt: expect.any(Date), dismissedAt: null, shownAt: new Date('2026-01-02') });
+  });
 });
