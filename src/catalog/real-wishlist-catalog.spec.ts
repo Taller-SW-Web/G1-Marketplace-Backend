@@ -76,4 +76,34 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     config.WISHLIST_G6_QUANTITY_APPROVED = 'false';
     await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
   });
+
+  it.each(['.', '..', 'SKU\u0000INVALID'])('rejects unsafe SKU %p before making quantity or price requests', async sku => {
+    await expect(catalog.quote(sku, 1)).rejects.toMatchObject({ status: 503 });
+    expect(reply).not.toHaveBeenCalled();
+    reply.mockResolvedValueOnce(json({ ...product, sku_base: sku }));
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects duplicate variant identities before querying stock or prices', async () => {
+    reply.mockResolvedValueOnce(json({ ...product, tiene_variantes: true, variants: [{ sku: 'SKU1' }, { sku: 'SKU1' }] }));
+    await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds variant price queries and projects the minimum without choosing a variant for the cart', async () => {
+    const variants = Array.from({ length: 9 }, (_, index) => ({ sku: `SKU${index}` }));
+    let active = 0; let peak = 0;
+    reply.mockImplementation(async (url: URL) => {
+      if (url.pathname.includes('/productos/')) return json({ ...product, tiene_variantes: true, variants });
+      if (url.pathname.includes('/inventario/')) return json({ items: variants.map(v => ({ sku: v.sku, status: 'DISPONIBLE' })) });
+      active++; peak = Math.max(peak, active);
+      await new Promise<void>(resolve => setImmediate(resolve)); active--;
+      const sku = decodeURIComponent(url.pathname.split('/').at(-1)!);
+      return json({ ...price, sku, precio_regular: 100 + Number(sku.slice(3)), precio_oferta: null });
+    });
+    await expect(catalog.project('P1')).resolves.toMatchObject({ price: { amount: 100, currency: 'PEN' } });
+    expect(peak).toBe(4);
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 422 });
+  });
 });

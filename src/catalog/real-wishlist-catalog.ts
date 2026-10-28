@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { mapInBatches } from '../http/map-in-batches';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
@@ -10,6 +11,8 @@ const unavailable = () => new ApiError(503, 'CATALOG_UNAVAILABLE', 'Catálogo no
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const skuIdentity = (v: unknown): v is string => text(v) && v.length <= 100
+  && v !== '.' && v !== '..' && !/[\u0000-\u001f\u007f]/u.test(v);
 const retired = (): ProductProjection => ({ name: null, slug: null, brand: null, image: null, price: null, availability: 'UNAVAILABLE' });
 interface Product { name: string; slug: string; brand: string; hasVariants: boolean; skus: string[]; images: string[] }
 
@@ -50,9 +53,11 @@ export class RealWishlistCatalog extends WishlistCatalog {
       || !object(value.marca) || !text(value.marca.name) || !Array.isArray(value.variants)
       || (value.status !== undefined && value.status !== 'ACTIVO')) throw unavailable();
     const skus: string[] = value.tiene_variantes ? value.variants.map((variant: unknown) => {
-      if (!object(variant) || !text(variant.sku) || variant.sku.length > 100) throw unavailable();
+      if (!object(variant) || !skuIdentity(variant.sku)) throw unavailable();
       return variant.sku;
-    }) : text(value.sku_base) && value.sku_base.length <= 100 ? [value.sku_base] : [];
+    }) : skuIdentity(value.sku_base) ? [value.sku_base] : [];
+    if (!value.tiene_variantes && !skus.length) throw unavailable();
+    if (new Set(skus).size !== skus.length) throw unavailable();
     if (value.images !== undefined && (!Array.isArray(value.images) || !value.images.every(text))) throw unavailable();
     return { name: value.name, slug: value.slug, brand: value.marca.name, hasVariants: value.tiene_variantes,
       skus, images: (value.images ?? []) as string[] };
@@ -71,6 +76,7 @@ export class RealWishlistCatalog extends WishlistCatalog {
   }
 
   private async price(sku: string): Promise<CommerceQuote> {
+    if (!skuIdentity(sku)) throw unavailable();
     const price = await this.request(`/precios/skus/${encodeURIComponent(sku)}?canal=MARKETPLACE`);
     if (!object(price) || price.sku !== sku || price.currency !== 'PEN'
       || !finite(price.precio_regular) || price.precio_regular <= 0
@@ -95,7 +101,7 @@ export class RealWishlistCatalog extends WishlistCatalog {
     const items = stock.items;
     if (skus.some(sku => items.filter((item: unknown) => object(item) && item.sku === sku
       && (item.status === 'DISPONIBLE' || item.status === 'STOCK_BAJO' || item.status === 'AGOTADO')).length !== 1)) throw unavailable();
-    const prices = await Promise.all(skus.map(sku => this.price(sku)));
+    const prices = await mapInBatches(skus, sku => this.price(sku));
     let image: ProductProjection['image'] = null;
     if (product.images.length) {
       let url: URL;
@@ -113,7 +119,8 @@ export class RealWishlistCatalog extends WishlistCatalog {
     if (this.config.get('WISHLIST_G6_QUANTITY_APPROVED') !== 'true') throw unavailable();
     const reference = this.config.get<string>('WISHLIST_FULFILLMENT_REF');
     // Server-owned reference must be approved for this channel; never invent a warehouse/location.
-    if (!reference || reference.length > 100 || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw unavailable();
+    if (!skuIdentity(sku) || !reference?.trim() || reference.length > 100
+      || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw unavailable();
     const result = await this.request('/inventario/disponibilidad/comercial/verificar', {
       channel_id: 'MARKETPLACE', fulfillment: { mode: 'ENVIO_DOMICILIO', fulfillment_ref: reference },
       lines: [{ sku, quantity }],
