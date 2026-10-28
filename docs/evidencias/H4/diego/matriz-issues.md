@@ -2,6 +2,8 @@
 
 Snapshot remoto, no aprobación. Las pruebas locales se documentan en EVIDENCIA.md; REAL y despliegue pendientes salvo evidencia específica revisada. Fernando Saire revisa funciones/#214; Jim Segovia #208/#219.
 
+Actualización contractual: #190–#194 se alinearon con agregar conservando favorito; [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15) y [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) en borrador. La tabla conserva el snapshot inicial y sus estados; no acredita cierre.
+
 | Issue | Tarea | Estado GitHub | Requisito de trabajo | Pendiente de cierre |
 |---|---|---|---|---|
 | [#175](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/175) | TASK-F036-BE-001 | OPEN | Upsert WishlistItem(customerId,productId) del titular y producto activo,201/200 sin duplicar. | Revisión independiente; gates y validaciones REAL según DoD |

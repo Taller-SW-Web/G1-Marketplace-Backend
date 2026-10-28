@@ -2,6 +2,8 @@
 
 Fecha: 28/10/2026. Baseline Backend: `cd0b93a1949aa7b08ecc3495dc5a1224d51dbe14`. SPECS actualizado desde `46005a4`; cambio F-039 preparado en rama propia. Ver historial de la rama/PR para SHA exacto de implementación. Revisión independiente pendiente.
 
+Commits: favoritos `8017739`; CSAT/pruebas `1ce075e`; trazabilidad `cfea0c1`. [PR Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) y [PR SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15), ambos en borrador. Gitleaks fuente/artefacto/historial: cero hallazgos; ver JSON sanitizados. El escaneo de historial declara explícitamente el HEAD revisado (`cfea0c1`), sin afirmar cubrir commits posteriores de documentación.
+
 ## Clasificación
 
 | Nivel | Evidencia de este corte |

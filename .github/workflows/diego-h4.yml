@@ -12,6 +12,9 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/not_connected
+      USE_MOCKS: 'true'
+      AUTH_ISSUER: https://security.example.test
+      AUTH_JWKS_URL: https://security.example.test/jwks
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:

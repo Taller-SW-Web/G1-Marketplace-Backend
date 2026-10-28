@@ -3,6 +3,8 @@
 Corte: 28/10/2026. Baseline: `origin/develop` `cd0b93a1949aa7b08ecc3495dc5a1224d51dbe14`.
 Responsable: Diego Espinoza. Revisor funcional/QA: Fernando Saire; seguimiento/reestimación: Jim Segovia.
 
+Revisiones concretas en borrador: [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) y [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15). Sin merge, aprobación ni cierre automático. Commits de implementación: favoritos `8017739`, CSAT/pruebas `1ce075e`.
+
 ## Qué está implementado
 
 - F-036/F-038 reutilizan alta y eliminación propias, unicidad y validación del catálogo. Se rechazan queries de selección de dueño y cuerpos de DELETE. Undo usa un alta nueva y revalida elegibilidad; no recupera la fecha anterior.
