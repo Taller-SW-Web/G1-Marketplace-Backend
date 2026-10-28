@@ -1,5 +1,7 @@
 # Entregas de Diego: favoritos y CSAT
 
+Actualización: [correcciones, 425 pruebas y lista de issues para revisión local](evidencias/H4/diego/CORRECCIONES-REVISION.md). El corte anterior de 399 pruebas se conserva como evidencia histórica.
+
 Corte: 28/10/2026. Baseline: `origin/develop` `cd0b93a1949aa7b08ecc3495dc5a1224d51dbe14`.
 Responsable: Diego Espinoza. Revisor funcional/QA: Fernando Saire; seguimiento/reestimación: Jim Segovia.
 
