@@ -21,6 +21,8 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
   let providerCode: string;
   let malformed: boolean;
   let timeout: boolean;
+  let mutationTimeout: boolean;
+  let orderStatus: number;
   let sent: Record<string, unknown>[];
   let tokenSeen: string | undefined;
   const orderId = 'PED-2026-00001';
@@ -34,12 +36,14 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
       tokenSeen = req.headers.authorization;
       if (timeout) return;
       if (req.method === 'GET') {
+        res.statusCode = orderStatus;
         res.setHeader('Content-Type', 'application/json');
         return res.end(JSON.stringify(malformed ? {} : { pedidoId: orderId, canal: 'MARKETPLACE',
           estado: orderState, contacto: { clienteId: owner } }));
       }
       let body = ''; for await (const chunk of req) body += chunk;
       sent.push(JSON.parse(body));
+      if (mutationTimeout) return;
       res.writeHead(providerStatus, { 'Content-Type': 'application/json' });
       res.end(providerStatus === 201 ? undefined : JSON.stringify({ code: providerCode, detail: 'private-provider-data' }));
     });
@@ -59,6 +63,7 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
   afterAll(async () => { await app?.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); });
   beforeEach(() => { enabled = true; promptState = 'SHOWN'; promptExists = true; orderState = 'ENTREGADO';
     owner = SANDBOX_CUSTOMERS.A; providerStatus = 201; providerCode = ''; malformed = false; timeout = false;
+    mutationTimeout = false; orderStatus = 200;
     sent = []; tokenSeen = undefined; jest.clearAllMocks(); });
   const submit = (body: object = { sentiment: 'GOOD', reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, id?: string) =>
     request(app.getHttpServer()).post(endpoint).auth(token(id), { type: 'bearer' }).send(body);
@@ -89,6 +94,18 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     promptState = 'SHOWN'; enabled = false; await submit().expect(503);
     expect(update).not.toHaveBeenCalled(); expect(sent).toEqual([]);
   });
+
+  it.each([{ sentiment: 'GOOD', reasons: null }, { sentiment: 'GOOD', comment: null },
+    { sentiment: 'GOOD', reasons: ['REASON', 'REASON'] }, { sentiment: 'GOOD', comment: 'bad\u0000comment' }])(
+    'rejects invalid optional fields before persistence or external calls: %j', async body => {
+      await submit(body).expect(400);
+      expect(lookup).not.toHaveBeenCalled(); expect(sent).toEqual([]);
+    });
+
+  it('accepts omitted optional fields and sends no invented reasons', async () => {
+    await submit({ sentiment: 'REGULAR' }).expect(201);
+    expect(sent[0]).toMatchObject({ puntuacion: 3, comentario: '' });
+  });
   it('reconciles a canonical provider duplicate, but never an arbitrary conflict', async () => {
     providerStatus = 409; providerCode = 'UNKNOWN_CONFLICT'; await submit().expect(503);
     expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
@@ -102,5 +119,34 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     malformed = true; await submit().expect(503);
     malformed = false; timeout = true; await submit().expect(503);
     expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
+  });
+
+  it.each([[401, 401], [403, 403], [404, 404], [500, 503]])('maps order lookup HTTP %s to %s without a mutation', async (status, expected) => {
+    orderStatus = status;
+    await submit().expect(expected);
+    expect(sent).toEqual([]); expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([[401, '', 401], [403, '', 403], [422, 'ORDER_NOT_DELIVERED', 422],
+    [422, 'UNKNOWN', 503], [200, '', 503]])('maps CSAT provider status %s/code %s to %s', async (status, code, expected) => {
+    providerStatus = Number(status); providerCode = String(code);
+    await submit().expect(Number(expected));
+    expect(sent).toHaveLength(1); expect(update).not.toHaveBeenCalled();
+  });
+
+  it('does not retry a mutation whose response times out', async () => {
+    mutationTimeout = true;
+    await submit().expect(503);
+    expect(sent).toHaveLength(1); expect(update).not.toHaveBeenCalled(); expect(promptState).toBe('SHOWN');
+  });
+
+  it('recovers a confirmed provider submission after a local persistence failure through manual retry', async () => {
+    update.mockRejectedValueOnce(new Error('private-database-detail'));
+    const response = await submit().expect(500);
+    expect(JSON.stringify(response.body)).not.toContain('private-database-detail');
+    expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
+    providerStatus = 409; providerCode = 'CSAT_ALREADY_SUBMITTED';
+    await submit().expect(409);
+    expect(promptState).toBe('SUBMITTED'); expect(sent).toHaveLength(2);
   });
 });
