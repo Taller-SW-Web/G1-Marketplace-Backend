@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CsatModule } from './csat/csat.module';
 import { ConfigModule } from '@nestjs/config';
 import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
@@ -20,6 +21,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
     PrismaModule,
     HealthModule,
     WishlistModule,
+    CsatModule,
     AuthModule,
     OrdersModule,
     CartModule,

@@ -51,6 +51,25 @@ const document = {
     { url: 'https://g1-marketplace-backend.onrender.com', description: 'Servidor Render Producción' },
   ],
   paths: {
+    '/api/v1/orders/{orderId}/csat': {
+      post: {
+        operationId: 'submitPostDeliveryCsat', tags: ['CSAT'], summary: 'F-040: evaluación de pedido entregado del titular',
+        description: 'Desactivado por defecto. Requiere CSAT_ENABLED, CSAT_INTEGRATION_APPROVED y CSAT_PROMPT_APPROVED. Prompt propio SHOWN previamente autorizado; no crea ni muestra prompts. Conserva estado ante respuesta incierta, sin reintento automático. Cache-Control: no-store, private.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'orderId', in: 'path', required: true, schema: { type: 'string', maxLength: 100, pattern: '^PED-[0-9]{4}-[0-9]{5,}$' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/SubmitCsat' } } } },
+        responses: {
+          '201': { description: 'Ventas confirmó la evaluación; sin cuerpo. Prompt local SUBMITTED.' },
+          '400': error('Solicitud inválida', 'INVALID_REQUEST'),
+          '401': error('Autenticación requerida', 'UNAUTHORIZED'),
+          '403': error('Pedido ajeno', 'ORDER_FORBIDDEN'),
+          '404': error('Pedido no disponible', 'ORDER_NOT_AVAILABLE'),
+          '409': { description: 'PROMPT_NOT_ELIGIBLE o CSAT_ALREADY_SUBMITTED. Sólo duplicado canónico confirmado por Ventas reconcilia el prompt.' },
+          '422': error('Pedido no entregado', 'ORDER_NOT_DELIVERED'),
+          '503': unavailable('CSAT_UNAVAILABLE', 'SALES_UNAVAILABLE', 'AUTH_UNAVAILABLE'),
+        },
+      },
+    },
     '/api/v1/carts/current/items': {
       post: {
         operationId: 'addCartItem',
@@ -425,6 +444,13 @@ const document = {
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
+      SubmitCsat: {
+        type: 'object', additionalProperties: false, required: ['sentiment'], properties: {
+          sentiment: { type: 'string', enum: ['GOOD', 'REGULAR', 'BAD'] },
+          reasons: { type: 'array', maxItems: 10, uniqueItems: true, items: { type: 'string', pattern: '^[A-Z][A-Z0-9_]{0,49}$' } },
+          comment: { type: 'string', maxLength: 1000 },
+        },
+      },
       AddCartItemPayload: {
         type: 'object',
         additionalProperties: false,

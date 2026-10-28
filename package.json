@@ -13,6 +13,7 @@
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
     "test:integration": "ts-node scripts/integration-test.ts",
+    "test:diego:isolated": "node scripts/test-diego-isolated.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
     "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",

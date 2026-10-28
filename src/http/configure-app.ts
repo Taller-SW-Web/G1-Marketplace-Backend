@@ -13,7 +13,7 @@ import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from '../checkout
 export function configureApp(app: INestApplication): void {
   app.use(requestIdMiddleware);
   app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
-    if (/^\/api\/v1\/(wishlist|auth|password)(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
+    if (/^\/api\/v1\/(wishlist|orders|auth|password)(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
     next();
   });
   const config = app.get(ConfigService);
