@@ -16,7 +16,7 @@ export class ApiErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost): void {
     const request = host.switchToHttp().getRequest<{ originalUrl?: string; url?: string }>();
     const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
-    const isWishlist = /^\/api\/v1\/wishlist(?:\/|$)/.test(path);
+    const isWishlist = /^\/api\/v1\/wishlist(?:\/|$)/.test(path) || /^\/api\/v1\/orders\/[^/]+\/csat$/.test(path);
     if (!isWishlist && !(error instanceof HttpException && error.getStatus() === 404)) {
       this.fallback.catch(error, host);
       return;
