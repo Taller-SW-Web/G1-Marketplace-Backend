@@ -22,7 +22,7 @@ const RESET_TOKEN = 'reset-token-fixture-0123456789';
 describe('F-004 recovery BFF QA (G7 double, full HTTP pipeline)', () => {
   let app: INestApplication; let server: Server;
   const calls: { path: string; body: Record<string, unknown> }[] = [];
-  let mode: 'ok' | 'hang' | 'echo500' | 'wrong200' | 'g7-400' | 'g7-404' | 'rate-bad' = 'ok';
+  let mode: 'ok' | 'hang' | 'echo500' | 'wrong200' | 'g7-400' | 'g7-404' | 'g7-401' | 'g7-400-unknown-only' | 'rate-bad' = 'ok';
   let g7DelayMs = 0;
   const settings: Record<string, unknown> = { NODE_ENV: 'test', AUTH_ENABLED: 'true', G7_RECOVERY_ENABLED: 'true',
     G7_REGISTRATION_ENABLED: 'false', G1_WEB_ORIGIN: origin, HTTP_TIMEOUT_MS: 300, CORS_ORIGINS: [origin] };
@@ -55,6 +55,9 @@ describe('F-004 recovery BFF QA (G7 double, full HTTP pipeline)', () => {
         if (mode === 'echo500') return send(500, { message: `failed for ${body.correo}`, detail: `stack for ${body.correo}` });
         if (mode === 'wrong200') return send(200, { enviado: body.correo === KNOWN });
         if (mode === 'g7-400') return send(400, { code: 'VALIDACION', message: `bad ${body.correo}` });
+        if (mode === 'g7-401') return send(401, { code: 'CREDENCIALES_INVALIDAS' });
+        if (mode === 'g7-400-unknown-only' && body.correo !== KNOWN) return send(400, { code: 'VALIDACION', message: 'Correo no registrado' });
+        if (mode === 'g7-400-unknown-only') return send(202);
         if (mode === 'g7-404') return send(404, { code: 'CUENTA_NO_ENCONTRADA', message: body.correo });
         if (body.correo === 'limit@fixture.test') {
           res.setHeader('Retry-After', mode === 'rate-bad' ? 'Wed, 21 Oct 2026 07:28:00 GMT' : '7');
@@ -110,8 +113,25 @@ describe('F-004 recovery BFF QA (G7 double, full HTTP pipeline)', () => {
       expect(response.text).not.toContain(KNOWN); expect(response.text).not.toMatch(/CUENTA_NO_ENCONTRADA|stack for|bad /);
       expectNoLeak(KNOWN);
     });
+    it('never forwards a provider 400 VALIDACION (even one that varies by account): neutral 503 AUTH_UNAVAILABLE', async () => {
+      mode = 'g7-400'; const response = await recover({ correo: KNOWN }).expect(503);
+      expect(response.body).toEqual({ code: 'AUTH_UNAVAILABLE', message: 'Acceso no disponible temporalmente.' });
+      expect(response.text).not.toMatch(/VALIDACION|bad /);
+    });
+    it('maps any non-429 provider error (400, 401, 404, 500) to the same neutral 503', async () => {
+      const bodies = new Set<string>();
+      for (const m of ['g7-400', 'g7-401', 'g7-404', 'echo500'] as const) { mode = m; const r = await recover({ correo: KNOWN }).expect(503); bodies.add(r.text); }
+      expect(bodies.size).toBe(1);
+    });
+    it('hides a provider that answers 400 only for unregistered addresses (no oracle: 202 vs 400 never reaches the client as differing codes)', async () => {
+      mode = 'g7-400-unknown-only';
+      const known = await recover({ correo: KNOWN }); const unknown = await recover({ correo: UNKNOWN });
+      expect(known.status).toBe(202); expect(unknown.status).toBe(503);
+      expect(unknown.text).not.toMatch(/VALIDACION|registrado/);
+      // Residual: the 202-vs-503 difference is still visible if G7 itself behaves this way; only G7 REAL can rule that out.
+    });
     it('keeps unknown-account responses identical for every non-202 provider mode (same for known and unknown)', async () => {
-      for (const m of ['g7-400', 'g7-404', 'echo500', 'wrong200'] as const) {
+      for (const m of ['g7-400', 'g7-401', 'g7-404', 'echo500', 'wrong200'] as const) {
         mode = m; const a = await recover({ correo: KNOWN }); const b = await recover({ correo: UNKNOWN });
         expect(stable(a)).toEqual(stable(b));
       }

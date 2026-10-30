@@ -14,7 +14,7 @@ Entorno: Windows, Node local, Nest con `configureApp` real (ValidationPipe, filt
 
 | Comando | Resultado |
 |---|---|
-| `npx jest --config ./test/jest-e2e.json test/recovery-qa.e2e-spec.ts` | 35 PASS |
+| `npx jest --config ./test/jest-e2e.json test/recovery-qa.e2e-spec.ts` | 38 PASS |
 | `npx jest --runInBand` (unitarias) | 17 suites, 154 PASS |
 | `npm run test:e2e` | 214 PASS, 13 omitidas (las que requieren PostgreSQL) |
 | `npm run lint` / `npm run build` | PASS |
@@ -24,7 +24,7 @@ No ejecutados localmente: `gitleaks`, `semgrep` (corren en CI, `auth-h4.yml`); D
 
 ## Casos (test/recovery-qa.e2e-spec.ts)
 
-- **202 uniforme / antienumeración:** correo conocido y desconocido producen estado, cuerpo vacío y cabeceras idénticos; al proveedor solo se reenvía `{correo}`; sin cookies. Respuestas inesperadas del proveedor (200 con indicador «enviado», 400, 404, 500 con eco) se reducen a un cuerpo genérico idéntico para ambos correos y sin eco del correo ni del texto del proveedor.
+- **202 uniforme / antienumeración:** correo conocido y desconocido producen estado, cuerpo vacío y cabeceras idénticos; al proveedor solo se reenvía `{correo}`; sin cookies. Respuestas inesperadas del proveedor (200 con indicador «enviado», 400, 401, 404, 500 con eco) se reducen a un 503 genérico idéntico para ambos correos y sin eco del correo ni del texto del proveedor.
 - **Formato inválido:** vacío, sin `@`, número, array, objeto (`$ne`), `null`, > 254, con espacios, campos extra (`returnUrl`, `redirect`), cuerpo array/texto → 400 sin llamar a G7, sin cookie ni `Location`. La validación es local, por lo que no depende de la existencia de la cuenta. El 400 no repite el valor enviado; JSON malformado, `text/plain` y cuerpo grande tampoco lo reflejan.
 - **Origen y compuerta:** sin `Origin`, foráneo, hermano (`…evil.test`) o `null` → 403 antes de G7; con `G7_RECOVERY_ENABLED=false` → 503 `AUTH_OPERATION_UNAVAILABLE` sin llamada; GET → 404.
 - **429 neutro:** `{code: DEMASIADAS_SOLICITUDES, message, retryAfterSeconds}` con intervalo entero acotado; si `Retry-After` es fecha o inválido, se omite; sin IP/correo/texto del proveedor; sin reintento automático.
@@ -34,13 +34,11 @@ No ejecutados localmente: `gitleaks`, `semgrep` (corren en CI, `auth-h4.yml`); D
 
 ## Hallazgos
 
-No se encontró un defecto explotable en el adaptador BFF: no hubo cambios de producción en este PR.
-
-Observaciones, no corregidas:
-1. Un 400 `VALIDACION` del proveedor se reenvía con su código (el BFF solo reemplaza 429). Si el G7 REAL devolviera 400 solo para algunos correos, sería un oráculo de enumeración; hay que confirmar con G7 que el 202 es incondicional para cualquier correo bien formado.
-2. Los logs de acceso HTTP del plataforma/proxy de despliegue no se pueden inspeccionar localmente; podrían registrar URL/cabeceras (el correo viaja en el cuerpo, no en la URL).
-3. No hay límite de tasa propio en el BFF; depende por completo del de G7 (`429`). Igual que en F-002, queda decisión abierta.
-4. Los mensajes del 400 de ValidationPipe nombran el campo (`correo`) pero no el valor.
+1. **Corregido:** `AccountService.recover` reenviaba un 400 `VALIDACION` del proveedor (y un 401 desconocido salía como `CREDENCIALES_INVALIDAS`). Si G7 variara esas respuestas por cuenta, serían un oráculo de enumeración. El contrato F-004 solo define `202` y `429`, y el formato ya se valida en el DTO local, así que ahora cualquier error del proveedor distinto de 429 se responde como `503 AUTH_UNAVAILABLE` neutro e idéntico. 202 uniforme y 429 acotado no cambian. Solo afecta a `POST /password/recuperar`; registro, restablecer y login no se tocaron. Cubierto por 3 casos nuevos (400, 400/401/404/500 con cuerpo único, y proveedor que da 400 solo a correos no registrados).
+2. **Residual (no eliminable en el BFF):** si G7 REAL respondiera 202 a unos correos y un error a otros, el cliente vería 202 vs 503. Solo G7 REAL puede descartarlo (ver bloqueos).
+3. Los logs de acceso HTTP de la plataforma/proxy de despliegue no se pueden inspeccionar localmente (el correo viaja en el cuerpo, no en la URL).
+4. No hay límite de tasa propio en el BFF; depende por completo del 429 de G7. Decisión abierta, igual que en F-002.
+5. Los mensajes del 400 de ValidationPipe nombran el campo (`correo`) pero no el valor.
 
 ## Bloqueos que dependen de G7 / entorno (sin evidencia inventada)
 
