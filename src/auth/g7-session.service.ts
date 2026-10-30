@@ -27,6 +27,12 @@ export class G7SessionService {
     const values = request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix));
     return values?.length === 1 ? values[0].slice(prefix.length) : undefined;
   }
+  // Logout must not trust an ambiguous cookie header: every submitted value is revoked.
+  private allCookies(request: CookieRequest, challenge = false): string[] {
+    const prefix = `${this.cookieName(challenge)}=`;
+    return (request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix)) ?? [])
+      .map(part => part.slice(prefix.length));
+  }
   private setCookie(response: CookieResponse, opaque: string, age: number, challenge = false) {
     response.append('Set-Cookie', `${this.cookieName(challenge)}=${opaque}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${this.config.get('NODE_ENV') === 'production' ? '; Secure' : ''}`);
   }
@@ -44,7 +50,10 @@ export class G7SessionService {
       || typeof value.expiresIn !== 'number' || !Number.isInteger(value.expiresIn) || value.expiresIn < 1
       || value.expiresIn > 900 || !record(value.usuario) || typeof value.usuario.nombreCompleto !== 'string'
       || !Array.isArray(value.usuario.roles)) throw unavailable();
-    const principal = await this.verifier.authenticate(value.accessToken);
+    // A token G7 itself just issued that fails verification is a provider fault, not the user's credentials.
+    const principal = await this.verifier.authenticate(value.accessToken).catch((error: unknown) => {
+      throw error instanceof UnauthorizedException ? unavailable() : error;
+    });
     const claims = JSON.parse(Buffer.from(value.accessToken.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>;
     const now = Math.floor(Date.now() / 1000);
     if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles) || !claims.roles.includes('CLIENTE')
@@ -191,16 +200,18 @@ export class G7SessionService {
   async logout(request: CookieRequest, response: CookieResponse) {
     this.assertOrigin(request);
     // Read and delete under one lock; do not renew merely to log out.
-    const removed = await this.store.locked(this.cookie(request), async session => ({
-      result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
-    }));
-    await this.store.remove(this.cookie(request, true));
-    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
-    let remoteRevocationPending = removed?.refreshing ?? false;
-    if (removed) {
+    let remoteRevocationPending = false;
+    for (const opaque of [...new Set(this.allCookies(request))]) {
+      const removed = await this.store.locked(opaque, async session => ({
+        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
+      }));
+      if (!removed) continue;
+      remoteRevocationPending ||= removed.refreshing;
       try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
       catch { remoteRevocationPending = true; }
     }
+    for (const opaque of new Set(this.allCookies(request, true))) await this.store.remove(opaque);
+    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
     return { authenticated: false, remoteRevocationPending };
   }
 }
