@@ -44,7 +44,10 @@ export class G7SessionService {
       || typeof value.expiresIn !== 'number' || !Number.isInteger(value.expiresIn) || value.expiresIn < 1
       || value.expiresIn > 900 || !record(value.usuario) || typeof value.usuario.nombreCompleto !== 'string'
       || !Array.isArray(value.usuario.roles)) throw unavailable();
-    const principal = await this.verifier.authenticate(value.accessToken);
+    // A token G7 itself just issued that fails verification is a provider fault, not the user's credentials.
+    const principal = await this.verifier.authenticate(value.accessToken).catch((error: unknown) => {
+      throw error instanceof UnauthorizedException ? unavailable() : error;
+    });
     const claims = JSON.parse(Buffer.from(value.accessToken.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>;
     const now = Math.floor(Date.now() / 1000);
     if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles) || !claims.roles.includes('CLIENTE')
