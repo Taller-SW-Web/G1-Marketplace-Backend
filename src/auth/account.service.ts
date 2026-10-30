@@ -63,7 +63,18 @@ export class AccountService {
   }
   async reset(input: ResetPasswordDto, request: CookieRequest) {
     this.gate('recuperacion', request);
-    await this.g7.call('password/restablecer', { token: input.token, nuevaContrasena: input.nuevaContrasena }, undefined, 204);
+    try { await this.g7.call('password/restablecer', { token: input.token, nuevaContrasena: input.nuevaContrasena }, undefined, 204); }
+    catch (error) {
+      // Only the reset contract may reach the client; codes of other G7 operations (login, OTP) mean nothing here.
+      const reply = error instanceof ApiError ? error.getResponse() : undefined;
+      const code = record(reply) ? reply.code : undefined;
+      const contract: Record<number, string> = { 401: 'TOKEN_RECUPERACION_INVALIDO', 410: 'TOKEN_RECUPERACION_EXPIRADO', 422: 'POLITICA_INCUMPLIDA' };
+      if (error instanceof ApiError && contract[error.getStatus()] && code !== contract[error.getStatus()]) {
+        if (error.getStatus() === 401) throw new ApiError(401, contract[401], 'No pudimos completar el acceso.');
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
+      }
+      throw error;
+    }
     // G7 owns token consumption and revocation of the affected user's sessions.
     // A 204 has no target UUID; never infer identity from a client-supplied field.
   }

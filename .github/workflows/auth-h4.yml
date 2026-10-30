@@ -1,7 +1,7 @@
 name: H4 G7 contract fixture and persisted sessions
 on:
   pull_request:
-    paths: ['src/auth/**', 'src/security/**', 'src/config/**', 'src/http/**', 'src/cart/cart.module.ts', 'src/checkout/checkout.module.ts', 'prisma/**', 'test/auth-g7.e2e-spec.ts', 'test/account-g7.e2e-spec.ts', 'test/g7-introspection.e2e-spec.ts', 'scripts/security-check.py', 'scripts/install-gitleaks.py', '.security/**', '.github/workflows/auth-h4.yml']
+    paths: ['src/auth/**', 'src/security/**', 'src/config/**', 'src/http/**', 'src/cart/cart.module.ts', 'src/checkout/checkout.module.ts', 'prisma/**', 'test/auth-g7.e2e-spec.ts', 'test/account-g7.e2e-spec.ts', 'test/password-reset-g7.e2e-spec.ts', 'test/g7-introspection.e2e-spec.ts', 'scripts/security-check.py', 'scripts/install-gitleaks.py', '.security/**', '.github/workflows/auth-h4.yml']
 permissions:
   contents: read
 jobs:
@@ -36,7 +36,7 @@ jobs:
       # Disposable schema only. This does not certify migration deployability;
       # the inherited duplicate-index migration remains a separate deployment gate.
       - run: npx prisma db push --skip-generate
-      - run: npm run test:e2e -- test/auth-g7.e2e-spec.ts test/account-g7.e2e-spec.ts test/g7-introspection.e2e-spec.ts test/auth.e2e-spec.ts
+      - run: npm run test:e2e -- test/auth-g7.e2e-spec.ts test/account-g7.e2e-spec.ts test/password-reset-g7.e2e-spec.ts test/g7-introspection.e2e-spec.ts test/auth.e2e-spec.ts
       - run: npm run typecheck
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
