@@ -49,7 +49,7 @@ export class AccountService {
   }
   async recover(input: RecoveryDto, request: CookieRequest) {
     this.gate('recuperacion', request);
-    try { await this.g7.call('password/recuperar', { correo: input.correo.trim() }, undefined, 202); }
+    try { await this.g7.call('password/recuperar', { correo: input.correo.trim(), canalOrigen: 'MARKETPLACE' }, undefined, 202); }
     catch (error) {
       if (error instanceof ApiError && error.getStatus() === 429) {
         const body = error.getResponse();
