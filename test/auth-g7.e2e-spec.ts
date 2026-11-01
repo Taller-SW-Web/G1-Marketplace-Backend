@@ -306,6 +306,20 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     expect(closed.body.remoteRevocationPending).toBe(false);
     expect(await prisma.authSession.count()).toBe(0); expect(logoutCalls).toBe(2);
   });
+  it('returns 503 without claiming logout when persisted session invalidation fails', async () => {
+    const value = cookie(await login().expect(200));
+    const locked = jest.spyOn(store, 'locked').mockRejectedValueOnce(new Error('fixture storage outage'));
+    try {
+      const failed = await request(app.getHttpServer()).post('/api/v1/auth/logout')
+        .set('Cookie', value).set('Origin', origin).send({}).expect(503);
+      expect(failed.body.code).toBe('AUTH_UNAVAILABLE');
+      expect(failed.body).not.toHaveProperty('authenticated');
+      expect(failed.headers['set-cookie']).toBeUndefined();
+    } finally { locked.mockRestore(); }
+    const stillActive = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200);
+    expect(stillActive.body.authenticated).toBe(true);
+    await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
+  });
   it('rejects signed non-customer identities and tampered persisted ciphertext', async () => {
     sessionRole = 'VENDEDOR'; await login().expect(503); expect(await prisma.authSession.count()).toBe(0);
     sessionRole = 'CLIENTE'; const value = cookie(await login().expect(200));
