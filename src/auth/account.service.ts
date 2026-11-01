@@ -43,7 +43,7 @@ export class AccountService {
     this.gate('registro', request);
     const value = await this.g7.call('auth/registro', { ...input, nombres: input.nombres.trim(), apellidos: input.apellidos.trim(),
       correo: input.correo.trim(), canalOrigen: 'MARKETPLACE' }, undefined, 201);
-    if (!record(value) || typeof value.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(value.id)
+    if (!record(value) || typeof value.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.id)
       || value.estado !== 'PENDIENTE_VERIFICACION') throw new ApiError(503, 'AUTH_UNAVAILABLE', 'No pudimos confirmar la solicitud de registro.');
     return { id: value.id, estado: 'PENDIENTE_VERIFICACION' };
   }
