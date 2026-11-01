@@ -1,0 +1,59 @@
+name: g1-marketplace-h3
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: h3
+      POSTGRES_PASSWORD: h3_fixture_only
+      POSTGRES_DB: h3_local
+    volumes:
+      - h3_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: "10000"
+      DATABASE_URL: postgresql://h3:h3_fixture_only@postgres:5432/h3_local?schema=public
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      CATALOG_SOURCE: mock
+      USE_MOCKS: "true"
+    ports:
+      - "127.0.0.1:10000:10000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:10000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  frontend:
+    build: ../G1-Marketplace-Frontend
+    environment:
+      MARKETPLACE_API_URL: http://backend:10000
+      MARKETPLACE_INTERNAL_HTTP_HOST: backend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  h3_postgres:

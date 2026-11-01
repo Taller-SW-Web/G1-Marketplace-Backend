@@ -122,6 +122,49 @@ describe('CartController (e2e)', () => {
     expect(res.headers['set-cookie'][0]).toContain('cart_session=');
   });
 
+  it('resolves a MOCK productId to its server-owned SKU before adding it', async () => {
+    mockCartService.addItemToCart.mockResolvedValue({
+      status: 201,
+      code: 'ITEM_CREATED',
+      data: { cartId: 'cart-123', version: 1, items: [{ sku: 'SKU-MOCK-001', quantity: 1 }] },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/carts/current/items')
+      .send({ productId: 'PRD-MOCK-001', quantity: 1 })
+      .expect(201);
+
+    expect(mockCartService.addItemToCart).toHaveBeenCalledWith(expect.objectContaining({
+      sku: 'SKU-MOCK-001',
+      quantity: 1,
+    }));
+  });
+
+  it('accepts the explicitly selected SKU for a variable catalog product', async () => {
+    mockCartService.addItemToCart.mockResolvedValue({
+      status: 201,
+      code: 'ITEM_CREATED',
+      data: { cartId: 'cart-123', version: 1, items: [{ sku: 'SKU-MOCK-VAR-1', quantity: 1 }] },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/carts/current/items')
+      .send({ sku: 'SKU-MOCK-VAR-1', quantity: 1 })
+      .expect(201);
+
+    expect(mockCartService.addItemToCart).toHaveBeenCalledWith(expect.objectContaining({
+      sku: 'SKU-MOCK-VAR-1',
+      quantity: 1,
+    }));
+  });
+
+  it('rejects a productId without a server-owned MOCK SKU mapping', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/carts/current/items')
+      .send({ productId: 'unmapped-product', quantity: 1 })
+      .expect(400);
+  });
+
   it('POST /api/v1/carts/current/items increments existing item for anonymous session', async () => {
     mockCartService.addItemToCart.mockResolvedValue({
       status: 200,

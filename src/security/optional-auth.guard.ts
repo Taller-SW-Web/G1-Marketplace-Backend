@@ -15,7 +15,7 @@ export class OptionalAuthGuard extends AuthGuard {
       return true;
     }
 
-    // Si se envía Authorization, DEBE ser un Bearer token criptográficamente válido RS256
+    // Authorization requiere validación compartida: RS256 o HS256 sandbox explícito.
     // Cualquier token adulterado, falso, expirado o malformado lanzará 401 UNAUTHENTICATED
     return super.canActivate(context);
   }

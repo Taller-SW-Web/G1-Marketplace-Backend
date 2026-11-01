@@ -59,6 +59,17 @@ enum NotificationDeliveryState {
 // MODELOS RELACIONALES
 // ==========================================
 
+// Shared, transient BFF sessions. No passwords or plaintext provider tokens.
+model AuthSession {
+  id        String   @id @db.Char(64)
+  encrypted String   @db.Text
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([expiresAt], map: "auth_sessions_expiry_idx")
+  @@map("auth_sessions")
+}
+
 model Cart {
   id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   customerId           String?                   @map("customer_id") @db.Uuid

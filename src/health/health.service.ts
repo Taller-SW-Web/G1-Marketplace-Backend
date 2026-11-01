@@ -8,11 +8,7 @@ export interface ReadinessResult {
     status: 'UP' | 'DOWN';
     service: string;
     environment: string;
-    database: {
-      connected: boolean;
-      carts?: number;
-      wishlistItems?: number;
-    };
+    database: { connected: boolean };
     timestamp: string;
   };
 }
@@ -29,10 +25,6 @@ export class HealthService {
   async checkReadiness(): Promise<ReadinessResult> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      const [carts, wishlistItems] = await Promise.all([
-        this.prisma.cart.count(),
-        this.prisma.wishlistItem.count(),
-      ]);
 
       return {
         httpStatus: 200,
@@ -40,7 +32,7 @@ export class HealthService {
           status: 'UP',
           service: 'g1-marketplace-backend',
           environment: this.config.get<string>('NODE_ENV', 'development'),
-          database: { connected: true, carts, wishlistItems },
+          database: { connected: true },
           timestamp: new Date().toISOString(),
         },
       };

@@ -1,0 +1,32 @@
+rules:
+  - id: h3-dynamic-code
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review dynamic code execution.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: h3-html-sink
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review HTML injection sink.
+    pattern-either:
+      - pattern: $X.innerHTML = $Y
+      - pattern: $X.outerHTML = $Y
+      - pattern: document.write(...)
+      - pattern: < $TAG ... dangerouslySetInnerHTML={$VALUE} ... />
+  - id: h3-disabled-tls
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: TLS verification must remain enabled.
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+  - id: h3-shell-execution
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review shell execution; use a fixed executable and argument array.
+    pattern-either:
+      - pattern: exec(...)
+      - pattern: execSync(...)
+      - pattern: "{..., shell: true, ...}"

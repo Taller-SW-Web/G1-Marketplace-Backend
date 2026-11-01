@@ -1,0 +1,17 @@
+name: marketplace-h3-tests
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: h3_test
+      POSTGRES_PASSWORD: h3_local_test_only
+      POSTGRES_DB: marketplace_h3_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U h3_test -d marketplace_h3_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

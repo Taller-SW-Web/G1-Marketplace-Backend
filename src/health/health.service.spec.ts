@@ -1,11 +1,8 @@
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { HealthService } from './health.service';
 
 describe('HealthService', () => {
-  const config = {
-    get: jest.fn().mockReturnValue('test'),
-  } as unknown as ConfigService;
   const prisma = {
     $queryRaw: jest.fn(),
     cart: { count: jest.fn() },
@@ -15,10 +12,10 @@ describe('HealthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new HealthService(prisma, config);
+    service = new HealthService(prisma, new ConfigService({ NODE_ENV: 'test' }));
   });
 
-  it('reports readiness and existing table counts when the database is available', async () => {
+  it('reports readiness without reading business counts', async () => {
     (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ '?column?': 1 }]);
     (prisma.cart.count as jest.Mock).mockResolvedValue(2);
     (prisma.wishlistItem.count as jest.Mock).mockResolvedValue(3);
@@ -26,12 +23,11 @@ describe('HealthService', () => {
     const result = await service.checkReadiness();
 
     expect(result.httpStatus).toBe(200);
-    expect(result.body).toMatchObject({
-      status: 'UP',
-      environment: 'test',
-      database: { connected: true, carts: 2, wishlistItems: 3 },
-    });
-    expect(result.body.timestamp).toBeDefined();
+    expect(result.body).toEqual({ status: 'UP', service: 'g1-marketplace-backend',
+      environment: 'test', database: { connected: true }, timestamp: expect.any(String) });
+    expect(new Date(result.body.timestamp).toISOString()).toBe(result.body.timestamp);
+    expect(prisma.cart.count).not.toHaveBeenCalled();
+    expect(prisma.wishlistItem.count).not.toHaveBeenCalled();
   });
 
   it('reports sanitized database failure without leaking the driver error', async () => {
@@ -42,10 +38,10 @@ describe('HealthService', () => {
     const result = await service.checkReadiness();
 
     expect(result.httpStatus).toBe(503);
-    expect(result.body).toMatchObject({
-      status: 'DOWN',
-      database: { connected: false },
-    });
+    expect(result.body).toEqual({ status: 'DOWN', service: 'g1-marketplace-backend',
+      environment: 'test', database: { connected: false }, timestamp: expect.any(String) });
+    expect(prisma.cart.count).not.toHaveBeenCalled();
+    expect(prisma.wishlistItem.count).not.toHaveBeenCalled();
     expect(JSON.stringify(result.body)).not.toContain('secret connection details');
   });
 });

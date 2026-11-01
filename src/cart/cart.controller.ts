@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,6 +13,7 @@ import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { OptionalAuthGuard } from '../security/optional-auth.guard';
 import { AuthenticatedRequest } from '../security/auth.types';
 import * as crypto from 'crypto';
+import { mockSkuForProductId } from './mock-product-sku';
 
 interface ResponseLike {
   setHeader(name: string, value: string): void;
@@ -57,10 +59,16 @@ export class CartController {
     @Res({ passthrough: true }) res: ResponseLike,
   ) {
     const { sessionHash, customerId } = this.resolveSession(req, res);
+    const sku = body.sku?.trim() || (body.productId ? mockSkuForProductId(body.productId) : '');
+    if (!sku) {
+      throw new BadRequestException({
+        error: { code: 'PRODUCT_OR_SKU_REQUIRED' },
+      });
+    }
     const result = await this.cartService.addItemToCart({
       sessionHash,
       customerId,
-      sku: body.sku,
+      sku,
       quantity: body.quantity,
     });
 

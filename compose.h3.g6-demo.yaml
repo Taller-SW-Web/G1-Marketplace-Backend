@@ -1,0 +1,21 @@
+# G6 temporary demo (PR #130), explicitly requested for the H3 integration.
+# Separate project, ports, network and database volume from the usual MOCK demo.
+# Run with -p g1-marketplace-h3-g6-demo -f compose.h3.yaml -f compose.h3.g6-demo.yaml.
+services:
+  backend:
+    ports: !override
+      - "127.0.0.1:10300:10000"
+    environment:
+      CATALOG_SOURCE: real
+      CATALOG_INTEGRATION_APPROVED: "true"
+      PRODUCTOS_BASE_URL: https://g6-productos-ofertas.duckdns.org
+      PRODUCTOS_AUTH_MODE: demo-no-auth
+      PRODUCTOS_SERVICE_TOKEN: ""
+      PRODUCTOS_CONTRACT_VERSION: 0.6.0-rc.1
+      PRODUCTOS_CONTRACT_SHA: f64bfe9a097b2a0f74c2600988305443d92f640e
+      PRODUCTOS_TIMEOUT_MS: "5000"
+      CORS_ORIGINS: http://localhost:3300,http://127.0.0.1:3300
+      CORS_ALLOWED_ORIGINS: http://localhost:3300,http://127.0.0.1:3300
+  frontend:
+    ports: !override
+      - "127.0.0.1:3300:3000"

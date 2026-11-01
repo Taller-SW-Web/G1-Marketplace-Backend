@@ -1,5 +1,19 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Entorno actual solicitado: Docker local.** Render queda como referencia futura. Consultar [Docker H3](docs/DOCKER-H3.md) para levantar los tres servicios. No se ha desplegado en Render.
+
+> **Resolución vigente del PR #15:** [conflictos, decisiones y registro para auditoría](docs/evidencias/h3/resolucion-conflictos-pr15.md).
+> Restricción del usuario: no operar sobre bases de datos. CI actual sin PostgreSQL,
+> migraciones ni pruebas con escrituras reales. Favoritos no agrega cambios de esquema;
+> la migración de checkout en el repositorio procede de develop.
+
+> **Ampliación vigente de favoritos:** [lectura y agregar al carrito conservando favorito](docs/H3-FAVORITOS-INTEGRACION.md),
+> [handoff actualizado](docs/FAVORITOS-FRONTEND-HANDOFF.md) y [evidencia](docs/evidencias/h3/integracion-frontend.md).
+> Sin tabla de movimientos ni migraciones nuevas; identidad/catalogo/comercio sandbox.
+> La descripción del corte F-036/F-038 que sigue se conserva como contexto histórico.
+
+> **Corte backend H3 de Diego:** [guía de ejecución y contrato](docs/H3-DIEGO-USO.md) y [evidencia local](docs/evidencias/h3/diego-backend.md). El archivo `PLAN-H3-DIEGO-BACKEND.md` es una guía local no versionada. Favoritos F-036/F-038: identidad y elegibilidad MOCK; persistencia PostgreSQL real local. Integración externa y revisión pendientes. El catálogo vigente F-001–F-040 y su reparto están en el repositorio SPECS; las referencias SPEC-01–SPEC-08 de las secciones históricas siguientes no gobiernan el reparto actual.
+
 > **Taller de Software Web — Grupo 1 (G1)**  
 > Plataforma e-commerce multicanal orientada a microservicios desarrollada bajo la metodología **Spec-Driven Development (SDD)**.
 
@@ -125,6 +139,25 @@ Este modo no valida JWT y no integra Ventas; el principal fijo sólo permite ren
 2. **Branching:** Cada integrante trabaja sobre ramas asociadas a su módulo (e.g. `feat/SPEC-0X-nombre-historia`).
 3. **Definition of Done:** Cada entrega debe cumplir con los criterios de aceptación BDD, tipado estricto, manejo de errores HTTP y cobertura de pruebas estipulada en su SPEC.
 
+
+## Catálogo H3 (F-006/F-007)
+
+CatalogModule integra inicio/búsqueda en este baseline NestJS, sin otro servidor HTTP ni cambios a Prisma/health/Render. Consultar [ejecución y pruebas](docs/CATALOGO-S1.md) y [elementos compartidos](docs/ELEMENTOS-COMPARTIDOS.md).
+
+El modo MOCK acredita avance parcial. Las asignaciones vigentes están en la matriz punta a punta de G1-Marketplace-SPECS; la migración no reasigna bloques ni cierra integración real/H3. Los cambios se publican sólo en la rama de Giuliano, sin modificar main/develop ni abrir PR.
+
+## Adaptación a develop y preparación de despliegue — 16/10/2026
+
+Se incorpora el carrito del develop actual sin sustituir el catálogo. Se restaura el arranque Render y se elimina la identidad de prueba automática del proxy de carrito. Consultar [preparación y límites del despliegue](docs/DESPLIEGUE-H3.md). Los PR existentes siguen en draft hacia develop; no se publica ni se modifica main/develop.
+
+## Preparacion de integracion G6 — H3
+
+[Guia de integracion G6](docs/INTEGRACION-G6-H3.md): ensayo HTTP local (`npm run test:g6:contract`), comprobacion de lecturas REAL (`npm run check:g6`) y override Docker opcional. La demo habitual sigue en MOCK; el despliegue, acceso y datos efectivos de G6 se verifican por separado.
+
 ## Configuración de autenticación en Render
 
 El servicio requiere `AUTH_ISSUER` y `AUTH_JWKS_URL` como variables de entorno. En `render.yaml` quedan marcadas como `sync: false`: deben configurarse con los valores del issuer y el endpoint JWKS entregados por Seguridad/Ops; no usar los valores locales de `.env.example` en producción. El despliegue falla de forma cerrada si faltan o no corresponden al token recibido.
+
+## Conexión parcial G6 — demo H3 (17/10/2026)
+
+La [guía G6 H3](docs/INTEGRACION-G6-H3.md) explica la demo REAL en localhost:3300 y el modo temporal sin JWT. Categorías ya responde; productos seguía devolviendo 503 en el corte público registrado. Verificar cada ruta antes de exponer.
