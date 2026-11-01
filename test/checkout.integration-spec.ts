@@ -200,11 +200,11 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
     };
     await expect(prisma.checkoutOperation.create({
       data: { ...base, requestFingerprint: 'not-a-sha256-fingerprint' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    })).rejects.toThrow('checkout_operations_fingerprint_chk');
 
     await expect(prisma.checkoutOperation.create({
       data: { ...base, preparedQuoteId: 'Q-PARTIAL' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    })).rejects.toThrow('checkout_operations_prepared_context_chk');
 
     await expect(prisma.checkoutOperation.create({
       data: {
@@ -217,10 +217,14 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
         preparedTotalCurrency: 'USD',
         preparedLines: [{ sku: 'CHECKOUT-INTEGRATION-SKU', quantity: 2 }],
       },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    })).rejects.toThrow('checkout_operations_prepared_context_chk');
 
-    const operation = await prisma.checkoutOperation.create({ data: base });
-    await expect(prisma.cart.delete({ where: { id: cartA } })).rejects.toMatchObject({ code: 'P2003' });
+    const protectedCart = await prisma.cart.create({
+      data: { customerId: customerA, state: CartState.ABANDONED, version: 8 },
+    });
+    const operation = await prisma.checkoutOperation.create({ data: { ...base, cartId: protectedCart.id } });
+    await expect(prisma.cart.delete({ where: { id: protectedCart.id } }))
+      .rejects.toThrow('checkout_operations_cart_id_fkey');
     expect(await prisma.checkoutOperation.findUnique({ where: { id: operation.id } })).not.toBeNull();
   });
 
