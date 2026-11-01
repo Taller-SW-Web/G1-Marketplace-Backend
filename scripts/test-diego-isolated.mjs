@@ -13,6 +13,12 @@ function run(command, args, env = process.env, capture = false) {
   return result.stdout?.trim();
 }
 try {
+  // Diagnose infrastructure before attempting a mutation; never print Docker config or credentials.
+  const daemon = spawnSync('docker', ['info', '--format', '{{.ServerVersion}}'],
+    { encoding: 'utf8', timeout: 10000 });
+  if (daemon.error || daemon.status !== 0) {
+    throw new Error('Docker daemon unavailable: start Docker Desktop and verify docker info before retrying isolated tests');
+  }
   run('docker', ['run', '--detach', '--rm', '--name', container,
     '--publish', '127.0.0.1::5432', '--env', 'POSTGRES_DB=marketplace_h3_test',
     '--env', `POSTGRES_PASSWORD=${password}`, 'postgres:16-alpine'], process.env, true);
