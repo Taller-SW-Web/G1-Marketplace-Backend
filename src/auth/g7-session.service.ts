@@ -198,16 +198,21 @@ export class G7SessionService {
     this.assertOrigin(request);
     // Read and delete under one lock; do not renew merely to log out.
     let remoteRevocationPending = false;
-    for (const opaque of [...new Set(this.allCookies(request))]) {
-      const removed = await this.store.locked(opaque, async session => ({
-        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
-      }));
-      if (!removed) continue;
-      remoteRevocationPending ||= removed.refreshing;
-      try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
-      catch { remoteRevocationPending = true; }
+    try {
+      for (const opaque of [...new Set(this.allCookies(request))]) {
+        const removed = await this.store.locked(opaque, async session => ({
+          result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
+        }));
+        if (!removed) continue;
+        remoteRevocationPending ||= removed.refreshing;
+        try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
+        catch { remoteRevocationPending = true; }
+      }
+      for (const opaque of new Set(this.allCookies(request, true))) await this.store.remove(opaque);
+    } catch {
+      // The persisted session may still be valid. Do not announce logout or clear cookies.
+      throw new ApiError(503, 'AUTH_UNAVAILABLE', 'No pudimos confirmar el cierre de sesión.');
     }
-    for (const opaque of new Set(this.allCookies(request, true))) await this.store.remove(opaque);
     this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
     return { authenticated: false, remoteRevocationPending };
   }
