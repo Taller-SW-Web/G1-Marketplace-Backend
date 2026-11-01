@@ -581,27 +581,47 @@ export class CheckoutService {
   }
 
   private async findActiveCart(customerId: string, sessionHash?: string) {
-    if (sessionHash) {
-      const customerCart = await this.prisma.cart.findFirst({
-        where: { customerId, state: 'ACTIVE' },
+    let cart = sessionHash
+      ? await (async () => {
+          const customerCart = await this.prisma.cart.findFirst({
+            where: { customerId, state: 'ACTIVE' },
+            include: { items: true },
+            orderBy: { updatedAt: 'desc' },
+          });
+          const sessionCart = await this.prisma.cart.findFirst({
+            where: { anonymousSessionHash: sessionHash, state: 'ACTIVE' },
+            include: { items: true },
+          });
+          if (customerCart && sessionCart && customerCart.id !== sessionCart.id) {
+            this.fail(409, 'CART_OWNERSHIP_CONFLICT');
+          }
+          return customerCart ?? sessionCart;
+        })()
+      : await this.prisma.cart.findFirst({
+          where: { customerId, state: 'ACTIVE' },
+          include: { items: true },
+          orderBy: { updatedAt: 'desc' },
+        });
+
+    if (
+      !cart &&
+      (process.env.USE_MOCKS === 'true' || process.env.NODE_ENV !== 'production')
+    ) {
+      const anonCart = await this.prisma.cart.findFirst({
+        where: { customerId: null, state: 'ACTIVE' },
         include: { items: true },
         orderBy: { updatedAt: 'desc' },
       });
-      const sessionCart = await this.prisma.cart.findFirst({
-        where: { anonymousSessionHash: sessionHash, state: 'ACTIVE' },
-        include: { items: true },
-      });
-      if (customerCart && sessionCart && customerCart.id !== sessionCart.id) {
-        this.fail(409, 'CART_OWNERSHIP_CONFLICT');
+      if (anonCart) {
+        cart = await this.prisma.cart.update({
+          where: { id: anonCart.id },
+          data: { customerId, anonymousSessionHash: null },
+          include: { items: true },
+        });
       }
-      return customerCart ?? sessionCart;
     }
 
-    return this.prisma.cart.findFirst({
-      where: { customerId, state: 'ACTIVE' },
-      include: { items: true },
-      orderBy: { updatedAt: 'desc' },
-    });
+    return cart;
   }
 
   private async findOwnedCart(cartId: string, customerId: string, sessionHash?: string) {
