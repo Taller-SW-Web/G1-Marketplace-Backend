@@ -24,8 +24,10 @@ Las rutas FE citadas pertenecen al repositorio Frontend; los PR aún requieren f
 
 `GET /api/v1/auth/capabilities` sólo anuncia registro si la sesión G7 está habilitada y `G7_REGISTRATION_ENABLED=true`. El valor inicial es apagado; no activarlo sin el gate externo. La UI también exige política vigente y URLs HTTPS de términos y privacidad publicadas (`G1_TERMS_URL`, `G1_PRIVACY_URL`). Su publicación y ratificación siguen pendientes.
 
+Actualización 01/11: Brenis informó backend G7 desplegado en `2c8fe58039f94ae871efd3781c126335f670667a`, con registro/verificación. [G7 FE PR #16](https://github.com/Taller-SW-Web/G7-Modulo-de-Seguridad-Frontend/pull/16) figura fusionada; aún falta el SHA **desplegado** de ese frontend y una prueba conjunta desde G1. El despliegue backend no habilita automáticamente la compuerta de G1.
+
 El BFF acepta `201` sólo con UUID y `PENDIENTE_VERIFICACION`, sin crear sesión. `400 VALIDACION` rechaza campos extra o inválidos; `409 CORREO_NO_DISPONIBLE` y `422 POLITICA_INCUMPLIDA` conservan códigos contratados con mensajes acotados; respuesta de proveedor inesperada o timeout se proyecta como indisponibilidad. Revisar trazas sanitizadas sin correos, contraseñas ni tokens antes de atribuir un fallo a G7.
 
 ## Gates abiertos
 
-Faltan: enlace directo al frame de Figma y aprobación visual; URLs legales publicadas; revisión de #245/#246/#114 y sus bases de dependencias; versión y despliegue exactos de G7; registro, verificación y retorno reales (válido/vencido/usado); SAST/SCA/DAST aplicables al corte final; revisión independiente de Andrés. Mantener #27 y las demás tareas F-001 abiertas hasta acreditar cada gate.
+Faltan: enlace directo al frame de Figma y aprobación visual; URLs legales publicadas; revisión de #245/#246/#114 y sus bases de dependencias; SHA frontend G7 desplegado y SHA efectivos G1; registro, verificación y retorno reales (válido/vencido/usado); SAST/SCA/DAST aplicables al corte final; revisión independiente de Andrés. Mantener #27 y las demás tareas F-001 abiertas hasta acreditar cada gate.
