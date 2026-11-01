@@ -210,14 +210,17 @@ export class CartService {
   /**
    * TASK-F017-BE-001: Actualizar cantidad de un ítem en el carrito
    */
-  async updateItemQuantity(params: {
-    sessionHash?: string;
-    customerId?: string;
-    sku: string;
-    quantity: number;
-    expectedVersion?: number;
-  }): Promise<CartSnapshotDto> {
-    return this.prisma.$transaction((tx) => this.updateItemQuantityInTransaction(tx, params));
+  async updateItemQuantity(
+    params: {
+      sessionHash?: string;
+      customerId?: string;
+      sku: string;
+      quantity: number;
+      expectedVersion?: number;
+    },
+    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>,
+  ): Promise<CartSnapshotDto> {
+    return this.prisma.$transaction((tx) => this.updateItemQuantityInTransaction(tx, params, quote));
   }
 
   async updateItemQuantityInTransaction(
@@ -229,6 +232,7 @@ export class CartService {
       quantity: number;
       expectedVersion?: number;
     },
+    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>,
   ): Promise<CartSnapshotDto> {
     const { sessionHash, customerId, sku, quantity, expectedVersion } = params;
 
@@ -273,11 +277,10 @@ export class CartService {
       });
     }
 
-    if (parsedQty > 99) {
-      throw new ConflictException({
-        code: 'STOCK_LIMIT_REACHED',
-        message: 'La cantidad excede el límite permitido de 99 unidades por ítem.',
-      });
+    const commercial = quote ? await quote(sku.trim(), parsedQty) : undefined;
+    if (commercial && (!Number.isFinite(commercial.amount) || commercial.amount < 0
+      || commercial.currency !== cart.currency || !Number.isSafeInteger(commercial.version) || commercial.version < 0)) {
+      throw new ConflictException({ code: 'COMMERCE_DATA_UNAVAILABLE', message: 'Cotización no válida' });
     }
 
     await tx.cartItem.update({
@@ -285,6 +288,12 @@ export class CartService {
       data: {
         quantity: parsedQty,
         updatedAt: new Date(),
+        ...(commercial
+          ? {
+              unitPriceSnapshot: new Prisma.Decimal(commercial.amount),
+              priceVersion: String(commercial.version),
+            }
+          : {}),
       },
     });
 
