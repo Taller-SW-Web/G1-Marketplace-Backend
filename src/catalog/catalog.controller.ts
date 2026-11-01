@@ -23,7 +23,12 @@ export class CatalogController {
     return this.catalog.search(new URL(request.url || '/', 'http://marketplace.local').searchParams, request.catalogRequestId);
   }
 
-  @All(['home', 'products'])
+  @Get('filters')
+  filters(@Req() request: CatalogRequest) {
+    return this.catalog.filters(new URL(request.url || '/', 'http://marketplace.local').searchParams, request.catalogRequestId);
+  }
+
+  @All(['home', 'products', 'filters'])
   unsupportedMethod(@Res({ passthrough: true }) response: ServerResponse): never {
     response.setHeader('Allow', 'GET, OPTIONS');
     throw new CatalogError('METHOD_NOT_ALLOWED', 405);
