@@ -159,6 +159,94 @@ const document = {
         },
       },
     },
+    '/api/v1/carts/current/items/{sku}': {
+      patch: {
+        operationId: 'updateCartItemQuantity',
+        tags: ['Cart'],
+        summary: 'F-017: Cambiar la cantidad de un ítem en el carrito',
+        description:
+          'Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND.',
+        security: [{ bearerAuth: [] }, {}],
+        parameters: [
+          {
+            name: 'sku',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', minLength: 1 },
+            description: 'Identificador SKU del ítem a modificar.',
+          },
+          {
+            name: 'If-Match',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Versión esperada del carrito para control de concurrencia optimista.',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quantity'],
+                additionalProperties: false,
+                properties: {
+                  quantity: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: 99,
+                    description: 'Nueva cantidad absoluta del ítem (entero entre 1 y 99).',
+                    example: 3,
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Cantidad actualizada exitosamente; versión del carrito incrementada.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['status', 'data'],
+                  properties: {
+                    status: { type: 'string', example: 'OK' },
+                    data: { $ref: '#/components/schemas/CartSnapshot' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Cantidad inválida (ej. 0, negativa o > 99).',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiError' },
+                example: { code: 'INVALID_QUANTITY', message: 'La cantidad debe ser un entero entre 1 y 99. La cantidad 0 no es admitida.' },
+              },
+            },
+          },
+          '401': error('Token de autenticación inválido o expirado.', 'UNAUTHENTICATED'),
+          '404': error('El ítem no existe en el carrito actual.', 'CART_ITEM_NOT_FOUND'),
+          '409': {
+            description: 'Conflicto de concurrencia (If-Match) o límite de stock alcanzado.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiError' },
+                examples: {
+                  cartConflict: { value: { code: 'CART_CONFLICT', message: 'Conflicto de versión en carrito.' } },
+                  stockLimitReached: { value: { code: 'STOCK_LIMIT_REACHED', message: 'La cantidad excede el límite permitido.' } },
+                },
+              },
+            },
+          },
+          '500': error('Error interno del servidor.', 'INTERNAL_ERROR'),
+        },
+      },
+    },
     '/api/v1/carts/current': {
       get: {
         operationId: 'getCurrentCart',
