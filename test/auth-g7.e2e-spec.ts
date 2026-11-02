@@ -306,6 +306,22 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     expect(closed.body.remoteRevocationPending).toBe(false);
     expect(await prisma.authSession.count()).toBe(0); expect(logoutCalls).toBe(2);
   });
+  it('F-003 logout never reports a clean revocation for a stored session it cannot read (tampered, key change or expired)', async () => {
+    const value = cookie(await login().expect(200));
+    await prisma.authSession.updateMany({ data: { encrypted: randomBytes(60).toString('base64') } });
+    const closed = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
+    expect(closed.body).toEqual({ authenticated: false, remoteRevocationPending: true });
+    expect(await prisma.authSession.count()).toBe(0); expect(logoutCalls).toBe(0);
+    const again = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
+    expect(again.body.remoteRevocationPending).toBe(false);
+    const expired = cookie(await login().expect(200));
+    await prisma.authSession.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    const late = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', expired).set('Origin', origin).send({}).expect(200);
+    expect(late.body.remoteRevocationPending).toBe(true); expect(await prisma.authSession.count()).toBe(0);
+    // An unknown or malformed cookie never existed: still a clean idempotent logout.
+    const unknown = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', 'g1_session=' + 'A'.repeat(43)).set('Origin', origin).send({}).expect(200);
+    expect(unknown.body.remoteRevocationPending).toBe(false);
+  });
   it('rejects signed non-customer identities and tampered persisted ciphertext', async () => {
     sessionRole = 'VENDEDOR'; await login().expect(503); expect(await prisma.authSession.count()).toBe(0);
     sessionRole = 'CLIENTE'; const value = cookie(await login().expect(200));

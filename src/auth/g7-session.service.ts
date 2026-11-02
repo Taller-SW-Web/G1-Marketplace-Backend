@@ -199,9 +199,12 @@ export class G7SessionService {
     // Read and delete under one lock; do not renew merely to log out.
     let remoteRevocationPending = false;
     for (const opaque of [...new Set(this.allCookies(request))]) {
-      const removed = await this.store.locked(opaque, async session => ({
-        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
+      const removed = await this.store.locked(opaque, async (session, rowExisted) => ({
+        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) }
+          // A stored session we cannot read (expired, tampered, key rotated) holds a refresh we cannot revoke: never report it as done.
+          : rowExisted && session?.data.kind !== 'challenge' ? 'unreadable' as const : null, remove: true,
       }));
+      if (removed === 'unreadable') { remoteRevocationPending = true; continue; }
       if (!removed) continue;
       remoteRevocationPending ||= removed.refreshing;
       try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
