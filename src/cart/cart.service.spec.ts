@@ -494,9 +494,9 @@ describe('CartService - F-019: getCurrentCart', () => {
     );
 
     // Verify snapshot does NOT contain customerId, anonymousSessionHash, email or internal sensitive keys
-    expect((result as Record<string, unknown>).customerId).toBeUndefined();
-    expect((result as Record<string, unknown>).anonymousSessionHash).toBeUndefined();
-    expect((result as Record<string, unknown>).email).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).customerId).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).anonymousSessionHash).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).email).toBeUndefined();
     expect(result.items[0]).not.toHaveProperty('cartId');
   });
 
