@@ -18,17 +18,28 @@ export interface AddCartParams {
 export interface CartItemDto {
   sku: string;
   quantity: number;
+  product?: {
+    slug: string;
+    name: string;
+    imageUrl?: string;
+  };
   unitPrice?: {
     amount: number;
     currency: string;
     version: number;
   };
+  availability?: 'AVAILABLE' | 'OUT_OF_STOCK' | 'UNAVAILABLE';
+  attention?: string | null;
 }
 
 export interface CartSnapshotDto {
   cartId: string | null;
   version: number;
   items: CartItemDto[];
+  subtotal?: {
+    amount: number;
+    currency: string;
+  } | null;
 }
 
 export interface AddItemResult {
@@ -429,8 +440,22 @@ export class CartService {
         cartId: null,
         version: 0,
         items: [],
+        subtotal: null,
       };
     }
+
+    const hasIncompletePrices = cart.items.some((it) => it.unitPriceSnapshot === null);
+    const subtotal = (cart.items.length > 0 && !hasIncompletePrices)
+      ? {
+          amount: Number(
+            cart.items.reduce(
+              (sum, it) => sum + Number(it.unitPriceSnapshot) * it.quantity,
+              0,
+            ).toFixed(2),
+          ),
+          currency: cart.currency,
+        }
+      : null;
 
     return {
       cartId: cart.id,
@@ -445,7 +470,10 @@ export class CartService {
               version: parseInt(it.priceVersion || '1', 10),
             }
           : undefined,
+        availability: 'AVAILABLE',
+        attention: it.unitPriceSnapshot === null ? 'PRECIO_PENDIENTE' : null,
       })),
+      subtotal,
     };
   }
 }
