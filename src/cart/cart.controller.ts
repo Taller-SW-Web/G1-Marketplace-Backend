@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -105,6 +106,27 @@ export class CartController {
       status: 'OK',
       data: snapshot,
     };
+  }
+
+  @Delete(['current/items/:sku', 'items/:sku'])
+  async removeItem(
+    @Param('sku') sku: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    const { sessionHash, customerId } = this.resolveSession(req, res);
+    const expectedVersion = ifMatch ? parseInt(ifMatch, 10) : undefined;
+    const result = await this.cartService.removeItemFromCart({
+      sessionHash,
+      customerId,
+      sku,
+      expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
+    });
+
+    res.setHeader('X-Cart-Version', String(result.version));
+    res.status(204);
+    return;
   }
 
   @Get(['current', ''])

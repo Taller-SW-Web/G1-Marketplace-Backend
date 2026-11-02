@@ -228,3 +228,117 @@ describe('CartService - F-017: updateItemQuantityInTransaction', () => {
   });
 });
 
+describe('CartService - F-018: removeItemFromCart', () => {
+  let service: CartService;
+  let mockPrisma: any;
+
+  const mockTx: any = {
+    $queryRaw: jest.fn().mockResolvedValue([{}]),
+    cart: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    cartItem: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+
+  const sampleCart = {
+    id: 'cart-uuid-1',
+    customerId: 'cust-1',
+    anonymousSessionHash: null,
+    state: CartState.ACTIVE,
+    currency: 'PEN',
+    version: 3,
+    items: [],
+  };
+
+  const sampleItem = {
+    id: 'item-uuid-1',
+    cartId: 'cart-uuid-1',
+    sku: 'INKA-PRO-M',
+    quantity: 2,
+  };
+
+  beforeEach(() => {
+    mockPrisma = {
+      $transaction: jest.fn((cb) => cb(mockTx)),
+    };
+    service = new CartService(mockPrisma as PrismaService);
+    jest.clearAllMocks();
+  });
+
+  it('rejects empty or blank sku with 400 INVALID_SKU', async () => {
+    await expect(
+      service.removeItemFromCartInTransaction(mockTx, {
+        customerId: 'cust-1',
+        sku: '   ',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects malformed sku with 400 INVALID_SKU', async () => {
+    await expect(
+      service.removeItemFromCartInTransaction(mockTx, {
+        customerId: 'cust-1',
+        sku: 'SKU!@#$',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_SKU' },
+    });
+  });
+
+  it('rejects version mismatch with 409 CART_CONFLICT', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(sampleCart);
+
+    await expect(
+      service.removeItemFromCartInTransaction(mockTx, {
+        customerId: 'cust-1',
+        sku: 'INKA-PRO-M',
+        expectedVersion: 1, // sampleCart is version 3
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'CART_CONFLICT' },
+    });
+  });
+
+  it('is idempotent (RN-F018-03): returns mutated: false and current version if item does not exist', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(sampleCart);
+    mockTx.cartItem.findUnique.mockResolvedValueOnce(null);
+
+    const result = await service.removeItemFromCartInTransaction(mockTx, {
+      customerId: 'cust-1',
+      sku: 'INKA-PRO-M',
+      expectedVersion: 3,
+    });
+
+    expect(result).toEqual({ mutated: false, version: 3 });
+    expect(mockTx.cartItem.delete).not.toHaveBeenCalled();
+    expect(mockTx.cart.update).not.toHaveBeenCalled();
+  });
+
+  it('deletes existing CartItem and increments Cart.version (RN-F018-01 / CA-F018-01)', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(sampleCart);
+    mockTx.cartItem.findUnique.mockResolvedValueOnce(sampleItem);
+    mockTx.cartItem.delete.mockResolvedValueOnce(sampleItem);
+    mockTx.cart.update.mockResolvedValueOnce({ ...sampleCart, version: 4 });
+
+    const result = await service.removeItemFromCartInTransaction(mockTx, {
+      customerId: 'cust-1',
+      sku: 'INKA-PRO-M',
+      expectedVersion: 3,
+    });
+
+    expect(mockTx.cartItem.delete).toHaveBeenCalledWith({
+      where: { id: 'item-uuid-1' },
+    });
+    expect(mockTx.cart.update).toHaveBeenCalledWith({
+      where: { id: 'cart-uuid-1' },
+      data: { version: { increment: 1 } },
+    });
+    expect(result).toEqual({ mutated: true, version: 4 });
+  });
+});
