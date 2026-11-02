@@ -49,7 +49,7 @@ export class AccountService {
   }
   async recover(input: RecoveryDto, request: CookieRequest) {
     this.gate('recuperacion', request);
-    try { await this.g7.call('password/recuperar', { correo: input.correo.trim() }, undefined, 202); }
+    try { await this.g7.call('password/recuperar', { correo: input.correo.trim(), canalOrigen: 'MARKETPLACE' }, undefined, 202); }
     catch (error) {
       if (error instanceof ApiError && error.getStatus() === 429) {
         const body = error.getResponse();
@@ -57,6 +57,9 @@ export class AccountService {
           retryAfterSeconds: record(body) && typeof body.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined,
         });
       }
+      // The contract only defines 202 and 429. Any other provider answer (even a 400) could vary by
+      // account, so it is never forwarded: recovery has no per-account response besides the neutral 429.
+      if (error instanceof ApiError) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
       throw error;
     }
     // No account lookup, local email storage, or different response for unknown accounts.
