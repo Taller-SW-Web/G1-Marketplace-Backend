@@ -27,6 +27,12 @@ export class G7SessionService {
     const values = request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix));
     return values?.length === 1 ? values[0].slice(prefix.length) : undefined;
   }
+  // Logout must not trust an ambiguous cookie header: every submitted value is revoked.
+  private allCookies(request: CookieRequest, challenge = false): string[] {
+    const prefix = `${this.cookieName(challenge)}=`;
+    return (request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix)) ?? [])
+      .map(part => part.slice(prefix.length));
+  }
   private setCookie(response: CookieResponse, opaque: string, age: number, challenge = false) {
     response.append('Set-Cookie', `${this.cookieName(challenge)}=${opaque}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${this.config.get('NODE_ENV') === 'production' ? '; Secure' : ''}`);
   }
@@ -191,16 +197,18 @@ export class G7SessionService {
   async logout(request: CookieRequest, response: CookieResponse) {
     this.assertOrigin(request);
     // Read and delete under one lock; do not renew merely to log out.
-    const removed = await this.store.locked(this.cookie(request), async session => ({
-      result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
-    }));
-    await this.store.remove(this.cookie(request, true));
-    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
-    let remoteRevocationPending = removed?.refreshing ?? false;
-    if (removed) {
+    let remoteRevocationPending = false;
+    for (const opaque of [...new Set(this.allCookies(request))]) {
+      const removed = await this.store.locked(opaque, async session => ({
+        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
+      }));
+      if (!removed) continue;
+      remoteRevocationPending ||= removed.refreshing;
       try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
       catch { remoteRevocationPending = true; }
     }
+    for (const opaque of new Set(this.allCookies(request, true))) await this.store.remove(opaque);
+    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
     return { authenticated: false, remoteRevocationPending };
   }
 }
