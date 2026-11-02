@@ -137,7 +137,7 @@ describe('CatalogModule -> real adapter -> local G6 contract HTTP server', () =>
   it('keeps a successful empty result separate from a technical failure', async () => {
     reply = (_req, res) => json(res, page([]));
     const result = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=sin-coincidencias').expect(200);
-    expect(result.body).toEqual({ data: [], page: { number: 0, size: 24, totalElements: 0, totalPages: 0 } });
+    expect(result.body).toEqual({ sort: null, data: [], page: { number: 0, size: 24, totalElements: 0, totalPages: 0 } });
     expect(result.headers['x-catalog-source']).toBe('REAL');
   });
 
@@ -161,7 +161,7 @@ describe('CatalogModule -> real adapter -> local G6 contract HTTP server', () =>
   it('aborts a slow HTTP provider and returns a recoverable catalog error', async () => {
     reply = (_req, res) => { timers.push(setTimeout(() => json(res, page()), 1200)); };
     const result = await request(app.getHttpServer()).get('/api/v1/catalog/products').expect(503);
-    expect(result.body.code).toBe('CATALOG_UNAVAILABLE');
+    expect(result.body.code).toBe('CATALOG_TIMEOUT');
     expect(seen).toHaveLength(1);
   });
 
