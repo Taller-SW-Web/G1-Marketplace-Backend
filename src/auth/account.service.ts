@@ -76,6 +76,10 @@ export class AccountService {
         if (error.getStatus() === 401) throw new ApiError(401, contract[401], 'No pudimos completar el acceso.');
         throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
       }
+      // Statuses outside the reset contract (400, 403, 409 ...) carry login/registration codes: never forward them.
+      if (error instanceof ApiError && ![401, 410, 422, 429].includes(error.getStatus())) {
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
+      }
       throw error;
     }
     // G7 owns token consumption and revocation of the affected user's sessions.
