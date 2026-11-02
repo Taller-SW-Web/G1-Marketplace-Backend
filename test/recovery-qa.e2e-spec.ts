@@ -99,7 +99,7 @@ describe('F-004 recovery BFF QA (G7 double, full HTTP pipeline)', () => {
       expect(a.status).toBe(202);
       expect(stable(a)).toEqual(stable(b)); expect(a.text).toBe(''); expect(a.headers['set-cookie']).toBeUndefined();
       expect(String(a.headers['cache-control'])).toContain('no-store');
-      expect(calls.map(c => c.body)).toEqual([{ correo: KNOWN }, { correo: UNKNOWN }]);
+      expect(calls.map(c => c.body)).toEqual([{ correo: KNOWN, canalOrigen: 'MARKETPLACE' }, { correo: UNKNOWN, canalOrigen: 'MARKETPLACE' }]);
       expectNoLeak(KNOWN, UNKNOWN);
     });
     it('does not turn a differing provider answer (200 with a "sent" flag) into a per-account response', async () => {
@@ -149,10 +149,26 @@ describe('F-004 recovery BFF QA (G7 double, full HTTP pipeline)', () => {
     });
   });
 
+  describe('channel identification for the G7 return (F-004)', () => {
+    it('always sends the exact body {correo, canalOrigen: MARKETPLACE} and ignores channel hints in query/headers', async () => {
+      await request(app.getHttpServer()).post('/api/v1/password/recuperar?canalOrigen=WEB&returnUrl=https://evil.test').set('Origin', origin)
+        .set('X-Canal-Origen', 'WEB').send({ correo: KNOWN }).expect(202);
+      expect(calls).toHaveLength(1); expect(calls[0].path).toBe('/api/v1/password/recuperar');
+      expect(calls[0].body).toEqual({ correo: KNOWN, canalOrigen: 'MARKETPLACE' });
+      expect(JSON.stringify(calls[0].body)).not.toMatch(/evil|WEB/);
+    });
+    it('keeps the 202 neutral: same empty response whether or not the channel is sent to G7', async () => {
+      const response = await recover({ correo: KNOWN }).expect(202);
+      expect(response.text).toBe(''); expect(response.headers['set-cookie']).toBeUndefined(); expect(response.headers.location).toBeUndefined();
+    });
+  });
+
   describe('invalid format and request hygiene', () => {
     it.each([[{}], [{ correo: '' }], [{ correo: 'not-an-email' }], [{ correo: 'a@' }], [{ correo: 123 }], [{ correo: ['a@fixture.test'] }],
       [{ correo: { $ne: null } }], [{ correo: null }], [{ correo: `${'a'.repeat(250)}@fixture.test` }], [{ correo: ' a@fixture.test ' }],
-      [{ correo: KNOWN, returnUrl: 'https://evil.test' }], [{ correo: KNOWN, redirect: '/x' }], [[]], ['text']])(
+      [{ correo: KNOWN, returnUrl: 'https://evil.test' }], [{ correo: KNOWN, redirect: '/x' }],
+      [{ correo: KNOWN, canalOrigen: 'WEB' }], [{ correo: KNOWN, canalOrigen: 'MARKETPLACE' }], [{ correo: KNOWN, canal: 'WEB' }],
+      [{ correo: KNOWN, returnURL: 'https://evil.test' }], [{ correo: KNOWN, callbackUrl: 'https://evil.test' }], [[]], ['text']])(
       'rejects %j with 400 without contacting G7 or setting cookies', async (body) => {
         const response = await recover(body).expect(400);
         expect(calls).toEqual([]); expect(response.headers['set-cookie']).toBeUndefined();
