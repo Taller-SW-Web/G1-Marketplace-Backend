@@ -321,6 +321,82 @@ export class CartService {
   }
 
   /**
+   * TASK-F018-BE-001 / TASK-F018-DB-001: Quitar un ítem del carrito de forma idempotente (F-018)
+   */
+  async removeItemFromCart(params: {
+    sessionHash?: string;
+    customerId?: string;
+    sku: string;
+    expectedVersion?: number;
+  }): Promise<{ mutated: boolean; version: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      return this.removeItemFromCartInTransaction(tx, params);
+    });
+  }
+
+  async removeItemFromCartInTransaction(
+    tx: Prisma.TransactionClient,
+    params: {
+      sessionHash?: string;
+      customerId?: string;
+      sku: string;
+      expectedVersion?: number;
+    },
+  ): Promise<{ mutated: boolean; version: number }> {
+    const { sessionHash, customerId, sku, expectedVersion } = params;
+
+    if (!sku || typeof sku !== 'string' || sku.trim() === '') {
+      throw new BadRequestException({
+        code: 'INVALID_SKU',
+        message: 'El parámetro sku es requerido.',
+      });
+    }
+
+    const trimmedSku = sku.trim();
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(trimmedSku)) {
+      throw new BadRequestException({
+        code: 'INVALID_SKU',
+        message: 'Formato de SKU inválido.',
+      });
+    }
+
+    await this.lockOwner(tx, { sessionHash, customerId });
+    const cart = await this.getOrCreateCart(tx, { sessionHash, customerId });
+
+    if (expectedVersion !== undefined && cart.version !== expectedVersion) {
+      throw new ConflictException({
+        code: 'CART_CONFLICT',
+        message: `Conflicto de versión en carrito: versión actual ${cart.version}, versión esperada ${expectedVersion}.`,
+      });
+    }
+
+    const existingItem = await tx.cartItem.findUnique({
+      where: {
+        cartId_sku: {
+          cartId: cart.id,
+          sku: trimmedSku,
+        },
+      },
+    });
+
+    if (!existingItem) {
+      // Idempotente (RN-F018-03 / API-CA-F018-01): si ya no existe, resultado final seguro sin mutación
+      return { mutated: false, version: cart.version };
+    }
+
+    await tx.cartItem.delete({
+      where: { id: existingItem.id },
+    });
+
+    const updatedCart = await tx.cart.update({
+      where: { id: cart.id },
+      data: { version: { increment: 1 } },
+    });
+
+    return { mutated: true, version: updatedCart.version };
+  }
+
+  /**
    * TASK-F019-BE-001: Obtener carrito actual
    */
   async getCurrentCart(params: {
