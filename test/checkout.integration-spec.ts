@@ -192,34 +192,38 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
   });
 
   it('enforces fingerprint, complete prepared-context and cart foreign-key constraints', async () => {
+    async function rejectsConstraint(data: Prisma.CheckoutOperationUncheckedCreateInput, constraint: string) {
+      // Prisma 5 reports PostgreSQL CHECK violations as an unknown request error.
+      // Match the database constraint, rather than an undocumented Prisma mapping.
+      await expect(prisma.checkoutOperation.create({ data })).rejects.toThrow(constraint);
+      expect(await prisma.checkoutOperation.count({ where: { customerId: customerA } })).toBe(0);
+    }
     const base = {
       customerId: customerA,
       cartId: cartA,
       idempotencyKey: preparationKey,
       requestFingerprint: 'a'.repeat(64),
     };
-    await expect(prisma.checkoutOperation.create({
-      data: { ...base, requestFingerprint: 'not-a-sha256-fingerprint' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    await rejectsConstraint({ ...base, requestFingerprint: 'not-a-sha256-fingerprint' },
+      'checkout_operations_fingerprint_chk');
 
-    await expect(prisma.checkoutOperation.create({
-      data: { ...base, preparedQuoteId: 'Q-PARTIAL' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    await rejectsConstraint({ ...base, preparedQuoteId: 'Q-PARTIAL' },
+      'checkout_operations_prepared_context_chk');
 
-    await expect(prisma.checkoutOperation.create({
-      data: {
-        ...base,
-        preparedQuoteId: 'Q-INVALID-CURRENCY',
-        preparedCartVersion: 8,
-        preparedAddressId: 'ADR-INTEGRATION',
-        preparedExpiresAt: new Date(Date.now() + 60_000),
-        preparedTotalAmount: new Prisma.Decimal(10),
-        preparedTotalCurrency: 'USD',
-        preparedLines: [{ sku: 'CHECKOUT-INTEGRATION-SKU', quantity: 2 }],
-      },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    await rejectsConstraint({
+      ...base,
+      preparedQuoteId: 'Q-INVALID-CURRENCY',
+      preparedCartVersion: 8,
+      preparedAddressId: 'ADR-INTEGRATION',
+      preparedExpiresAt: new Date(Date.now() + 60_000),
+      preparedTotalAmount: new Prisma.Decimal(10),
+      preparedTotalCurrency: 'USD',
+      preparedLines: [{ sku: 'CHECKOUT-INTEGRATION-SKU', quantity: 2 }],
+    }, 'checkout_operations_prepared_context_chk');
 
     const operation = await prisma.checkoutOperation.create({ data: base });
+    // Avoid the cart-item cascade trigger masking the checkout foreign key.
+    await prisma.cartItem.deleteMany({ where: { cartId: cartA } });
     await expect(prisma.cart.delete({ where: { id: cartA } })).rejects.toMatchObject({ code: 'P2003' });
     expect(await prisma.checkoutOperation.findUnique({ where: { id: operation.id } })).not.toBeNull();
   });

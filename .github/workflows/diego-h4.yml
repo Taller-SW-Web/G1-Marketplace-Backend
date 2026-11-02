@@ -7,6 +7,11 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Keep this feature verification scoped after the workflow reaches develop.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.ref == 'feat/diego-h4-favoritos-csat' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
