@@ -51,6 +51,8 @@ jobs:
           git diff --exit-code -- docs/contratos/openapi-catalogo-h4.json
       - run: npm run test:unit -- --testPathPatterns=catalog
       - run: npm run test:catalog:h4:checks
+      - run: npm run test:catalog:h4:timings
+      - run: npm run test:catalog:h4:config
       - run: npm run test:g6:contract
       - run: npm run test:e2e -- --testPathPatterns=catalog.e2e
       - name: Migrate disposable PostgreSQL from scratch
