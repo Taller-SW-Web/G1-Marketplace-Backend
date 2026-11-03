@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
@@ -15,6 +15,7 @@ type AuthenticatedData = Extract<SessionData, { kind: 'session' }>;
 
 @Injectable()
 export class G7SessionService {
+  private readonly logger = new Logger(G7SessionService.name);
   constructor(private readonly config: ConfigService, private readonly provider: G7Client,
     private readonly store: SessionStore, private readonly verifier: AuthGuard) {}
 
@@ -86,8 +87,17 @@ export class G7SessionService {
     const value = await this.provider.call('auth/login', input);
     if (record(value) && value.mfaRequerido === true) {
       if (typeof value.challengeToken !== 'string' || !value.challengeToken || value.challengeToken.length > 8192
-        || typeof value.expiraEn !== 'number' || !Number.isInteger(value.expiraEn) || value.expiraEn < 1 || value.expiraEn > 300) throw unavailable();
-      const opaque = await this.store.create({ kind: 'challenge', challengeToken: value.challengeToken }, new Date(Date.now() + value.expiraEn * 1000));
+        || typeof value.expiraEn !== 'number' || !Number.isInteger(value.expiraEn) || value.expiraEn < 1 || value.expiraEn > 300) {
+        this.logger.warn(JSON.stringify({ event: 'g7_login_failed', stage: 'challenge_response' }));
+        throw unavailable();
+      }
+      let opaque: string;
+      try {
+        opaque = await this.store.create({ kind: 'challenge', challengeToken: value.challengeToken }, new Date(Date.now() + value.expiraEn * 1000));
+      } catch (error) {
+        this.logger.warn(JSON.stringify({ event: 'g7_login_failed', stage: 'challenge_store', errorType: error instanceof Error ? error.name : 'Unknown' }));
+        throw error;
+      }
       this.setCookie(response, opaque, value.expiraEn, true);
       return { mfaRequerido: true, canal: 'EMAIL', expiraEn: value.expiraEn };
     }
