@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cart, CartItem, CartState, Prisma } from '@prisma/client';
@@ -40,6 +41,21 @@ export interface CartSnapshotDto {
     amount: number;
     currency: string;
   } | null;
+}
+
+
+export interface MergeAdjustmentDto {
+  sku: string;
+  requestedQuantity: number;
+  confirmedQuantity: number;
+  reason: 'STOCK_LIMIT' | 'COMMERCE_POLICY';
+}
+
+export interface CartMergeResultDto {
+  cartId: string;
+  version: number;
+  merged: boolean;
+  adjustments: MergeAdjustmentDto[];
 }
 
 export interface AddItemResult {
@@ -476,4 +492,138 @@ export class CartService {
       subtotal,
     };
   }
+
+  /**
+   * TASK-F020-BE-001 / TASK-F020-DB-001: Fusionar carrito anónimo al iniciar sesión (F-020)
+   */
+  async mergeAnonymousCart(params: {
+    customerId: string;
+    sessionHash?: string;
+  }): Promise<CartMergeResultDto> {
+    const { customerId, sessionHash } = params;
+    if (!customerId) {
+      throw new UnauthorizedException({ code: 'UNAUTHENTICATED' });
+    }
+
+    if (!sessionHash) {
+      const userCart = await this.prisma.cart.findFirst({
+        where: { customerId, state: CartState.ACTIVE },
+      });
+      return {
+        cartId: userCart?.id ?? '',
+        version: userCart?.version ?? 0,
+        merged: false,
+        adjustments: [],
+      };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Buscar carrito anónimo activo
+      const anonymousCart = await tx.cart.findFirst({
+        where: { anonymousSessionHash: sessionHash, state: CartState.ACTIVE },
+        include: { items: true },
+      });
+
+      // Si no existe carrito anónimo activo o no tiene ítems
+      if (!anonymousCart || anonymousCart.items.length === 0) {
+        const userCart = await tx.cart.findFirst({
+          where: { customerId, state: CartState.ACTIVE },
+        });
+        return {
+          cartId: userCart?.id ?? '',
+          version: userCart?.version ?? 0,
+          merged: false,
+          adjustments: [],
+        };
+      }
+
+      // 2. Buscar o crear carrito del usuario titular
+      let userCart = await tx.cart.findFirst({
+        where: { customerId, state: CartState.ACTIVE },
+        include: { items: true },
+      });
+
+      if (!userCart) {
+        userCart = await tx.cart.create({
+          data: {
+            customerId,
+            currency: anonymousCart.currency,
+            state: CartState.ACTIVE,
+            version: 0,
+          },
+          include: { items: true },
+        });
+      }
+
+      const adjustments: MergeAdjustmentDto[] = [];
+
+      // 3. Fusionar cada ítem del carrito anónimo al carrito del usuario (RN-F020-02)
+      for (const anonItem of anonymousCart.items) {
+        const existingItem = userCart.items.find((it) => it.sku === anonItem.sku);
+
+        if (existingItem) {
+          const requestedQuantity = existingItem.quantity + anonItem.quantity;
+          const confirmedQuantity = Math.min(99, requestedQuantity);
+
+          if (requestedQuantity > 99) {
+            adjustments.push({
+              sku: anonItem.sku,
+              requestedQuantity,
+              confirmedQuantity: 99,
+              reason: 'STOCK_LIMIT',
+            });
+          }
+
+          await tx.cartItem.update({
+            where: { id: existingItem.id },
+            data: {
+              quantity: confirmedQuantity,
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          await tx.cartItem.create({
+            data: {
+              cartId: userCart.id,
+              sku: anonItem.sku,
+              productId: anonItem.productId,
+              variantId: anonItem.variantId,
+              quantity: anonItem.quantity,
+              unitPriceSnapshot: anonItem.unitPriceSnapshot,
+              priceVersion: anonItem.priceVersion,
+              quotedAt: anonItem.quotedAt,
+            },
+          });
+        }
+      }
+
+      // 4. Incrementar versión del carrito autenticado
+      const updatedUserCart = await tx.cart.update({
+        where: { id: userCart.id },
+        data: {
+          version: { increment: 1 },
+          updatedAt: new Date(),
+        },
+      });
+
+      // 5. Marcar carrito anónimo como MERGED y enlazarlo con mergedIntoCartId (RN-F020-01)
+      await tx.cart.update({
+        where: { id: anonymousCart.id },
+        data: {
+          state: CartState.MERGED,
+          mergedIntoCartId: updatedUserCart.id,
+          mergedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      return {
+        cartId: updatedUserCart.id,
+        version: updatedUserCart.version,
+        merged: true,
+        adjustments,
+      };
+    });
+  }
+
 }

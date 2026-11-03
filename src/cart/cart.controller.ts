@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  UnauthorizedException,
   Body,
   Controller,
   Delete,
@@ -145,4 +146,41 @@ export class CartController {
       data: snapshot,
     };
   }
+
+  @Post(['current/merge-anonymous', 'merge-anonymous'])
+  async mergeAnonymous(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Inicia sesión para fusionar el carrito.',
+      });
+    }
+
+    const sessionHash = parseSessionCookie(req.headers['cookie']);
+    const result = await this.cartService.mergeAnonymousCart({
+      customerId: req.user.sub,
+      sessionHash: sessionHash || undefined,
+    });
+
+    if (result.cartId) {
+      res.setHeader('X-Cart-Version', String(result.version));
+    }
+
+    if (result.merged) {
+      // Invalida la cookie anónima tras commit exitoso (RN-F020-01)
+      res.setHeader(
+        'Set-Cookie',
+        'cart_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0',
+      );
+    }
+
+    return {
+      status: 'OK',
+      data: result,
+    };
+  }
+
 }
