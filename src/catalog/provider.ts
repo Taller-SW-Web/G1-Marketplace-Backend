@@ -40,7 +40,7 @@ export function projectProduct(product: unknown, mediaHosts: Set<string>): Produ
     !validText(marca_id) || !validText(slug) ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 120
   ) throw invalidProvider('INVALID_PRODUCT');
-  if (status && status !== 'ACTIVO') throw invalidProvider('INELIGIBLE_PRODUCT');
+  if (status !== undefined && status !== 'ACTIVO') throw invalidProvider('INELIGIBLE_PRODUCT');
 
   // G6 permits omitted images or an empty array. Preserve the product and page totals.
   let image: ProductCardDTO['image'] = null;
