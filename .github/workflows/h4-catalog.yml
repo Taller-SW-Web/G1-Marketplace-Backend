@@ -1,7 +1,7 @@
 name: H4 Catalog Backend
 on:
   push:
-    branches: [feat/giuliano-hito4]
+    branches: [feat/giuliano-hito4, feat/giuliano-h4-issues-20261103]
   workflow_dispatch:
 permissions:
   contents: read
