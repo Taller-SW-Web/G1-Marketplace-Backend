@@ -46,19 +46,24 @@ export class G7SessionService {
   }
 
   private async validate(value: unknown, expectedSub?: string): Promise<AuthenticatedData> {
+    const reject = (stage: string): ApiError => {
+      this.logger.warn(JSON.stringify({ event: 'g7_session_rejected', stage }));
+      return unavailable();
+    };
     if (!record(value) || typeof value.accessToken !== 'string' || typeof value.refreshToken !== 'string'
       || value.refreshToken.length < 1 || value.refreshToken.length > 8192 || value.tokenType !== 'Bearer'
       || typeof value.expiresIn !== 'number' || !Number.isInteger(value.expiresIn) || value.expiresIn < 1
       || value.expiresIn > 900 || !record(value.usuario) || typeof value.usuario.nombreCompleto !== 'string'
-      || !Array.isArray(value.usuario.roles)) throw unavailable();
+      || !Array.isArray(value.usuario.roles)) throw reject('response_shape');
     const principal = await this.verifier.authenticate(value.accessToken);
     const claims = JSON.parse(Buffer.from(value.accessToken.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>;
     const now = Math.floor(Date.now() / 1000);
-    if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles) || !claims.roles.includes('CLIENTE')
+    if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles)
       || !claims.roles.every(role => typeof role === 'string') || typeof claims.iat !== 'number'
       || !Number.isInteger(claims.iat) || claims.iat > now + 30 || typeof claims.jti !== 'string' || !claims.jti
-      || typeof claims.exp !== 'number' || claims.exp <= claims.iat
-      || principal.sub !== value.usuario.id || (expectedSub && principal.sub !== expectedSub)) throw unavailable();
+      || typeof claims.exp !== 'number' || claims.exp <= claims.iat) throw reject('claims_shape');
+    if (!claims.roles.includes('CLIENTE')) throw reject('client_role_missing');
+    if (principal.sub !== value.usuario.id || (expectedSub && principal.sub !== expectedSub)) throw reject('subject_mismatch');
     // Persist only the fields consumed by G1, not the full G7 profile.
     const tokens: G7Session = { accessToken: value.accessToken, refreshToken: value.refreshToken, tokenType: 'Bearer',
       expiresIn: value.expiresIn, usuario: { id: principal.sub,
