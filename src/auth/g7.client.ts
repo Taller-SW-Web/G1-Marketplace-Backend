@@ -29,9 +29,13 @@ export class G7Client {
         || (base.protocol !== 'https:' && !(base.protocol === 'http:' && local
           && this.config.get('NODE_ENV') !== 'production'))) throw new Error('Invalid G7 URL');
       phase = 'request';
+      // Login and OTP can wait on G7's challenge delivery. Leave five seconds
+      // for G1 persistence and response before the frontend's 20 s deadline.
+      const timeoutMs = ['auth/login', 'auth/otp/solicitar', 'auth/otp/verificar'].includes(path)
+        ? 15000 : this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
       response = await fetch(`${base.href.replace(/\/$/, '')}/${path}`, {
         method: body === undefined ? 'GET' : 'POST', redirect: 'error', cache: 'no-store',
-        signal: AbortSignal.timeout(this.config.get<number>('HTTP_TIMEOUT_MS', 5000)),
+        signal: AbortSignal.timeout(timeoutMs),
         headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': form ? 'application/x-www-form-urlencoded' : 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body !== undefined ? { body: form ? new URLSearchParams(body as Record<string, string>).toString() : JSON.stringify(body) } : {}),
