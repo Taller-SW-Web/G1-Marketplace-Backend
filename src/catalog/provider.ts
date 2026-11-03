@@ -88,7 +88,7 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       if (authMode === 'service-token') headers.Authorization = `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`;
       const response = await fetchImpl(url, {
         headers,
-        redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
+        redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) {
         if (response.status === 422) {
