@@ -29,6 +29,7 @@ export interface MockAvailabilityProduct {
 }
 
 function demoAvailability(number: number): CommercialAvailability {
+  if (number % 7 === 0) return 'UNDETERMINED';
   if (number % 5 === 0) return 'OUT_OF_STOCK';
   if (number % 3 === 0) return 'STOCK_LOW';
   return 'AVAILABLE';
