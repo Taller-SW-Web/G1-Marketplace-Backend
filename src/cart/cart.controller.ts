@@ -183,4 +183,32 @@ export class CartController {
     };
   }
 
+
+  @Post(['current/items/:sku/move-to-wishlist', 'items/:sku/move-to-wishlist'])
+  async moveItemToWishlist(
+    @Param('sku') sku: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Inicia sesión para mover productos a favoritos.',
+      });
+    }
+
+    const expectedVersion = ifMatch ? parseInt(ifMatch.replace(/["']/g, ''), 10) : undefined;
+    const result = await this.cartService.moveItemToWishlist({
+      customerId: req.user.sub,
+      sku,
+      expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
+    });
+
+    res.setHeader('X-Cart-Version', String(result.version));
+    return {
+      status: 'OK',
+      data: result,
+    };
+  }
 }

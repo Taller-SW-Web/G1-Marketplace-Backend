@@ -51,6 +51,13 @@ export interface MergeAdjustmentDto {
   reason: 'STOCK_LIMIT' | 'COMMERCE_POLICY';
 }
 
+export interface MoveToWishlistResultDto {
+  cartId: string;
+  version: number;
+  productId: string;
+  wishlistCreated: boolean;
+}
+
 export interface CartMergeResultDto {
   cartId: string;
   version: number;
@@ -626,4 +633,112 @@ export class CartService {
     });
   }
 
+
+  /**
+   * TASK-F021-BE-001 / TASK-F021-DB-001: Mover ítem del carrito a favoritos (Wishlist) (F-021)
+   */
+  async moveItemToWishlist(params: {
+    customerId: string;
+    sku: string;
+    expectedVersion?: number;
+  }): Promise<MoveToWishlistResultDto> {
+    const { customerId, sku, expectedVersion } = params;
+
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Inicia sesión para mover productos a favoritos.',
+      });
+    }
+
+    if (!sku || typeof sku !== 'string' || sku.trim() === '') {
+      throw new BadRequestException({
+        code: 'INVALID_SKU',
+        message: 'El SKU no puede estar vacío.',
+      });
+    }
+
+    const trimmedSku = sku.trim();
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(trimmedSku)) {
+      throw new BadRequestException({
+        code: 'INVALID_SKU',
+        message: 'Formato de SKU inválido.',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockOwner(tx, { customerId });
+
+      const cart = await tx.cart.findFirst({
+        where: { customerId, state: CartState.ACTIVE },
+        include: { items: true },
+      });
+
+      if (!cart) {
+        throw new NotFoundException({
+          code: 'CART_ITEM_NOT_FOUND',
+          message: `El ítem con SKU ${trimmedSku} no se encuentra en el carrito.`,
+        });
+      }
+
+      if (expectedVersion !== undefined && cart.version !== expectedVersion) {
+        throw new ConflictException({
+          code: 'CART_CONFLICT',
+          message: `Conflicto de versión en carrito: versión actual ${cart.version}, versión esperada ${expectedVersion}.`,
+        });
+      }
+
+      const existingItem = cart.items.find((it) => it.sku === trimmedSku);
+      if (!existingItem) {
+        throw new NotFoundException({
+          code: 'CART_ITEM_NOT_FOUND',
+          message: `El ítem con SKU ${trimmedSku} no se encuentra en el carrito.`,
+        });
+      }
+
+      const productId = existingItem.productId || existingItem.sku.replace(/^SKU-/, 'PRD-');
+
+      // RN-F021-03 / RN-F021-04: Verificar o insertar en WishlistItem a nivel productId
+      let wishlistCreated = false;
+      const existingFavorite = await tx.wishlistItem.findUnique({
+        where: {
+          customerId_productId: {
+            customerId,
+            productId,
+          },
+        },
+      });
+
+      if (!existingFavorite) {
+        await tx.wishlistItem.create({
+          data: {
+            customerId,
+            productId,
+          },
+        });
+        wishlistCreated = true;
+      }
+
+      // Eliminar el ítem del carrito solo tras asegurar el favorito (CA-F021-01)
+      await tx.cartItem.delete({
+        where: { id: existingItem.id },
+      });
+
+      // Incrementar versión del carrito
+      const updatedCart = await tx.cart.update({
+        where: { id: cart.id },
+        data: {
+          version: { increment: 1 },
+          updatedAt: new Date(),
+        },
+      });
+
+      return {
+        cartId: updatedCart.id,
+        version: updatedCart.version,
+        productId,
+        wishlistCreated,
+      };
+    });
+  }
 }

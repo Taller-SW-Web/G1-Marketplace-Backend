@@ -826,3 +826,187 @@ describe('CartService - F-020: mergeAnonymousCart', () => {
     expect(mockTx.cartItem.update).not.toHaveBeenCalled();
   });
 });
+
+describe('CartService - F-021: moveItemToWishlist', () => {
+  let service: CartService;
+  let mockPrisma: any;
+  let mockTx: any;
+
+  beforeEach(() => {
+    mockTx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      cart: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      cartItem: {
+        delete: jest.fn(),
+      },
+      wishlistItem: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    mockPrisma = {
+      $transaction: jest.fn((cb) => cb(mockTx)),
+    };
+    service = new CartService(mockPrisma as PrismaService);
+  });
+
+  it('SEC-F021-01: throws UNAUTHENTICATED if customerId is missing', async () => {
+    await expect(
+      service.moveItemToWishlist({
+        customerId: '',
+        sku: 'SKU-001',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('RN-F021-01: rejects empty or invalid sku with 400 INVALID_SKU', async () => {
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: '   ',
+      }),
+    ).rejects.toThrow('El SKU no puede estar vacío.');
+
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: 'invalid/sku!@#',
+      }),
+    ).rejects.toThrow('Formato de SKU inválido.');
+  });
+
+  it('RN-F021-02: rejects version mismatch with 409 CART_CONFLICT', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'cart-1',
+      version: 5,
+      items: [{ id: 'item-1', sku: 'SKU-100', productId: 'PRD-100' }],
+    });
+
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: 'SKU-100',
+        expectedVersion: 4,
+      }),
+    ).rejects.toThrow('Conflicto de versión en carrito');
+  });
+
+  it('RN-F021-03: rejects with 404 CART_ITEM_NOT_FOUND if cart or item does not exist', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: 'SKU-404',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'CART_ITEM_NOT_FOUND' } });
+
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'cart-1',
+      version: 1,
+      items: [{ id: 'item-1', sku: 'SKU-OTHER' }],
+    });
+
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: 'SKU-404',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'CART_ITEM_NOT_FOUND' } });
+  });
+
+  it('RN-F021-03: creates WishlistItem, deletes CartItem, and increments cart version', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'cart-123',
+      version: 2,
+      items: [{ id: 'item-1', sku: 'SKU-101', productId: 'PRD-101' }],
+    });
+    mockTx.wishlistItem.findUnique.mockResolvedValueOnce(null); // not yet in wishlist
+    mockTx.wishlistItem.create.mockResolvedValueOnce({ id: 'wish-1' });
+    mockTx.cartItem.delete.mockResolvedValueOnce({});
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'cart-123',
+      version: 3,
+    });
+
+    const result = await service.moveItemToWishlist({
+      customerId: 'cust-123',
+      sku: 'SKU-101',
+      expectedVersion: 2,
+    });
+
+    expect(result).toEqual({
+      cartId: 'cart-123',
+      version: 3,
+      productId: 'PRD-101',
+      wishlistCreated: true,
+    });
+    expect(mockTx.wishlistItem.create).toHaveBeenCalledWith({
+      data: {
+        customerId: 'cust-123',
+        productId: 'PRD-101',
+      },
+    });
+    expect(mockTx.cartItem.delete).toHaveBeenCalledWith({
+      where: { id: 'item-1' },
+    });
+    expect(mockTx.cart.update).toHaveBeenCalledWith({
+      where: { id: 'cart-123' },
+      data: expect.objectContaining({
+        version: { increment: 1 },
+      }),
+    });
+  });
+
+  it('RN-F021-04 / API-CA-F021-01: deletes CartItem and returns wishlistCreated: false when already in wishlist', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'cart-123',
+      version: 4,
+      items: [{ id: 'item-2', sku: 'SKU-EXIST', productId: 'PRD-EXIST' }],
+    });
+    mockTx.wishlistItem.findUnique.mockResolvedValueOnce({ id: 'already-fav' });
+    mockTx.cartItem.delete.mockResolvedValueOnce({});
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'cart-123',
+      version: 5,
+    });
+
+    const result = await service.moveItemToWishlist({
+      customerId: 'cust-123',
+      sku: 'SKU-EXIST',
+    });
+
+    expect(result).toEqual({
+      cartId: 'cart-123',
+      version: 5,
+      productId: 'PRD-EXIST',
+      wishlistCreated: false,
+    });
+    expect(mockTx.wishlistItem.create).not.toHaveBeenCalled();
+    expect(mockTx.cartItem.delete).toHaveBeenCalledWith({
+      where: { id: 'item-2' },
+    });
+  });
+
+  it('CA-F021-01: transaction failure when saving favorite preserves CartItem intact', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'cart-123',
+      version: 1,
+      items: [{ id: 'item-fail', sku: 'SKU-FAIL', productId: 'PRD-FAIL' }],
+    });
+    mockTx.wishlistItem.findUnique.mockRejectedValueOnce(new Error('Wishlist DB error'));
+
+    await expect(
+      service.moveItemToWishlist({
+        customerId: 'cust-123',
+        sku: 'SKU-FAIL',
+      }),
+    ).rejects.toThrow('Wishlist DB error');
+
+    expect(mockTx.cartItem.delete).not.toHaveBeenCalled();
+    expect(mockTx.cart.update).not.toHaveBeenCalled();
+  });
+});
