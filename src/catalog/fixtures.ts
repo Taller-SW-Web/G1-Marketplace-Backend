@@ -59,9 +59,8 @@ export function createMockProvider(options: {
       if (query.sort)
         results = [...results].sort(
           (a, b) =>
-            (a.name.localeCompare(b.name, "es") ||
-              a.productId.localeCompare(b.productId)) *
-            (query.sort === "NAME_DESC" ? -1 : 1),
+            a.name.localeCompare(b.name, "es") * (query.sort === "NAME_DESC" ? -1 : 1) ||
+            a.productId.localeCompare(b.productId),
         );
       const totalElements = results.length;
       return {
