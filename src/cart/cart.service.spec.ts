@@ -549,3 +549,280 @@ describe('CartService - F-019: getCurrentCart', () => {
     expect(result.items).toHaveLength(0);
   });
 });
+
+describe('CartService - F-020: mergeAnonymousCart', () => {
+  let service: CartService;
+  let mockPrisma: any;
+  let mockTx: any;
+
+  beforeEach(() => {
+    mockTx = {
+      cart: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      cartItem: {
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+    mockPrisma = {
+      cart: {
+        findFirst: jest.fn(),
+      },
+      $transaction: jest.fn((cb) => cb(mockTx)),
+    };
+    service = new CartService(mockPrisma as PrismaService);
+  });
+
+  it('SEC-F020-01: throws UNAUTHENTICATED if customerId is missing', async () => {
+    await expect(
+      service.mergeAnonymousCart({
+        customerId: '',
+        sessionHash: 'hash-1',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('RN-F020-05: returns merged: false when sessionHash is missing or undefined', async () => {
+    mockPrisma.cart.findFirst.mockResolvedValueOnce({
+      id: 'user-cart-1',
+      version: 2,
+    });
+
+    const result = await service.mergeAnonymousCart({
+      customerId: 'cust-123',
+      sessionHash: undefined,
+    });
+
+    expect(result).toEqual({
+      cartId: 'user-cart-1',
+      version: 2,
+      merged: false,
+      adjustments: [],
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('API-CA-F020-01: returns merged: false when anonymous cart does not exist or has no items', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(null); // anonymous cart not found
+    mockTx.cart.findFirst.mockResolvedValueOnce({
+      id: 'user-cart-1',
+      version: 3,
+    });
+
+    const result = await service.mergeAnonymousCart({
+      customerId: 'cust-123',
+      sessionHash: 'hash-empty',
+    });
+
+    expect(result.merged).toBe(false);
+    expect(result.cartId).toBe('user-cart-1');
+  });
+
+  it('RN-F020-03: creates customer cart if user has none and transfers anonymous items', async () => {
+    const anonCart = {
+      id: 'anon-cart-1',
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      items: [
+        {
+          id: 'item-1',
+          sku: 'INKA-PRO-M',
+          quantity: 2,
+          unitPriceSnapshot: new Prisma.Decimal(50.0),
+          priceVersion: '1',
+          productId: 'prod-1',
+          variantId: 'var-1',
+          quotedAt: new Date(),
+        },
+      ],
+    };
+
+    mockTx.cart.findFirst.mockResolvedValueOnce(anonCart); // anonymous cart
+    mockTx.cart.findFirst.mockResolvedValueOnce(null); // user has no cart yet
+    mockTx.cart.create.mockResolvedValueOnce({
+      id: 'new-user-cart',
+      customerId: 'cust-123',
+      currency: 'PEN',
+      version: 0,
+      state: CartState.ACTIVE,
+      items: [],
+    });
+    mockTx.cartItem.create.mockResolvedValueOnce({});
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'new-user-cart',
+      version: 1,
+    });
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'anon-cart-1',
+      state: CartState.MERGED,
+      mergedIntoCartId: 'new-user-cart',
+    });
+
+    const result = await service.mergeAnonymousCart({
+      customerId: 'cust-123',
+      sessionHash: 'hash-anon',
+    });
+
+    expect(result.merged).toBe(true);
+    expect(result.cartId).toBe('new-user-cart');
+    expect(result.version).toBe(1);
+    expect(mockTx.cartItem.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          cartId: 'new-user-cart',
+          sku: 'INKA-PRO-M',
+          quantity: 2,
+        }),
+      }),
+    );
+    // Verified: anonymous cart marked MERGED
+    expect(mockTx.cart.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'anon-cart-1' },
+        data: expect.objectContaining({
+          state: CartState.MERGED,
+          mergedIntoCartId: 'new-user-cart',
+        }),
+      }),
+    );
+  });
+
+  it('RN-F020-01 / RN-F020-02: sums quantities for existing SKUs and marks anonymous cart as MERGED', async () => {
+    const anonCart = {
+      id: 'anon-cart-2',
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      items: [
+        {
+          id: 'anon-item-1',
+          sku: 'INKA-PRO-M',
+          quantity: 3,
+          unitPriceSnapshot: new Prisma.Decimal(50.0),
+        },
+      ],
+    };
+
+    const userCart = {
+      id: 'user-cart-2',
+      customerId: 'cust-123',
+      currency: 'PEN',
+      version: 5,
+      state: CartState.ACTIVE,
+      items: [
+        {
+          id: 'user-item-1',
+          sku: 'INKA-PRO-M',
+          quantity: 2,
+          unitPriceSnapshot: new Prisma.Decimal(50.0),
+        },
+      ],
+    };
+
+    mockTx.cart.findFirst.mockResolvedValueOnce(anonCart);
+    mockTx.cart.findFirst.mockResolvedValueOnce(userCart);
+    mockTx.cartItem.update.mockResolvedValueOnce({});
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'user-cart-2',
+      version: 6,
+    });
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'anon-cart-2',
+      state: CartState.MERGED,
+    });
+
+    const result = await service.mergeAnonymousCart({
+      customerId: 'cust-123',
+      sessionHash: 'hash-anon-2',
+    });
+
+    expect(result.merged).toBe(true);
+    expect(result.version).toBe(6);
+    expect(result.adjustments).toHaveLength(0);
+    // Quantity 2 + 3 = 5
+    expect(mockTx.cartItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-item-1' },
+        data: expect.objectContaining({ quantity: 5 }),
+      }),
+    );
+  });
+
+  it('RN-F020-02 / CA-F020-03: caps combined quantity at 99 and emits STOCK_LIMIT adjustment', async () => {
+    const anonCart = {
+      id: 'anon-cart-3',
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      items: [
+        {
+          id: 'anon-item-2',
+          sku: 'INKA-CAP-SKU',
+          quantity: 20,
+          unitPriceSnapshot: new Prisma.Decimal(30.0),
+        },
+      ],
+    };
+
+    const userCart = {
+      id: 'user-cart-3',
+      customerId: 'cust-123',
+      currency: 'PEN',
+      version: 1,
+      state: CartState.ACTIVE,
+      items: [
+        {
+          id: 'user-item-2',
+          sku: 'INKA-CAP-SKU',
+          quantity: 90,
+          unitPriceSnapshot: new Prisma.Decimal(30.0),
+        },
+      ],
+    };
+
+    mockTx.cart.findFirst.mockResolvedValueOnce(anonCart);
+    mockTx.cart.findFirst.mockResolvedValueOnce(userCart);
+    mockTx.cartItem.update.mockResolvedValueOnce({});
+    mockTx.cart.update.mockResolvedValueOnce({
+      id: 'user-cart-3',
+      version: 2,
+    });
+    mockTx.cart.update.mockResolvedValueOnce({ id: 'anon-cart-3' });
+
+    const result = await service.mergeAnonymousCart({
+      customerId: 'cust-123',
+      sessionHash: 'hash-anon-3',
+    });
+
+    expect(result.merged).toBe(true);
+    expect(result.adjustments).toEqual([
+      {
+        sku: 'INKA-CAP-SKU',
+        requestedQuantity: 110,
+        confirmedQuantity: 99,
+        reason: 'STOCK_LIMIT',
+      },
+    ]);
+    expect(mockTx.cartItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-item-2' },
+        data: expect.objectContaining({ quantity: 99 }),
+      }),
+    );
+  });
+
+  it('RN-F020-04 / API-CA-F020-02: transaction failure preserves both carts intact without partial merge', async () => {
+    mockTx.cart.findFirst.mockRejectedValueOnce(new Error('DB transaction error'));
+
+    await expect(
+      service.mergeAnonymousCart({
+        customerId: 'cust-123',
+        sessionHash: 'hash-fail',
+      }),
+    ).rejects.toThrow('DB transaction error');
+
+    expect(mockTx.cart.update).not.toHaveBeenCalled();
+    expect(mockTx.cartItem.update).not.toHaveBeenCalled();
+  });
+});
