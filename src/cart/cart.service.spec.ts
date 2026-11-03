@@ -342,3 +342,210 @@ describe('CartService - F-018: removeItemFromCart', () => {
     expect(result).toEqual({ mutated: true, version: 4 });
   });
 });
+
+describe('CartService - F-019: getCurrentCart', () => {
+  let service: CartService;
+  let mockPrisma: any;
+
+  beforeEach(() => {
+    mockPrisma = {
+      cart: {
+        findFirst: jest.fn(),
+      },
+    };
+    service = new CartService(mockPrisma as PrismaService);
+  });
+
+  it('API-CA-F019-01: returns empty cart snapshot when no active cart exists', async () => {
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(null);
+
+    const result = await service.getCurrentCart({
+      sessionHash: 'anon-hash-1',
+    });
+
+    expect(result).toEqual({
+      cartId: null,
+      version: 0,
+      items: [],
+      subtotal: null,
+    });
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith({
+      where: { anonymousSessionHash: 'anon-hash-1', state: CartState.ACTIVE },
+      include: { items: true },
+    });
+  });
+
+  it('RN-F019-02: returns cart snapshot and calculates subtotal correctly', async () => {
+    const mockCart = {
+      id: 'cart-1',
+      version: 5,
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      customerId: 'cust-123',
+      items: [
+        {
+          id: 'item-1',
+          cartId: 'cart-1',
+          sku: 'AERO-42-BLK',
+          quantity: 2,
+          unitPriceSnapshot: new Prisma.Decimal(170.0),
+          priceVersion: '8',
+        },
+      ],
+    };
+
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(mockCart);
+
+    const result = await service.getCurrentCart({
+      customerId: 'cust-123',
+    });
+
+    expect(result.cartId).toBe('cart-1');
+    expect(result.version).toBe(5);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual({
+      sku: 'AERO-42-BLK',
+      quantity: 2,
+      unitPrice: { amount: 170.0, currency: 'PEN', version: 8 },
+      availability: 'AVAILABLE',
+      attention: null,
+    });
+    expect(result.subtotal).toEqual({ amount: 340.0, currency: 'PEN' });
+  });
+
+  it('RN-F019-03: returns subtotal null and attention PRECIO_PENDIENTE if an item has no price', async () => {
+    const mockCart = {
+      id: 'cart-2',
+      version: 2,
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      customerId: 'cust-456',
+      items: [
+        {
+          id: 'item-2',
+          cartId: 'cart-2',
+          sku: 'PEND-SKU',
+          quantity: 1,
+          unitPriceSnapshot: null,
+          priceVersion: null,
+        },
+      ],
+    };
+
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(mockCart);
+
+    const result = await service.getCurrentCart({
+      customerId: 'cust-456',
+    });
+
+    expect(result.subtotal).toBeNull();
+    expect(result.items[0].unitPrice).toBeUndefined();
+    expect(result.items[0].attention).toBe('PRECIO_PENDIENTE');
+  });
+
+  it('API-CA-F019-02: non-mutating read does not modify database state or quantities', async () => {
+    const mockCart = {
+      id: 'cart-3',
+      version: 1,
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      customerId: 'cust-789',
+      items: [],
+    };
+
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(mockCart);
+
+    const result = await service.getCurrentCart({ customerId: 'cust-789' });
+
+    expect(result.cartId).toBe('cart-3');
+    expect(result.items).toHaveLength(0);
+    expect(result.subtotal).toBeNull();
+    expect(mockPrisma.cart.update).toBeUndefined();
+  });
+
+  it('SEC-F019-01: session isolation guarantees no PII leakage and filters strictly by identity', async () => {
+    const mockCart = {
+      id: 'cart-sec-1',
+      version: 1,
+      currency: 'PEN',
+      state: CartState.ACTIVE,
+      customerId: 'cust-sec-999',
+      anonymousSessionHash: 'hash-sec-secret',
+      items: [
+        {
+          id: 'item-1',
+          cartId: 'cart-sec-1',
+          sku: 'AERO-42-BLK',
+          quantity: 1,
+          unitPriceSnapshot: new Prisma.Decimal(120.0),
+          priceVersion: '1',
+        },
+      ],
+    };
+
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(mockCart);
+
+    const result = await service.getCurrentCart({ customerId: 'cust-sec-999' });
+
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerId: 'cust-sec-999', state: CartState.ACTIVE },
+      }),
+    );
+
+    // Verify snapshot does NOT contain customerId, anonymousSessionHash, email or internal sensitive keys
+    expect((result as unknown as Record<string, unknown>).customerId).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).anonymousSessionHash).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).email).toBeUndefined();
+    expect(result.items[0]).not.toHaveProperty('cartId');
+  });
+
+  it('SEC-F019-02: Negative - Cross-session isolation: anonymous user B cannot access anonymous user A cart', async () => {
+    // Database returns null when querying with anonymousSessionHash of User B
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(null);
+
+    const result = await service.getCurrentCart({ sessionHash: 'user-b-session-hash' });
+
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith({
+      where: { anonymousSessionHash: 'user-b-session-hash', state: CartState.ACTIVE },
+      include: { items: true },
+    });
+    expect(result).toEqual({
+      cartId: null,
+      version: 0,
+      items: [],
+      subtotal: null,
+    });
+  });
+
+  it('SEC-F019-03: Negative - State isolation: inactive (CHECKED_OUT / ABANDONED) carts are never exposed', async () => {
+    // If only non-active carts exist in DB, findFirst with state: ACTIVE returns null
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(null);
+
+    const result = await service.getCurrentCart({ customerId: 'cust-inactive-owner' });
+
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith({
+      where: { customerId: 'cust-inactive-owner', state: CartState.ACTIVE },
+      include: { items: true },
+    });
+    expect(result).toEqual({
+      cartId: null,
+      version: 0,
+      items: [],
+      subtotal: null,
+    });
+  });
+
+  it('SEC-F019-04: Negative - Customer cross-account isolation: customer A cannot access customer B cart', async () => {
+    mockPrisma.cart.findFirst.mockResolvedValueOnce(null);
+
+    const result = await service.getCurrentCart({ customerId: 'attacker-customerId' });
+
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith({
+      where: { customerId: 'attacker-customerId', state: CartState.ACTIVE },
+      include: { items: true },
+    });
+    expect(result.cartId).toBeNull();
+    expect(result.items).toHaveLength(0);
+  });
+});
