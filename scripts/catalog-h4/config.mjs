@@ -17,9 +17,10 @@ export function inspectCatalogConfig(env = process.env) {
       contractPinMatches: env.PRODUCTOS_CONTRACT_VERSION === CONTRACT_VERSION && env.PRODUCTOS_CONTRACT_SHA === CONTRACT_SHA,
       mediaAllowlistPresent: !!env.PRODUCTOS_MEDIA_HOSTS, featuredEnabled: env.CATALOG_FEATURED_ENABLED === 'true',
       featuredApprovalFlagSet: env.CATALOG_FEATURED_APPROVED === 'true', featuredIdsPresent: !!env.CATALOG_FEATURED_IDS,
+      homeFallbackEnabled: env.CATALOG_HOME_FALLBACK_ENABLED === 'true',
     },
     effectiveProviderBudgetMs: Number.isInteger(timeout) && timeout >= 100 && timeout <= 30000 ? timeout : null,
-    grantVerified: false, approvalVerified: false, deployedShaVerified: false,
+    salesRankingAdapterVerified: false, grantVerified: false, approvalVerified: false, deployedShaVerified: false,
     limits: 'Offline configuration check only. Token presence is not validity or grant. Approval flags are not independent acceptance. No HTTP or database calls.' };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

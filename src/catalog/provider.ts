@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { CatalogError } from './errors';
 import { createMockProvider } from './fixtures';
-import { configuredFeaturedIds, resolveFeatured } from './featured';
-import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category } from './types';
+import { configuredFeaturedIds } from './featured';
+import { selectHomeProducts, sampleCatalog } from './home-selection';
+import type { HomeSelectionSources } from './home-selection';
+import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category, CatalogQuery } from './types';
 
 export const CONTRACT_VERSION = '0.6.0-rc.1';
 export const CONTRACT_SHA = 'f64bfe9a097b2a0f74c2600988305443d92f640e';
@@ -61,7 +63,8 @@ export function projectProduct(product: unknown, mediaHosts: Set<string>): Produ
   };
 }
 
-export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFetch = fetch): CatalogProvider {
+export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFetch = fetch,
+  sources: HomeSelectionSources = {}): CatalogProvider {
   const timeoutMs = Number(env.PRODUCTOS_TIMEOUT_MS || 5000);
   const authMode = env.PRODUCTOS_AUTH_MODE ?? 'service-token';
   const mediaHosts = new Set((env.PRODUCTOS_MEDIA_HOSTS || '').split(',').map((value) => value.trim()).filter(Boolean));
@@ -80,6 +83,8 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
   ) throw invalidProvider('PROVIDER_NOT_APPROVED');
 
   const featuredIds = configuredFeaturedIds(env, 'REAL');
+  const fallback = env.CATALOG_HOME_FALLBACK_ENABLED === 'true' &&
+    env.CATALOG_FEATURED_ENABLED === 'true' && env.CATALOG_FEATURED_APPROVED === 'true';
 
   async function request(path: string, requestId?: string,
     options: { allowProductNotFound?: boolean; signal?: AbortSignal } = {}): Promise<unknown> {
@@ -125,6 +130,29 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
     }
   }
 
+  async function searchPage(query: CatalogQuery, requestId?: string, signal?: AbortSignal) {
+    const params = new URLSearchParams({ canal: 'MARKETPLACE', pagina: String(query.page + 1), tamanio: String(query.pageSize) });
+    if (query.q) params.set('q', query.q);
+    if (query.categoryId) params.set('categoriaId', query.categoryId);
+    if (query.brandId) params.set('marcaId', query.brandId);
+    if (query.minPrice !== undefined) params.set('precioMin', String(query.minPrice));
+    if (query.maxPrice !== undefined) params.set('precioMax', String(query.maxPrice));
+    if (query.sort) params.set('orden', query.sort === 'NAME_ASC' ? 'NOMBRE_ASC' : 'NOMBRE_DESC');
+    const payload = await request(`/api/v1/productos?${params}`, requestId, { signal });
+    if (
+      !record(payload) || !Array.isArray(payload.items) || typeof payload.total !== 'number' ||
+      !Number.isSafeInteger(payload.total) || payload.total < 0 || payload.pagina !== query.page + 1 ||
+      payload.tamanio !== query.pageSize || payload.items.length > query.pageSize || payload.items.length > payload.total ||
+      payload.items.length !== Math.max(0, Math.min(query.pageSize, payload.total - query.page * query.pageSize)) ||
+      new Set(payload.items.map((item: unknown) => record(item) ? item.product_id : undefined)).size !== payload.items.length
+    ) throw invalidProvider('INVALID_PAGE_RESPONSE');
+    return {
+      sort: query.sort ?? null,
+      data: payload.items.map((product: unknown) => projectProduct(product, mediaHosts)),
+      page: { number: query.page, size: query.pageSize, totalElements: payload.total, totalPages: Math.ceil(payload.total / query.pageSize) },
+    };
+  }
+
   return {
     source: 'REAL',
     async home(requestId) {
@@ -132,17 +160,22 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       const signal = AbortSignal.timeout(timeoutMs);
       const [payload, featuredProducts] = await Promise.all([
         request('/api/v1/categorias', requestId, { signal }),
-        resolveFeatured(featuredIds, async id => {
-          const product = await request(`/api/v1/productos/${encodeURIComponent(id)}?canal=MARKETPLACE`,
-            requestId, { allowProductNotFound: true, signal });
-          if (product === null) return null;
-          if (!record(product) || typeof product.product_id !== 'string' || product.product_id.toLowerCase() !== id)
-            throw invalidProvider('FEATURED_ID_MISMATCH');
-          if (product.status === 'INACTIVO' || product.status === 'BORRADOR') return null;
-          // F-006 omits an identified but unpublishable slug; malformed source data still fails closed.
-          if (!validText(product.slug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(product.slug) || product.slug.length > 120)
-            return null;
-          return projectProduct(product, mediaHosts);
+        selectHomeProducts({ ids: featuredIds, fallback, source: 'REAL', signal,
+          salesRanking: sources.salesRanking ? () => sources.salesRanking!(signal, requestId) : undefined,
+          randomProducts: () => sampleCatalog((page, pageSize) => searchPage(
+            { q: '', page, pageSize, sort: 'NAME_ASC' }, requestId, signal), sources.randomIndex),
+          load: async id => {
+            const product = await request(`/api/v1/productos/${encodeURIComponent(id)}?canal=MARKETPLACE`,
+              requestId, { allowProductNotFound: true, signal });
+            if (product === null) return null;
+            if (!record(product) || typeof product.product_id !== 'string' || product.product_id.toLowerCase() !== id)
+              throw invalidProvider('FEATURED_ID_MISMATCH');
+            if (product.status === 'INACTIVO' || product.status === 'BORRADOR') return null;
+            // F-006 omits an identified but unpublishable slug; malformed source data still fails closed.
+            if (!validText(product.slug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(product.slug) || product.slug.length > 120)
+              return null;
+            return projectProduct(product, mediaHosts);
+          },
         }),
       ]);
       return { categories: categoriesFrom(payload), featuredProducts };
@@ -162,38 +195,21 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       if (new Set(brands.map(item => item.brandId)).size !== brands.length) throw invalidProvider('DUPLICATE_BRAND');
       return { categories, brands };
     },
-    async search(query, requestId) {
-      const params = new URLSearchParams({ canal: 'MARKETPLACE', pagina: String(query.page + 1), tamanio: String(query.pageSize) });
-      if (query.q) params.set('q', query.q);
-      if (query.categoryId) params.set('categoriaId', query.categoryId);
-      if (query.brandId) params.set('marcaId', query.brandId);
-      if (query.minPrice !== undefined) params.set('precioMin', String(query.minPrice));
-      if (query.maxPrice !== undefined) params.set('precioMax', String(query.maxPrice));
-      if (query.sort) params.set('orden', query.sort === 'NAME_ASC' ? 'NOMBRE_ASC' : 'NOMBRE_DESC');
-      const payload = await request(`/api/v1/productos?${params}`, requestId);
-      if (
-        !record(payload) || !Array.isArray(payload.items) || typeof payload.total !== 'number' ||
-        !Number.isSafeInteger(payload.total) || payload.total < 0 || payload.pagina !== query.page + 1 ||
-        payload.tamanio !== query.pageSize || payload.items.length > query.pageSize || payload.items.length > payload.total ||
-        payload.items.length !== Math.max(0, Math.min(query.pageSize, payload.total - query.page * query.pageSize)) ||
-        new Set(payload.items.map((item: unknown) => record(item) ? item.product_id : undefined)).size !== payload.items.length
-      ) throw invalidProvider('INVALID_PAGE_RESPONSE');
-      return {
-        sort: query.sort ?? null,
-        data: payload.items.map((product: unknown) => projectProduct(product, mediaHosts)),
-        page: { number: query.page, size: query.pageSize, totalElements: payload.total, totalPages: Math.ceil(payload.total / query.pageSize) },
-      };
-    },
+    search(query, requestId) { return searchPage(query, requestId); }
   };
 }
 
-export function createProvider(env: CatalogEnvironment = process.env, fetchImpl?: CatalogFetch): CatalogProvider {
+export function createProvider(env: CatalogEnvironment = process.env, fetchImpl?: CatalogFetch,
+  sources: HomeSelectionSources = {}): CatalogProvider {
   if (env.CATALOG_SOURCE === 'mock') {
     if (env.NODE_ENV === 'production') throw new Error('CATALOG_SOURCE=mock is forbidden in production');
-    return createMockProvider({ featuredProductIds: configuredFeaturedIds(env, 'MOCK') });
+    return createMockProvider({ featuredProductIds: configuredFeaturedIds(env, 'MOCK'),
+      fallbackEnabled: env.CATALOG_FEATURED_ENABLED === 'true' && env.CATALOG_HOME_FALLBACK_ENABLED === 'true',
+      salesProductIds: configuredFeaturedIds({ CATALOG_FEATURED_ENABLED: 'true',
+        CATALOG_FEATURED_IDS: env.CATALOG_MOCK_SALES_IDS }, 'MOCK'), randomIndex: sources.randomIndex });
   }
   if (env.CATALOG_SOURCE === 'real') {
-    try { return createRealProvider(env, fetchImpl); }
+    try { return createRealProvider(env, fetchImpl, sources); }
     catch (error: unknown) {
       return { source: 'UNCONFIGURED', home: async () => { throw error; }, search: async () => { throw error; } };
     }

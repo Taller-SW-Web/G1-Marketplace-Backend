@@ -1,5 +1,6 @@
 import type { CatalogProvider, Category, ProductCardDTO } from "./types";
 import { CatalogError } from './errors';
+import { randomIndices, selectHomeProducts } from './home-selection';
 // Synthetic fixtures only. Never used as a fallback for a failed real provider.
 const categories: Category[] = [
   { categoryId: "running", name: "Running" },
@@ -27,14 +28,23 @@ const products: ProductCardDTO[] = Array.from({ length: 32 }, (_, i) => ({
 export function createMockProvider(options: {
   featuredProductIds?: readonly string[];
   products?: readonly ProductCardDTO[];
+  fallbackEnabled?: boolean;
+  salesProductIds?: readonly string[];
+  randomIndex?: (max: number) => number;
 } = {}): CatalogProvider {
   const catalog = options.products ?? products;
   return {
     source: "MOCK",
     async home() {
-      const featuredProducts = (options.featuredProductIds ?? [])
-        .map(id => catalog.find(product => product.productId === id))
-        .filter((product): product is ProductCardDTO => product !== undefined);
+      const featuredProducts = await selectHomeProducts({
+        ids: options.featuredProductIds ?? [], fallback: options.fallbackEnabled === true,
+        source: 'MOCK', signal: AbortSignal.timeout(5000),
+        load: async id => catalog.find(product => product.productId === id) ?? null,
+        // Synthetic fixtures explicitly model either a ranked history or a cold start.
+        salesRanking: async () => ({ hasHistory: !!options.salesProductIds?.length,
+          orderedProductIds: options.salesProductIds ?? [] }),
+        randomProducts: async () => randomIndices(catalog.length, options.randomIndex).map(index => catalog[index]),
+      });
       return { categories, featuredProducts };
     },
     async filters() {

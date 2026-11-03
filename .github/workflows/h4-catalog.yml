@@ -53,6 +53,7 @@ jobs:
       - run: npm run test:catalog:h4:checks
       - run: npm run test:catalog:h4:timings
       - run: npm run test:catalog:h4:config
+      - run: npm run test:e2e -- --testPathPatterns=catalog-home-policy
       - run: npm run test:g6:contract
       - run: npm run test:e2e -- --testPathPatterns=catalog.e2e
       - name: Migrate disposable PostgreSQL from scratch
