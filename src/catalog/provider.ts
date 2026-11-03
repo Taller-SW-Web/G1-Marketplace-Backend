@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { CatalogError } from './errors';
 import { createMockProvider } from './fixtures';
+import { configuredFeaturedIds, resolveFeatured } from './featured';
 import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category } from './types';
 
 export const CONTRACT_VERSION = '0.6.0-rc.1';
@@ -78,7 +79,10 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
     env.CATALOG_INTEGRATION_APPROVED !== 'true'
   ) throw invalidProvider('PROVIDER_NOT_APPROVED');
 
-  async function request(path: string, requestId?: string): Promise<unknown> {
+  const featuredIds = configuredFeaturedIds(env, 'REAL');
+
+  async function request(path: string, requestId?: string,
+    options: { allowProductNotFound?: boolean; signal?: AbortSignal } = {}): Promise<unknown> {
     const url = new URL(`${base.href.replace(/\/$/, '')}${path}`);
     // G1 accepts opaque IDs; G6 validates X-Correlation-Id as UUID.
     const providerRequestId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
@@ -97,9 +101,13 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       if (authMode === 'service-token') headers.Authorization = `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`;
       const response = await fetchImpl(url, {
         headers,
-        redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs),
+        redirect: 'error', cache: 'no-store', signal: options.signal ?? AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) {
+        if (options.allowProductNotFound && response.status === 404) {
+          const problem: unknown = await response.json();
+          if (record(problem) && problem.code === 'PRODUCTO_NO_ENCONTRADO') return null;
+        }
         if (response.status === 422) {
           const problem: unknown = await response.json();
           if (record(problem) && ['CATEGORIA_INVALIDA', 'MARCA_INVALIDA'].includes(String(problem.code)))
@@ -120,9 +128,24 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
   return {
     source: 'REAL',
     async home(requestId) {
-      const payload = await request('/api/v1/categorias', requestId);
-      const categories = categoriesFrom(payload);
-      return { categories, featuredProducts: [] };
+      // One shared budget covers categories and every curated product; no per-item timeout multiplication.
+      const signal = AbortSignal.timeout(timeoutMs);
+      const [payload, featuredProducts] = await Promise.all([
+        request('/api/v1/categorias', requestId, { signal }),
+        resolveFeatured(featuredIds, async id => {
+          const product = await request(`/api/v1/productos/${encodeURIComponent(id)}?canal=MARKETPLACE`,
+            requestId, { allowProductNotFound: true, signal });
+          if (product === null) return null;
+          if (!record(product) || typeof product.product_id !== 'string' || product.product_id.toLowerCase() !== id)
+            throw invalidProvider('FEATURED_ID_MISMATCH');
+          if (product.status === 'INACTIVO' || product.status === 'BORRADOR') return null;
+          // F-006 omits an identified but unpublishable slug; malformed source data still fails closed.
+          if (!validText(product.slug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(product.slug) || product.slug.length > 120)
+            return null;
+          return projectProduct(product, mediaHosts);
+        }),
+      ]);
+      return { categories: categoriesFrom(payload), featuredProducts };
     },
     async filters(requestId) {
       const [categoryPayload, payload] = await Promise.all([
@@ -167,7 +190,7 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
 export function createProvider(env: CatalogEnvironment = process.env, fetchImpl?: CatalogFetch): CatalogProvider {
   if (env.CATALOG_SOURCE === 'mock') {
     if (env.NODE_ENV === 'production') throw new Error('CATALOG_SOURCE=mock is forbidden in production');
-    return createMockProvider();
+    return createMockProvider({ featuredProductIds: configuredFeaturedIds(env, 'MOCK') });
   }
   if (env.CATALOG_SOURCE === 'real') {
     try { return createRealProvider(env, fetchImpl); }

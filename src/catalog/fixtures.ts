@@ -24,11 +24,18 @@ const products: ProductCardDTO[] = Array.from({ length: 32 }, (_, i) => ({
   },
 }));
 
-export function createMockProvider(): CatalogProvider {
+export function createMockProvider(options: {
+  featuredProductIds?: readonly string[];
+  products?: readonly ProductCardDTO[];
+} = {}): CatalogProvider {
+  const catalog = options.products ?? products;
   return {
     source: "MOCK",
     async home() {
-      return { categories, featuredProducts: [] };
+      const featuredProducts = (options.featuredProductIds ?? [])
+        .map(id => catalog.find(product => product.productId === id))
+        .filter((product): product is ProductCardDTO => product !== undefined);
+      return { categories, featuredProducts };
     },
     async filters() {
       return { categories, brands: [{ brandId: 'mock-brand', name: 'Marca de demostración' }] };
@@ -38,7 +45,7 @@ export function createMockProvider(): CatalogProvider {
           query.brandId && query.brandId !== 'mock-brand') throw new CatalogError('INVALID_FILTER', 400);
       // Prices here are synthetic test data, never projected as commercial amounts.
       const fixturePrice = (product: ProductCardDTO) => 10 * Number(product.productId.replace('mock-product-', ''));
-      let results = products.filter(
+      let results = catalog.filter(
         (product) =>
           (!query.q ||
             product.name
