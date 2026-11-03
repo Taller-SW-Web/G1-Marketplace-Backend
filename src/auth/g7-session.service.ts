@@ -108,13 +108,17 @@ export class G7SessionService {
     this.assertOrigin(request);
     const result = await this.store.locked<{ value?: unknown; error?: unknown }>(this.cookie(request, true), async (session) => {
       if (!session || session.data.kind !== 'challenge') {
-        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'local_challenge_missing' }));
+        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'local_challenge_missing',
+          cookiePresent: Boolean(this.cookie(request, true)) }));
         return { result: { error: new ApiError(410, 'OTP_EXPIRADO', 'Vuelve a iniciar sesión.') } };
       }
       try {
         const value = await this.provider.call(codigo === undefined ? 'auth/otp/solicitar' : 'auth/otp/verificar',
           { challengeToken: session.data.challengeToken, ...(codigo === undefined ? { canal: 'EMAIL' } : { codigo }) });
-        if (codigo !== undefined) return { result: { value }, remove: true };
+        if (codigo !== undefined) {
+          this.logger.log(JSON.stringify({ event: 'g7_otp_verified', stage: 'provider' }));
+          return { result: { value }, remove: true };
+        }
         if (!record(value) || value.canal !== 'EMAIL' || typeof value.destinoEnmascarado !== 'string'
           || typeof value.expiraEn !== 'number' || typeof value.desafioExpiraEn !== 'number') throw unavailable();
         return { result: { value: { canal: 'EMAIL', destinoEnmascarado: value.destinoEnmascarado.slice(0, 254),
@@ -131,7 +135,13 @@ export class G7SessionService {
     });
     if ('error' in result) throw result.error;
     if (codigo === undefined) return result.value;
-    return this.establish(result.value, request, response);
+    try {
+      return await this.establish(result.value, request, response);
+    } catch (error) {
+      this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'session_establish',
+        errorType: error instanceof Error ? error.name : 'Unknown' }));
+      throw error;
+    }
   }
 
   async access(opaque: string | undefined, force = false): Promise<AuthenticatedData | null> {
