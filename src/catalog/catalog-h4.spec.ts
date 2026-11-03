@@ -31,7 +31,7 @@ describe('H4 catalog filters, ordering and paging', () => {
 
   it('projects active masters only, excludes private fields and correlates both requests', async () => {
     const provider = createRealProvider(config, async (url, options) => {
-      expect(new Headers(options.headers).get('X-Correlation-Id')).toBe('h4-correlation');
+      expect(new Headers(options.headers).get('X-Correlation-Id')).toBe('a891739e-640e-411f-a1c9-ef704593bbf2');
       return Response.json(url.pathname.endsWith('/categorias') ? { categories: [
         { categoria_id: 'cat', name: 'Ropa', status: 'ACTIVA', private: true },
         { categoria_id: 'hidden', name: 'Oculta', status: 'INACTIVA' },
@@ -40,7 +40,7 @@ describe('H4 catalog filters, ordering and paging', () => {
         { marca_id: 'hidden', name: 'Oculta', status: 'INACTIVA' },
       ] });
     });
-    expect(await provider.filters!('h4-correlation')).toEqual({
+    expect(await provider.filters!('a891739e-640e-411f-a1c9-ef704593bbf2')).toEqual({
       categories: [{ categoryId: 'cat', name: 'Ropa' }], brands: [{ brandId: 'brand', name: 'Marca' }],
     });
   });

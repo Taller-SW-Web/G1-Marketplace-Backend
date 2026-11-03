@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { CatalogError } from './errors';
 import { createMockProvider } from './fixtures';
 import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category } from './types';
@@ -79,9 +80,17 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
 
   async function request(path: string, requestId?: string): Promise<unknown> {
     const url = new URL(`${base.href.replace(/\/$/, '')}${path}`);
+    // G1 accepts opaque IDs; G6 validates X-Correlation-Id as UUID.
+    const providerRequestId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
+      ? requestId : randomUUID();
+    if (requestId && providerRequestId !== requestId) Logger.log(JSON.stringify({
+      event: 'catalog_provider_correlation',
+      requestId: /^[A-Za-z0-9._-]{1,64}$/.test(requestId) ? requestId : undefined,
+      providerRequestId,
+    }), 'CatalogProvider');
     try {
       const headers: Record<string, string> = {
-        Accept: 'application/json', 'X-Correlation-Id': requestId || randomUUID(),
+        Accept: 'application/json', 'X-Correlation-Id': providerRequestId,
       };
       // G6's temporary demo explicitly permits calls without JWT (PR #130).
       // Never forward a stale service token or a visitor's identity in that mode.
