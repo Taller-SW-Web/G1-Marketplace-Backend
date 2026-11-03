@@ -31,6 +31,23 @@ const preparedQuote = (quoteId: string): CheckoutQuote => ({
   cartVersion: 8,
 });
 
+async function expectPostgresCheckConstraintViolation(
+  operation: Promise<unknown>,
+  constraintName: string,
+): Promise<void> {
+  let error: unknown;
+  try {
+    await operation;
+  } catch (caught) {
+    error = caught;
+  }
+
+  expect(error).toBeDefined();
+  const details = error instanceof Error ? error.message : String(error);
+  expect(details).toContain('23514');
+  expect(details).toContain(constraintName);
+}
+
 describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
   let prisma: PrismaService;
   let quotes: QuotesService;
@@ -191,24 +208,45 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
     expect(otherOwner.customerId).toBe(customerB);
   });
 
-  it('enforces fingerprint, complete prepared-context and cart foreign-key constraints', async () => {
+  it('rejects an invalid fingerprint with the PostgreSQL fingerprint check constraint', async () => {
     const base = {
       customerId: customerA,
       cartId: cartA,
       idempotencyKey: preparationKey,
       requestFingerprint: 'a'.repeat(64),
     };
-    await expect(prisma.checkoutOperation.create({
+    await expectPostgresCheckConstraintViolation(prisma.checkoutOperation.create({
       data: { ...base, requestFingerprint: 'not-a-sha256-fingerprint' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    }), 'checkout_operations_fingerprint_chk');
 
-    await expect(prisma.checkoutOperation.create({
-      data: { ...base, preparedQuoteId: 'Q-PARTIAL' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    expect(await prisma.checkoutOperation.findUnique({
+      where: { customerId_idempotencyKey: { customerId: customerA, idempotencyKey: preparationKey } },
+    })).toBeNull();
+  });
 
-    await expect(prisma.checkoutOperation.create({
+  it('rejects an incomplete prepared context with the PostgreSQL context check constraint', async () => {
+    await expectPostgresCheckConstraintViolation(prisma.checkoutOperation.create({
       data: {
-        ...base,
+        customerId: customerA,
+        cartId: cartA,
+        idempotencyKey: preparationKey,
+        requestFingerprint: 'a'.repeat(64),
+        preparedQuoteId: 'Q-PARTIAL',
+      },
+    }), 'checkout_operations_prepared_context_chk');
+
+    expect(await prisma.checkoutOperation.findUnique({
+      where: { customerId_idempotencyKey: { customerId: customerA, idempotencyKey: preparationKey } },
+    })).toBeNull();
+  });
+
+  it('rejects a non-PEN prepared context with the PostgreSQL context check constraint', async () => {
+    await expectPostgresCheckConstraintViolation(prisma.checkoutOperation.create({
+      data: {
+        customerId: customerA,
+        cartId: cartA,
+        idempotencyKey: preparationKey,
+        requestFingerprint: 'a'.repeat(64),
         preparedQuoteId: 'Q-INVALID-CURRENCY',
         preparedCartVersion: 8,
         preparedAddressId: 'ADR-INTEGRATION',
@@ -217,11 +255,26 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
         preparedTotalCurrency: 'USD',
         preparedLines: [{ sku: 'CHECKOUT-INTEGRATION-SKU', quantity: 2 }],
       },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    }), 'checkout_operations_prepared_context_chk');
 
-    const operation = await prisma.checkoutOperation.create({ data: base });
+    expect(await prisma.checkoutOperation.findUnique({
+      where: { customerId_idempotencyKey: { customerId: customerA, idempotencyKey: preparationKey } },
+    })).toBeNull();
+  });
+
+  it('prevents deleting a cart referenced by a checkout operation', async () => {
+    const operation = await prisma.checkoutOperation.create({
+      data: {
+        customerId: customerA,
+        cartId: cartA,
+        idempotencyKey: preparationKey,
+        requestFingerprint: 'a'.repeat(64),
+      },
+    });
+    await prisma.cartItem.deleteMany({ where: { cartId: cartA } });
     await expect(prisma.cart.delete({ where: { id: cartA } })).rejects.toMatchObject({ code: 'P2003' });
     expect(await prisma.checkoutOperation.findUnique({ where: { id: operation.id } })).not.toBeNull();
+    expect(await prisma.cart.findUnique({ where: { id: cartA } })).not.toBeNull();
   });
 
   it('rolls back an interrupted operation transaction without leaving a partial row', async () => {
