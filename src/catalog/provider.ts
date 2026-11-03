@@ -23,7 +23,7 @@ function categoriesFrom(payload: unknown): Category[] {
   const categories = payload.categories
     .filter((item: unknown): item is Record<string, unknown> => record(item) && item.status === 'ACTIVA')
     .map((item) => {
-      if (!validText(item.categoria_id) || !validText(item.name)) throw invalidProvider('INVALID_CATEGORY');
+      if (!validText(item.categoria_id) || !/^[\p{L}\p{N}_-]{1,120}$/u.test(item.categoria_id) || !validText(item.name)) throw invalidProvider('INVALID_CATEGORY');
       return { categoryId: item.categoria_id, name: item.name };
     });
   if (new Set(categories.map(item => item.categoryId)).size !== categories.length) throw invalidProvider('DUPLICATE_CATEGORY');
