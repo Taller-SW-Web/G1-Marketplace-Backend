@@ -107,7 +107,10 @@ export class G7SessionService {
   async otp(request: CookieRequest, response: CookieResponse, codigo?: string) {
     this.assertOrigin(request);
     const result = await this.store.locked<{ value?: unknown; error?: unknown }>(this.cookie(request, true), async (session) => {
-      if (!session || session.data.kind !== 'challenge') return { result: { error: new ApiError(410, 'OTP_EXPIRADO', 'Vuelve a iniciar sesión.') } };
+      if (!session || session.data.kind !== 'challenge') {
+        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'local_challenge_missing' }));
+        return { result: { error: new ApiError(410, 'OTP_EXPIRADO', 'Vuelve a iniciar sesión.') } };
+      }
       try {
         const value = await this.provider.call(codigo === undefined ? 'auth/otp/solicitar' : 'auth/otp/verificar',
           { challengeToken: session.data.challengeToken, ...(codigo === undefined ? { canal: 'EMAIL' } : { codigo }) });
@@ -117,8 +120,13 @@ export class G7SessionService {
         return { result: { value: { canal: 'EMAIL', destinoEnmascarado: value.destinoEnmascarado.slice(0, 254),
           expiraEn: value.expiraEn, desafioExpiraEn: value.desafioExpiraEn } } };
       } catch (error) {
-        const terminal = error instanceof ApiError && ['OTP_INTENTOS_AGOTADOS', 'OTP_EXPIRADO', 'TOKEN_INVALIDO'].includes((error.getResponse() as { code: string }).code);
-        return { result: { error }, remove: terminal || codigo !== undefined && !(error instanceof ApiError && error.getStatus() === 401) };
+        // An expired or exhausted code does not revoke the G7 challenge. Keep it
+        // so the user can request another code while the challenge is still valid.
+        const code = error instanceof ApiError ? (error.getResponse() as { code: string }).code : '';
+        const retryable = ['CODIGO_INVALIDO', 'OTP_EXPIRADO', 'OTP_INTENTOS_AGOTADOS'].includes(code);
+        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'provider', code,
+          challengeRemainingSeconds: Math.max(0, Math.ceil((session.expiresAt.getTime() - Date.now()) / 1000)) }));
+        return { result: { error }, remove: code === 'TOKEN_INVALIDO' || codigo !== undefined && !retryable };
       }
     });
     if ('error' in result) throw result.error;
