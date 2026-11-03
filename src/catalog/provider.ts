@@ -124,7 +124,7 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       const brands = payload.brands
         .filter((item: unknown): item is Record<string, unknown> => record(item) && item.status === 'ACTIVA')
         .map(item => {
-          if (!validText(item.marca_id) || !validText(item.name)) throw invalidProvider('INVALID_BRAND');
+          if (!validText(item.marca_id) || !/^[\p{L}\p{N}_-]{1,120}$/u.test(item.marca_id) || !validText(item.name)) throw invalidProvider('INVALID_BRAND');
           return { brandId: item.marca_id, name: item.name };
         });
       if (new Set(brands.map(item => item.brandId)).size !== brands.length) throw invalidProvider('DUPLICATE_BRAND');
