@@ -80,8 +80,9 @@ export class CheckoutService {
     customerId: string,
     accessToken: string,
     input: CreateQuoteDto,
+    sessionHash?: string,
   ): Promise<CheckoutQuote> {
-    const cart = await this.findActiveCart(customerId);
+    const cart = await this.findActiveCart(customerId, sessionHash);
     if (!cart) this.fail(409, 'CART_NOT_FOUND');
     if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
     if (cart.items.length === 0) this.fail(409, 'CART_EMPTY');
@@ -95,18 +96,24 @@ export class CheckoutService {
     const address = addresses.find((item) => item.addressId === input.addressId);
     if (!address) throw new NotFoundException({ error: { code: 'ADDRESS_NOT_FOUND' } });
 
+    const lines = cart.items.map((item) => ({ sku: item.sku, quantity: item.quantity }));
     let quote: CheckoutQuote;
     try {
       quote = await this.gateway.createQuote({
         address,
         addressId: address.addressId,
         cartVersion: cart.version,
-        lines: cart.items.map((item) => ({ sku: item.sku, quantity: item.quantity })),
+        lines,
       });
     } catch (error) {
       this.throwProviderError(error, 'QUOTE_UNAVAILABLE');
     }
     this.assertValidQuote(quote, 'QUOTE_UNAVAILABLE');
+    this.assertQuoteContext(quote, {
+      addressId: address.addressId,
+      cartVersion: cart.version,
+      lines,
+    }, 'QUOTE_UNAVAILABLE');
 
     return this.withCustomerContextLock(customerId, async () => {
       await this.invalidatePreparedOperations(customerId);
@@ -129,8 +136,9 @@ export class CheckoutService {
       this.throwProviderError(error, 'BENEFITS_UNAVAILABLE');
     }
     this.assertValidQuote(nextQuote, 'BENEFITS_UNAVAILABLE');
+    this.assertQuoteContext(nextQuote, currentQuote, 'BENEFITS_UNAVAILABLE');
     return this.withCustomerContextLock(customerId, async () => {
-      if (!this.quotes.get(customerId, input.quoteId)) {
+      if (this.quotes.get(customerId, input.quoteId) !== currentQuote) {
         this.fail(409, 'QUOTE_EXPIRED');
       }
       await this.invalidatePreparedOperations(customerId);
@@ -142,6 +150,7 @@ export class CheckoutService {
     customerId: string,
     input: PrepareCheckoutDto,
     idempotencyKey: string | undefined,
+    sessionHash?: string,
   ): Promise<CheckoutOperationView> {
     this.assertIdempotencyKey(idempotencyKey, false);
     if (!input.simulationConfirmed) this.fail(400, 'SIMULATION_NOT_CONFIRMED');
@@ -153,6 +162,9 @@ export class CheckoutService {
     let context: PreparedContext | null = null;
 
     if (operation) {
+      if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+        throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+      }
       if (operation.state === CheckoutOperationState.FAILED) {
         this.fail(409, operation.failureCode ?? 'PREPARATION_FAILED');
       }
@@ -169,7 +181,7 @@ export class CheckoutService {
       const quote = this.quotes.get(customerId, input.quoteId);
       if (!quote) this.fail(409, 'QUOTE_EXPIRED');
       if (quote.cartVersion !== input.cartVersion) this.fail(409, 'CART_CHANGED');
-      const cart = await this.findActiveCart(customerId);
+      const cart = await this.findActiveCart(customerId, sessionHash);
       if (!cart) this.fail(409, 'CART_NOT_FOUND');
       if (cart.version !== input.cartVersion) this.fail(409, 'CART_CHANGED');
       const preparedContext = this.createPreparedContext(quote, cart.version);
@@ -224,11 +236,7 @@ export class CheckoutService {
       });
       this.fail(409, 'QUOTE_EXPIRED');
     }
-    if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
-
-    const cart = await this.prisma.cart.findFirst({
-      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-    });
+    const cart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
     if (!cart || cart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
@@ -236,6 +244,7 @@ export class CheckoutService {
       });
       this.fail(409, 'REVALIDATION_CHANGED');
     }
+    if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
 
     let revalidation: { available: boolean; revalidatedAt: string };
     try {
@@ -256,9 +265,7 @@ export class CheckoutService {
       this.fail(409, 'STOCK_NOT_AVAILABLE');
     }
 
-    const latestCart = await this.prisma.cart.findFirst({
-      where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-    });
+    const latestCart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
     if (!latestCart || latestCart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
@@ -306,12 +313,16 @@ export class CheckoutService {
     customerId: string,
     input: { checkoutOperationId: string; contact: CheckoutContactDto },
     idempotencyKey: string | undefined,
+    sessionHash?: string,
   ): Promise<ApiResult<CheckoutOperationView>> {
     this.assertIdempotencyKey(idempotencyKey, true);
     let operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: input.checkoutOperationId, customerId },
     });
     if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+      throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    }
     const context = this.readPreparedContext(operation);
 
     const requestFingerprint = this.fingerprint({
@@ -345,9 +356,7 @@ export class CheckoutService {
         });
         this.fail(409, 'QUOTE_EXPIRED');
       }
-      const cart = await this.prisma.cart.findFirst({
-        where: { id: operation.cartId, customerId, state: 'ACTIVE' },
-      });
+      const cart = await this.findOwnedCart(operation.cartId, customerId, sessionHash);
       if (!cart || cart.version !== context.cartVersion) {
         operation = await this.prisma.checkoutOperation.update({
           where: { id: operation.id },
@@ -434,11 +443,15 @@ export class CheckoutService {
   async getOperation(
     customerId: string,
     operationId: string,
+    sessionHash?: string,
   ): Promise<ApiResult<CheckoutOperationStatusView>> {
     const operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: operationId, customerId },
     });
     if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    if (!await this.findOwnedCart(operation.cartId, customerId, sessionHash)) {
+      throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    }
 
     if (operation.state === CheckoutOperationState.PREPARED) {
       this.fail(409, 'ORDER_NOT_SUBMITTED');
@@ -447,10 +460,11 @@ export class CheckoutService {
       const result = await this.refreshOrder(operation);
       return { status: result.status, data: this.operationStatusView(result.data) };
     }
+    if (operation.state === CheckoutOperationState.FAILED) {
+      this.fail(409, operation.failureCode ?? 'ORDER_NOT_COMPLETED');
+    }
     if (
-      operation.externalOrderId &&
-      (operation.state === CheckoutOperationState.SUCCEEDED ||
-        operation.state === CheckoutOperationState.FAILED)
+      operation.externalOrderId && operation.state === CheckoutOperationState.SUCCEEDED
     ) {
       try {
         const order = await this.gateway.getOrder(operation.externalOrderId);
@@ -566,11 +580,59 @@ export class CheckoutService {
     };
   }
 
-  private async findActiveCart(customerId: string) {
+  private async findActiveCart(customerId: string, sessionHash?: string) {
+    let cart = sessionHash
+      ? await (async () => {
+          const customerCart = await this.prisma.cart.findFirst({
+            where: { customerId, state: 'ACTIVE' },
+            include: { items: true },
+            orderBy: { updatedAt: 'desc' },
+          });
+          const sessionCart = await this.prisma.cart.findFirst({
+            where: { anonymousSessionHash: sessionHash, state: 'ACTIVE' },
+            include: { items: true },
+          });
+          if (customerCart && sessionCart && customerCart.id !== sessionCart.id) {
+            this.fail(409, 'CART_OWNERSHIP_CONFLICT');
+          }
+          return customerCart ?? sessionCart;
+        })()
+      : await this.prisma.cart.findFirst({
+          where: { customerId, state: 'ACTIVE' },
+          include: { items: true },
+          orderBy: { updatedAt: 'desc' },
+        });
+
+    if (
+      !cart &&
+      (process.env.USE_MOCKS === 'true' || process.env.NODE_ENV !== 'production')
+    ) {
+      const anonCart = await this.prisma.cart.findFirst({
+        where: { customerId: null, state: 'ACTIVE' },
+        include: { items: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (anonCart) {
+        cart = await this.prisma.cart.update({
+          where: { id: anonCart.id },
+          data: { customerId, anonymousSessionHash: null },
+          include: { items: true },
+        });
+      }
+    }
+
+    return cart;
+  }
+
+  private async findOwnedCart(cartId: string, customerId: string, sessionHash?: string) {
     return this.prisma.cart.findFirst({
-      where: { customerId, state: 'ACTIVE' },
-      include: { items: true },
-      orderBy: { updatedAt: 'desc' },
+      where: {
+        id: cartId,
+        state: 'ACTIVE',
+        ...(sessionHash
+          ? { OR: [{ customerId }, { anonymousSessionHash: sessionHash }] }
+          : { customerId }),
+      },
     });
   }
 
@@ -677,6 +739,25 @@ export class CheckoutService {
       !quote.lines.every((line) => Boolean(line.sku?.trim()) && Number.isInteger(line.quantity) && line.quantity > 0)
     ) {
       this.fail(503, code);
+    }
+  }
+
+  private assertQuoteContext(
+    quote: CheckoutQuote,
+    expected: Pick<CheckoutQuote, 'addressId' | 'cartVersion' | 'lines'>,
+    errorCode: string,
+  ): void {
+    const normalizeLines = (lines: QuoteLine[]) => lines
+      .map((line) => [line.sku, line.quantity] as const)
+      .sort(([leftSku, leftQuantity], [rightSku, rightQuantity]) =>
+        leftSku.localeCompare(rightSku) || leftQuantity - rightQuantity);
+
+    if (
+      quote.addressId !== expected.addressId ||
+      quote.cartVersion !== expected.cartVersion ||
+      JSON.stringify(normalizeLines(quote.lines)) !== JSON.stringify(normalizeLines(expected.lines))
+    ) {
+      this.fail(503, errorCode);
     }
   }
 
