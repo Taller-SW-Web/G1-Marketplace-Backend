@@ -1,0 +1,593 @@
+openapi: 3.0.3
+info:
+  title: Marketplace Auth BFF — H4
+  version: 1.0.0
+  description: >-
+    Contrato versionado del BFF de cuenta y sesión de Marketplace (F-001–F-005).
+    Es una API propia de G1: el navegador solo habla con este BFF y nunca con
+    Seguridad (G7). El BFF traduce cada operación a G7, guarda los tokens cifrados
+    en servidor y entrega al navegador únicamente una cookie de sesión opaca
+    (HttpOnly). Ningún token viaja al JavaScript del navegador ni a localStorage.
+    El contrato describe lo implementado en src/auth; no acredita despliegue ni
+    homologación con G7 por sí mismo.
+  x-g7-compatibility:
+    status: implemented-real-gated-by-flags
+    behavior: >-
+      Login, MFA por correo, refresh y logout se probaron contra G7 REAL con cuentas
+      de prueba (23/10 y 25/10/2026). Registro, recuperación y restablecimiento
+      dependen de las banderas G7_REGISTRATION_ENABLED y G7_RECOVERY_ENABLED y
+      permanecen apagadas hasta la homologación con G7.
+    errorPolicy: >-
+      Solo se reenvían códigos del contrato de G7; los mensajes del proveedor nunca
+      llegan al cliente porque pueden contener datos de cuenta.
+  x-runtime-status: implemented-real-behind-AUTH_ENABLED
+servers:
+  - url: http://localhost:10000
+    description: Desarrollo local
+  - url: https://g1-marketplace-backend.onrender.com
+    description: Backend desplegado en Render
+tags:
+  - name: Sesión
+    description: Login con MFA, consulta de sesión, renovación y cierre.
+  - name: Cuenta
+    description: Registro y recuperación de contraseña.
+paths:
+  /api/v1/auth/capabilities:
+    get:
+      operationId: getAuthCapabilities
+      tags: [Cuenta]
+      summary: Consultar qué operaciones de cuenta están habilitadas
+      x-traceability:
+        feature: F-001, F-004
+        implementation: 'AccountController.capabilities -> AccountService.capabilities'
+        authentication: 'Pública.'
+        behavior: 'Permite que la interfaz oculte registro o recuperación mientras G7 no las publique.'
+      responses:
+        '200':
+          description: Banderas vigentes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capabilities' }
+              example: { login: true, registro: false, recuperacion: false }
+  /api/v1/password/politica:
+    get:
+      operationId: getPasswordPolicy
+      tags: [Cuenta]
+      summary: Obtener la política de contraseña vigente de G7
+      x-traceability:
+        feature: F-001, F-005
+        implementation: 'AccountController.policy -> AccountService.policy -> G7 password/politica'
+        authentication: 'Pública.'
+        errorCodes: { '503': [AUTH_UNAVAILABLE] }
+        behavior: 'Se valida la forma de la respuesta de G7; si es inválida se responde 503 y no se inventa una política.'
+      responses:
+        '200':
+          description: Política de contraseña
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasswordPolicy' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/registro:
+    post:
+      operationId: registerCustomer
+      tags: [Cuenta]
+      summary: Registrar un cliente (queda pendiente de verificación)
+      x-traceability:
+        feature: F-001
+        implementation: 'AccountController.register -> AccountService.register -> G7 auth/registro'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          El canal de origen se fija en el servidor como MARKETPLACE. El registro no
+          inicia sesión: la respuesta es solo PENDIENTE_VERIFICACION.
+        errorCodes:
+          '400': [VALIDACION]
+          '403': [FORBIDDEN]
+          '409': [CORREO_NO_DISPONIBLE]
+          '422': [POLITICA_INCUMPLIDA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrationInput' }
+      responses:
+        '201':
+          description: Registro recibido; falta verificar el correo en G7
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationAccepted' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/EmailUnavailable' }
+        '422': { $ref: '#/components/responses/PolicyViolated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/password/recuperar:
+    post:
+      operationId: requestPasswordRecovery
+      tags: [Cuenta]
+      summary: Solicitar el enlace de recuperación de contraseña
+      x-traceability:
+        feature: F-004
+        implementation: 'AccountController.recover -> AccountService.recover -> G7 password/recuperar'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          Antienumeración: la respuesta es 202 sin cuerpo exista o no la cuenta. El
+          único error por solicitud es 429. Cualquier otra respuesta de G7 se
+          normaliza a 503 para que nada varíe por cuenta.
+        errorCodes:
+          '403': [FORBIDDEN]
+          '429': [DEMASIADAS_SOLICITUDES]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecoveryInput' }
+      responses:
+        '202': { description: 'Solicitud aceptada (respuesta uniforme, sin cuerpo)' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429':
+          description: Demasiadas solicitudes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: DEMASIADAS_SOLICITUDES, message: 'Espera antes de volver a solicitar instrucciones.', retryAfterSeconds: 60 }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/password/restablecer:
+    post:
+      operationId: resetPassword
+      tags: [Cuenta]
+      summary: Restablecer la contraseña con el token del enlace
+      x-traceability:
+        feature: F-005
+        implementation: 'AccountController.reset -> AccountService.reset -> G7 password/restablecer'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          G7 consume el token y revoca las sesiones del usuario; el BFF no crea
+          sesión ni infiere identidad. Solo se reenvían 401, 410, 422 y 429 del
+          contrato de restablecimiento; cualquier otro estado se normaliza a 503.
+        errorCodes:
+          '401': [TOKEN_RECUPERACION_INVALIDO]
+          '410': [TOKEN_RECUPERACION_EXPIRADO]
+          '422': [POLITICA_INCUMPLIDA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetInput' }
+      responses:
+        '204': { description: 'Contraseña restablecida (sin cuerpo)' }
+        '401':
+          description: Token de recuperación inválido o ya usado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: TOKEN_RECUPERACION_INVALIDO, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410':
+          description: Token de recuperación vencido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: TOKEN_RECUPERACION_EXPIRADO, message: 'No pudimos completar el acceso.' }
+        '422': { $ref: '#/components/responses/PolicyViolated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags: [Sesión]
+      summary: Iniciar sesión (con desafío MFA por correo cuando aplica)
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.login -> G7SessionService.login -> G7 auth/login'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          Antes de empezar se descartan sesión y desafío anteriores. Con MFA, G7
+          devuelve un desafío: el BFF lo guarda en servidor y entrega solo la cookie
+          g1_challenge (respuesta mfaRequerido). Sin MFA, entrega directamente la
+          cookie de sesión. Con AUTH_ENABLED apagado responde un resultado MOCK que
+          nunca crea sesión.
+        errorCodes:
+          '400': [VALIDACION]
+          '401': [CREDENCIALES_INVALIDAS]
+          '403': [FORBIDDEN, PASSWORD_CADUCADA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_UNAVAILABLE, MOCK_NO_DISPONIBLE]
+        timeoutBehavior: 'El BFF espera hasta 15 s a G7 y responde 503 AUTH_UNAVAILABLE si se agota.'
+        runtimeEvidence: 'REAL contra G7 con cuentas de prueba (23/10 y 25/10/2026); G1 no implementa bloqueo por intentos; cualquier política de ese tipo depende de G7 (429 RATE_LIMITED).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200':
+          description: Sesión iniciada, o desafío MFA pendiente
+          headers:
+            Set-Cookie:
+              description: >-
+                g1_session (sesión, HttpOnly) o g1_challenge (desafío MFA). En
+                producción llevan el prefijo __Host- y el atributo Secure.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/Session' }
+                  - { $ref: '#/components/schemas/MfaChallenge' }
+              examples:
+                sesion:
+                  value: { authenticated: true, user: { id: 3f1c2e0a-9c1b-4a58-9d3e-0a6c1e4f7b21, nombreCompleto: Cliente Prueba, roles: [CLIENTE] }, scope: 8d1e3f4a-1b2c-4d5e-8f90-123456789abc }
+                mfa:
+                  value: { mfaRequerido: true, canal: EMAIL, expiraEn: 300 }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401':
+          description: Credenciales inválidas (mensaje genérico)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: CREDENCIALES_INVALIDAS, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/otp/solicitar:
+    post:
+      operationId: requestOtp
+      tags: [Sesión]
+      summary: Pedir el envío del código MFA al correo
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.requestOtp -> G7SessionService.otp -> G7 auth/otp/solicitar'
+        authentication: 'Cookie g1_challenge de un login con MFA pendiente; exige Origin.'
+        behavior: 'El cuerpo debe estar vacío. El correo se devuelve enmascarado.'
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '403': [FORBIDDEN]
+          '410': [OTP_EXPIRADO]
+          '503': [AUTH_UNAVAILABLE]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Código enviado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpRequested' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/ChallengeExpired' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/otp/verificar:
+    post:
+      operationId: verifyOtp
+      tags: [Sesión]
+      summary: Verificar el código MFA y abrir la sesión
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.verifyOtp -> G7SessionService.otp -> G7 auth/otp/verificar'
+        authentication: 'Cookie g1_challenge; exige Origin.'
+        behavior: >-
+          Un código inválido, vencido o con intentos agotados no destruye el desafío
+          mientras siga vigente, para poder pedir otro código. Al verificar bien se
+          crea la sesión y se elimina el desafío.
+        errorCodes:
+          '400': [VALIDACION]
+          '401': [CODIGO_INVALIDO, OTP_INTENTOS_AGOTADOS, TOKEN_INVALIDO]
+          '403': [FORBIDDEN]
+          '410': [OTP_EXPIRADO]
+          '503': [AUTH_UNAVAILABLE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyOtpInput' }
+      responses:
+        '200':
+          description: Sesión iniciada
+          headers:
+            Set-Cookie:
+              description: Cookie de sesión g1_session (HttpOnly) y borrado de g1_challenge.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401':
+          description: Código incorrecto, intentos agotados o desafío inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: CODIGO_INVALIDO, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/ChallengeExpired' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      tags: [Sesión]
+      summary: Consultar la sesión actual (rehidratación al recargar)
+      x-traceability:
+        feature: F-002, F-003
+        implementation: 'AuthController.session -> G7SessionService.session'
+        authentication: 'Cookie g1_session opcional; sin ella responde anónimo.'
+        behavior: >-
+          Es el equivalente de GET /auth/me: la interfaz lo llama al cargar la página
+          y tras F5 para recuperar la identidad sin leer tokens. Renueva el access
+          token si hace falta (refresh de un solo uso, serializado). Si la sesión ya
+          no es válida o fue revocada, borra la cookie.
+        errorCodes:
+          '401': [UNAUTHORIZED]
+          '503': [AUTH_UNAVAILABLE]
+      responses:
+        '200':
+          description: Sesión autenticada o anónima
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/Session' }
+                  - { $ref: '#/components/schemas/AnonymousSession' }
+              examples:
+                anonima: { value: { authenticated: false, scope: anonymous } }
+        '401':
+          description: Sesión revocada o vencida; se borra la cookie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: UNAUTHORIZED, message: 'Inicia sesión para continuar.' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      tags: [Sesión]
+      summary: Renovar la sesión
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.refresh -> G7SessionService.refresh'
+        authentication: 'Cookie g1_session; exige Origin.'
+        behavior: >-
+          El refresh token de G7 es de un solo uso: se reclama con un marcador
+          durable antes de llamar a G7 para que ningún reintento lo reutilice. El
+          cuerpo debe estar vacío.
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '401': [UNAUTHORIZED]
+          '403': [FORBIDDEN]
+          '503': [AUTH_UNAVAILABLE]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Sesión renovada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401':
+          description: Sin sesión válida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: UNAUTHORIZED, message: 'Inicia sesión para continuar.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [Sesión]
+      summary: Cerrar sesión
+      x-traceability:
+        feature: F-003
+        implementation: 'AuthController.logout -> G7SessionService.logout'
+        authentication: 'Cookie g1_session; exige Origin.'
+        behavior: >-
+          Borra la sesión local y revoca el refresh token en G7. Si G7 falla, el
+          cierre local igualmente se completa y la respuesta lo indica con
+          remoteRevocationPending. Todas las cookies de sesión enviadas se revocan.
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '403': [FORBIDDEN]
+          '503': [AUTH_UNAVAILABLE]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Sesión cerrada localmente
+          headers:
+            Set-Cookie:
+              description: Borra g1_session y g1_challenge (Max-Age=0).
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoggedOut' }
+              example: { authenticated: false, remoteRevocationPending: false }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: g1_session
+      description: >-
+        Cookie de sesión opaca. HttpOnly, SameSite=Lax, Path=/ y vigencia de 7 días;
+        en producción usa el prefijo __Host- y el atributo Secure. Contiene solo
+        un identificador: los tokens de G7 viven cifrados en el servidor.
+  schemas:
+    Capabilities:
+      type: object
+      required: [login, registro, recuperacion]
+      properties:
+        login: { type: boolean }
+        registro: { type: boolean }
+        recuperacion: { type: boolean }
+    PasswordPolicy:
+      type: object
+      required: [longitudMinima, requiereMayuscula, requiereMinuscula, requiereDigito, requiereCaracterEspecial, historial]
+      properties:
+        longitudMinima: { type: integer, minimum: 1, maximum: 256 }
+        requiereMayuscula: { type: boolean }
+        requiereMinuscula: { type: boolean }
+        requiereDigito: { type: boolean }
+        requiereCaracterEspecial: { type: boolean }
+        historial: { type: integer, minimum: 0 }
+        rechazaComunes: { type: boolean }
+        rechazaDatosPersonales: { type: boolean }
+    RegistrationInput:
+      type: object
+      additionalProperties: false
+      required: [correo, contrasena, nombres, apellidos, celular, aceptaTerminos]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+        contrasena: { type: string, minLength: 1, maxLength: 256 }
+        nombres: { type: string, maxLength: 100 }
+        apellidos: { type: string, maxLength: 100 }
+        celular: { type: string, pattern: '^\+51[0-9]{9}$', example: '+51987654321' }
+        aceptaTerminos: { type: boolean, enum: [true] }
+    RegistrationAccepted:
+      type: object
+      required: [id, estado]
+      properties:
+        id: { type: string, format: uuid }
+        estado: { type: string, enum: [PENDIENTE_VERIFICACION] }
+    RecoveryInput:
+      type: object
+      additionalProperties: false
+      required: [correo]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+    ResetInput:
+      type: object
+      additionalProperties: false
+      required: [token, nuevaContrasena]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 2048 }
+        nuevaContrasena: { type: string, minLength: 1, maxLength: 256 }
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required: [correo, contrasena]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+        contrasena: { type: string, minLength: 1, maxLength: 256 }
+    VerifyOtpInput:
+      type: object
+      additionalProperties: false
+      required: [codigo]
+      properties:
+        codigo: { type: string, pattern: '^\d{6}$', example: '123456' }
+    MfaChallenge:
+      type: object
+      required: [mfaRequerido, canal, expiraEn]
+      properties:
+        mfaRequerido: { type: boolean, enum: [true] }
+        canal: { type: string, enum: [EMAIL] }
+        expiraEn: { type: integer, minimum: 1, maximum: 300, description: Segundos de vigencia del desafío }
+    OtpRequested:
+      type: object
+      required: [canal, destinoEnmascarado, expiraEn, desafioExpiraEn]
+      properties:
+        canal: { type: string, enum: [EMAIL] }
+        destinoEnmascarado: { type: string, example: 'c***@correo.com' }
+        expiraEn: { type: integer, description: Segundos de vigencia del código }
+        desafioExpiraEn: { type: integer, description: Segundos restantes del desafío }
+    SessionUser:
+      type: object
+      required: [id, nombreCompleto, roles]
+      properties:
+        id: { type: string, format: uuid }
+        nombreCompleto: { type: string, maxLength: 200 }
+        roles: { type: array, items: { type: string }, example: [CLIENTE] }
+    Session:
+      type: object
+      required: [authenticated, user, scope]
+      properties:
+        authenticated: { type: boolean, enum: [true] }
+        user: { $ref: '#/components/schemas/SessionUser' }
+        scope: { type: string, format: uuid, description: Identificador de la sesión para aislar datos en el cliente }
+    AnonymousSession:
+      type: object
+      required: [authenticated, scope]
+      properties:
+        authenticated: { type: boolean, enum: [false] }
+        scope: { type: string, enum: [anonymous] }
+    LoggedOut:
+      type: object
+      required: [authenticated, remoteRevocationPending]
+      properties:
+        authenticated: { type: boolean, enum: [false] }
+        remoteRevocationPending: { type: boolean, description: true si G7 no confirmó la revocación del refresh token }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: Código estable para integradores }
+        message: { type: string, description: 'Mensaje genérico, sin datos de cuenta' }
+        retryAfterSeconds: { type: integer, description: Presente en 429 }
+    ValidationError:
+      type: object
+      description: Formato por defecto del ValidationPipe de NestJS.
+      properties:
+        statusCode: { type: integer, example: 400 }
+        message: { type: array, items: { type: string } }
+        error: { type: string, example: Bad Request }
+  responses:
+    InvalidRequest:
+      description: Solicitud inválida (validación de campos o cuerpo no permitido)
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - { $ref: '#/components/schemas/ValidationError' }
+              - { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: La operación no se hizo desde el frontend de Marketplace (Origin) o la contraseña caducó
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: FORBIDDEN, message: 'Realiza esta operación desde Marketplace.' }
+    EmailUnavailable:
+      description: El correo no está disponible (mensaje genérico)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: CORREO_NO_DISPONIBLE, message: 'No pudimos completar el acceso.' }
+    PolicyViolated:
+      description: La contraseña no cumple la política vigente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: POLITICA_INCUMPLIDA, message: 'No pudimos completar el acceso.' }
+    RateLimited:
+      description: Demasiadas solicitudes
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: RATE_LIMITED, message: 'Espera antes de volver a intentarlo.', retryAfterSeconds: 60 }
+    ChallengeExpired:
+      description: El desafío MFA venció o no existe; hay que volver a iniciar sesión
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: OTP_EXPIRADO, message: 'Vuelve a iniciar sesión.' }
+    Unavailable:
+      description: Acceso no disponible temporalmente (G7 caído, tiempo agotado u operación apagada)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: AUTH_UNAVAILABLE, message: 'Acceso no disponible temporalmente.' }
