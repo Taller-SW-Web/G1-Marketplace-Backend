@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.0.0...v1.0.1) (2026-11-04)
+
+### Bug Fixes
+
+* **auth:** no reenviar errores fuera del contrato de reset (400/403/409) en password/restablecer ([73f195e](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/73f195ef276721b64e8fc4f18c256deec9824d56))
+
 ## 1.0.0 (2026-11-04)
 
 ### Features
