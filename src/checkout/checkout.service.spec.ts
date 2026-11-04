@@ -7,6 +7,7 @@ import { CheckoutContactDto } from './dto/contact.dto';
 import { MarketplaceGateway } from './external/marketplace.gateway';
 import { ProviderError } from './external/provider-error';
 import { QuotesService } from './quotes.service';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service';
 
 describe('CheckoutService', () => {
   const customerId = '11111111-1111-4111-8111-111111111111';
@@ -38,6 +39,7 @@ describe('CheckoutService', () => {
       update: jest.Mock;
       updateMany: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
   let gateway: jest.Mocked<Pick<
     MarketplaceGateway,
@@ -52,6 +54,7 @@ describe('CheckoutService', () => {
   >>;
   let service: CheckoutService;
   let quotes: QuotesService;
+  let notificationUpsert: jest.Mock;
 
   const baseOperation = () => ({
     id: operationId,
@@ -73,9 +76,11 @@ describe('CheckoutService', () => {
     failureCode: null as string | null,
     createdAt: new Date(),
     completedAt: null as Date | null,
+    recipientEmailEncrypted: null as Uint8Array | null,
   });
 
   beforeEach(() => {
+    notificationUpsert = jest.fn(async ({ create }) => create);
     prisma = {
       cart: { findFirst: jest.fn().mockResolvedValue(cart) },
       checkoutOperation: {
@@ -85,6 +90,10 @@ describe('CheckoutService', () => {
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      $transaction: jest.fn(async (callback: (tx: unknown) => unknown) => callback({
+        checkoutOperation: { update: jest.fn().mockImplementation((args) => prisma.checkoutOperation.update(args)) },
+        notificationDelivery: { upsert: notificationUpsert },
+      })),
     };
     gateway = {
       listAddresses: jest.fn().mockResolvedValue([
@@ -115,6 +124,7 @@ describe('CheckoutService', () => {
       prisma as unknown as PrismaService,
       gateway as unknown as MarketplaceGateway,
       quotes,
+      new NotificationOutboxService(),
     );
   });
 
@@ -920,6 +930,50 @@ describe('CheckoutService', () => {
       },
     });
     expect(result.data).not.toHaveProperty('orderState');
+  });
+
+  it('atomically persists an encrypted confirmation only after Sales verifies PAGADO when explicitly enabled', async () => {
+    const previousEnabled = process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED;
+    const previousKey = process.env.NOTIFICATION_EMAIL_ENCRYPTION_KEY;
+    process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED = 'true';
+    process.env.NOTIFICATION_EMAIL_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.SUBMITTED,
+      externalOrderId: 'PED-2026-00009',
+      recipientEmailEncrypted: Buffer.from('ciphertext-fixture'),
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
+      Object.assign(operation, data);
+      return operation;
+    });
+    gateway.getOrder.mockResolvedValue({
+      pedidoId: 'PED-2026-00009',
+      estado: 'PAGADO',
+      total: { amount: 355, currency: 'PEN' },
+      createdAt: new Date().toISOString(),
+    });
+
+    try {
+      const result = await service.getOperation(customerId, operationId);
+      expect(result.status).toBe(200);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(notificationUpsert).toHaveBeenCalledWith(expect.objectContaining({
+        create: expect.objectContaining({
+          externalOrderId: 'PED-2026-00009',
+          customerId,
+          eventKey: 'order-paid:PED-2026-00009',
+          recipientEmailEncrypted: operation.recipientEmailEncrypted,
+          state: 'PENDING',
+        }),
+      }));
+    } finally {
+      if (previousEnabled === undefined) delete process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED;
+      else process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED = previousEnabled;
+      if (previousKey === undefined) delete process.env.NOTIFICATION_EMAIL_ENCRYPTION_KEY;
+      else process.env.NOTIFICATION_EMAIL_ENCRYPTION_KEY = previousKey;
+    }
   });
 
   it('returns the published nested order in a neutral 202 while Sales reports CREADO', async () => {

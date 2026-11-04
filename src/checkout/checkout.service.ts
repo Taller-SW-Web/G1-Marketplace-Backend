@@ -2,6 +2,7 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { CheckoutOperationState, Prisma } from '@prisma/client';
@@ -21,6 +22,8 @@ import {
 import { MarketplaceGateway } from './external/marketplace.gateway';
 import { ProviderError } from './external/provider-error';
 import { QuotesService } from './quotes.service';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service';
+import { RecipientEmailCipher } from '../notifications/recipient-email-cipher';
 
 const IDEMPOTENCY_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -49,6 +52,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly gateway: MarketplaceGateway,
     private readonly quotes: QuotesService,
+    @Optional() private readonly notificationOutbox?: NotificationOutboxService,
   ) {}
 
   async listAddresses(accessToken: string): Promise<DeliveryAddress[]> {
@@ -391,6 +395,25 @@ export class CheckoutService {
       this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
     }
 
+    const recipientCipher = this.orderConfirmationCipher();
+    if (recipientCipher && !operation.recipientEmailEncrypted) {
+      // Bind the encrypted contact to the same operation/fingerprint before calling Sales.
+      // A concurrent retry may win; either ciphertext represents the same validated email.
+      await this.prisma.checkoutOperation.updateMany({
+        where: {
+          id: operation.id,
+          customerId,
+          recipientEmailEncrypted: null,
+          state: { in: [CheckoutOperationState.PREPARED, CheckoutOperationState.SUBMITTED] },
+        },
+        data: { recipientEmailEncrypted: recipientCipher.encrypt(input.contact.email) },
+      });
+      operation = await this.prisma.checkoutOperation.findFirst({
+        where: { id: operation.id, customerId },
+      });
+      if (!operation) throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
+    }
+
     if (operation.state === CheckoutOperationState.PREPARED) {
       let claimed: { count: number };
       try {
@@ -526,14 +549,34 @@ export class CheckoutService {
     this.assertValidSalesOrder(order);
 
     if (order.estado === 'PAGADO') {
-      const updated = await this.prisma.checkoutOperation.update({
-        where: { id: operation.id },
-        data: {
-          state: CheckoutOperationState.SUCCEEDED,
-          externalOrderId: order.pedidoId,
-          failureCode: null,
-          completedAt: new Date(),
-        },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const saved = await tx.checkoutOperation.update({
+          where: { id: operation.id },
+          data: {
+            state: CheckoutOperationState.SUCCEEDED,
+            externalOrderId: order.pedidoId,
+            failureCode: null,
+            completedAt: new Date(),
+          },
+        });
+        if (process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED === 'true' && operation.recipientEmailEncrypted) {
+          if (!this.notificationOutbox) throw new Error('Order confirmation outbox is unavailable.');
+          await this.notificationOutbox.enqueueOrderConfirmation(tx, {
+            orderId: order.pedidoId,
+            customerId: operation.customerId,
+            eventKey: `order-paid:${order.pedidoId}`,
+            recipientEmailEncrypted: operation.recipientEmailEncrypted,
+            payloadVersion: 'C-001-v1',
+            payloadSnapshot: {
+              orderId: order.pedidoId,
+              orderState: order.estado,
+              createdAt: order.createdAt,
+              total: { amount: order.total.amount, currency: order.total.currency },
+            } as Prisma.InputJsonValue,
+            verifiedOrderState: order.estado,
+          });
+        }
+        return saved;
       });
       return {
         status: 200,
@@ -578,6 +621,15 @@ export class CheckoutService {
         createdAt: order.createdAt,
       },
     };
+  }
+
+  private orderConfirmationCipher(): RecipientEmailCipher | undefined {
+    if (process.env.ORDER_CONFIRMATION_OUTBOX_ENABLED !== 'true') return undefined;
+    const keyHex = process.env.NOTIFICATION_EMAIL_ENCRYPTION_KEY ?? '';
+    if (!/^[0-9a-f]{64}$/i.test(keyHex)) {
+      throw new ServiceUnavailableException({ error: { code: 'NOTIFICATION_ENCRYPTION_UNAVAILABLE' } });
+    }
+    return new RecipientEmailCipher(Buffer.from(keyHex, 'hex'));
   }
 
   private async findActiveCart(customerId: string, sessionHash?: string) {

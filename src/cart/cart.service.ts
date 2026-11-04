@@ -146,7 +146,8 @@ export class CartService {
   }
 
   async addItemInTransaction(tx: Prisma.TransactionClient, params: AddCartParams,
-    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>): Promise<AddItemResult> {
+    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>,
+    confirmedQuote?: CommerceQuote): Promise<AddItemResult> {
     const { sessionHash, customerId, sku } = params;
     const quantity = params.quantity ?? 1;
 
@@ -179,7 +180,7 @@ export class CartService {
 
     let isCreated = false;
     const totalQuantity = (existingItem?.quantity ?? 0) + parsedQty;
-    const commercial = quote ? await quote(sku.trim(), totalQuantity) : undefined;
+    const commercial = confirmedQuote ?? (quote ? await quote(sku.trim(), totalQuantity) : undefined);
     if (commercial && (!Number.isFinite(commercial.amount) || commercial.amount < 0
       || commercial.currency !== cart.currency || !Number.isSafeInteger(commercial.version) || commercial.version < 0)) {
       throw new ConflictException({ code: 'COMMERCE_DATA_UNAVAILABLE', message: 'Cotización no válida' });

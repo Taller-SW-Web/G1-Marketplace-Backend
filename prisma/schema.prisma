@@ -48,8 +48,10 @@ enum NotificationDeliveryType {
 
 enum NotificationDeliveryState {
   PENDING
+  PROCESSING
   SENT
   FAILED
+  RECONCILIATION_REQUIRED
   SUPPRESSED
 
   @@map("notification_delivery_state")
@@ -88,6 +90,7 @@ model Cart {
   mergedCarts          Cart[]                    @relation("CartMerge")
   items                CartItem[]
   checkoutOperations   CheckoutOperation[]
+  reorderOperations    CartReorderOperation[]
 
   @@index([mergedIntoCartId], map: "carts_merged_into_cart_idx")
   @@map("carts")
@@ -113,6 +116,22 @@ model CartItem {
   @@index([productId], map: "cart_items_product_id_idx")
   @@index([variantId], map: "cart_items_variant_id_idx")
   @@map("cart_items")
+}
+
+model CartReorderOperation {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalOrderId String   @map("external_order_id") @db.VarChar(100)
+  customerId      String   @map("customer_id") @db.Uuid
+  idempotencyKey  String   @map("idempotency_key") @db.VarChar(36)
+  cartId          String   @map("cart_id") @db.Uuid
+  result          Json     @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([customerId, externalOrderId, idempotencyKey], map: "cart_reorder_operations_request_uk")
+  @@index([customerId, createdAt(sort: Desc)], map: "cart_reorder_operations_customer_created_idx")
+  @@map("cart_reorder_operations")
 }
 
 model WishlistItem {
@@ -143,6 +162,7 @@ model CheckoutOperation {
   revalidatedAt      DateTime?               @map("revalidated_at") @db.Timestamptz(6)
   orderIdempotencyKey String?                @map("order_idempotency_key") @db.VarChar(255)
   externalOrderId    String?                @map("external_order_id") @db.VarChar(100)
+  recipientEmailEncrypted Bytes?              @map("recipient_email_encrypted")
   failureCode        String?                @map("failure_code") @db.VarChar(100)
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   completedAt        DateTime?              @map("completed_at") @db.Timestamptz(6)
@@ -182,14 +202,20 @@ model NotificationDelivery {
   eventKey                String                    @map("event_key") @db.VarChar(255)
   recipientEmailEncrypted Bytes                     @map("recipient_email_encrypted")
   payloadVersion          String                    @map("payload_version") @db.VarChar(50)
+  payloadSnapshot         Json?                     @map("payload_snapshot") @db.JsonB
   state                   NotificationDeliveryState @default(PENDING)
   providerMessageId       String?                   @map("provider_message_id") @db.VarChar(255)
   attemptCount            Int                       @default(0) @map("attempt_count")
   lastAttemptAt           DateTime?                 @map("last_attempt_at") @db.Timestamptz(6)
+  nextAttemptAt           DateTime                  @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  leaseToken              String?                   @map("lease_token") @db.VarChar(36)
+  leaseExpiresAt          DateTime?                 @map("lease_expires_at") @db.Timestamptz(6)
+  lastErrorCode           String?                   @map("last_error_code") @db.VarChar(100)
   sentAt                  DateTime?                 @map("sent_at") @db.Timestamptz(6)
   createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@unique([type, eventKey], map: "notification_deliveries_type_event_uk")
   @@index([externalOrderId, createdAt(sort: Desc)], map: "notification_deliveries_order_idx")
+  @@index([state, nextAttemptAt, createdAt], map: "notification_deliveries_dispatch_idx")
   @@map("notification_deliveries")
 }

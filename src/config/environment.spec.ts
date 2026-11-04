@@ -38,6 +38,33 @@ describe('Environment boundaries', () => {
     for (const timeout of ['abc', 0, 1.5, 30001]) {
       expect(() => validateEnvironment({ ...base, HTTP_TIMEOUT_MS: timeout })).toThrow();
     }
+    for (const timeout of ['abc', 999, 180001, 1.5]) {
+      expect(() => validateEnvironment({ ...base, G5_HTTP_TIMEOUT_MS: timeout })).toThrow();
+    }
+    expect(validateEnvironment(base)).toMatchObject({ G5_HTTP_TIMEOUT_MS: 150000 });
+  });
+  it('keeps the paid-order email outbox disabled by default and validates its private key when enabled', () => {
+    expect(validateEnvironment(base).ORDER_CONFIRMATION_OUTBOX_ENABLED).toBe(false);
+    expect(validateEnvironment(base).NOTIFICATION_WORKER_ENABLED).toBe(false);
+    expect(() => validateEnvironment({ ...base, ORDER_CONFIRMATION_OUTBOX_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...base, ORDER_CONFIRMATION_OUTBOX_ENABLED: 'maybe' })).toThrow();
+    expect(() => validateEnvironment({ ...base, NOTIFICATION_WORKER_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...base, NOTIFICATION_WORKER_ENABLED: 'maybe' })).toThrow();
+    expect(validateEnvironment({ ...base, ORDER_CONFIRMATION_OUTBOX_ENABLED: 'true',
+      NOTIFICATION_EMAIL_ENCRYPTION_KEY: 'ab'.repeat(32) })).toMatchObject({
+      ORDER_CONFIRMATION_OUTBOX_ENABLED: true,
+    });
+  });
+  it('keeps reorder unavailable by default and confines its mock mode to tests', () => {
+    expect(validateEnvironment(base)).toMatchObject({ REORDER_ENABLED: false, REORDER_SOURCE: 'unconfigured' });
+    expect(() => validateEnvironment({ ...base, REORDER_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...base, REORDER_ENABLED: 'true', REORDER_SOURCE: 'mock' })).toThrow();
+    expect(validateEnvironment({ ...base, ORDERS_SOURCE: 'mock', REORDER_ENABLED: 'true', REORDER_SOURCE: 'mock' }))
+      .toMatchObject({ REORDER_ENABLED: true, REORDER_SOURCE: 'mock' });
+    expect(() => validateEnvironment({ ...base, NODE_ENV: 'development', ORDERS_SOURCE: 'mock',
+      REORDER_ENABLED: 'true', REORDER_SOURCE: 'mock' })).toThrow();
+    expect(() => validateEnvironment({ ...base, NODE_ENV: 'production', ORDERS_SOURCE: 'mock',
+      REORDER_ENABLED: 'true', REORDER_SOURCE: 'mock' })).toThrow();
   });
   it.each([undefined, 'postgresql://remote/marketplace_h3_test', 'postgresql://localhost/development',
     'postgresql://localhost/marketplace_h3_test?schema=other'])('rejects unsafe test database %s', (url) => {
@@ -58,6 +85,16 @@ describe('Environment boundaries', () => {
   it('derives G7 issuer and JWKS without inheriting the local mock issuer', () => {
     expect(validateEnvironment(g7)).toMatchObject({ AUTH_ENABLED: 'true',
       AUTH_ISSUER: 'https://g7.example/api/v1/auth', AUTH_JWKS_URL: 'https://g7.example/api/v1/auth/.well-known/jwks.json' });
+  });
+  it('gates the G5 orders provider behind validated G7 auth and an HTTPS base URL', () => {
+    expect(() => validateEnvironment({ ...base, ORDERS_SOURCE: 'g5' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, ORDERS_SOURCE: 'g5' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, ORDERS_SOURCE: 'g5', G5_API_URL: 'http://g5.example' })).toThrow();
+    expect(validateEnvironment({ ...g7, ORDERS_SOURCE: 'g5', G5_API_URL: 'https://g5.example' }))
+      .toMatchObject({ ORDERS_SOURCE: 'g5', G5_API_URL: 'https://g5.example' });
+    expect(validateEnvironment({ ...g7, ORDERS_SOURCE: 'g5', G5_API_URL: 'https://g5.example',
+      HTTP_TIMEOUT_MS: 3000, G5_HTTP_TIMEOUT_MS: 150000 }))
+      .toMatchObject({ HTTP_TIMEOUT_MS: 3000, G5_HTTP_TIMEOUT_MS: 150000 });
   });
   it('requires a private encryption key and explicit web origin for sessions', () => {
     expect(() => validateEnvironment({ ...g7, AUTH_SESSION_KEY: '' })).toThrow();

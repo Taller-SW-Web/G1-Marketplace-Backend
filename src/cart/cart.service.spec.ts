@@ -3,6 +3,34 @@ import { CartService } from './cart.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CartState, Prisma } from '@prisma/client';
 
+describe('CartService - F-031 confirmed current commercial quote', () => {
+  it('writes the prevalidated current price snapshot without reusing historical pricing', async () => {
+    const tx: any = {
+      $queryRaw: jest.fn().mockResolvedValue([{}]),
+      cart: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cart-1', customerId: '11111111-1111-4111-8111-111111111111',
+          state: CartState.ACTIVE, currency: 'PEN', version: 2, items: [] }),
+        create: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: 'cart-1', version: 3, currency: 'PEN', items: [] }),
+      },
+      cartItem: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const service = new CartService({} as PrismaService);
+    await service.addItemInTransaction(tx, {
+      customerId: '11111111-1111-4111-8111-111111111111', sku: 'MOCK-AERO-42', quantity: 2,
+    }, undefined, { amount: 249.9, currency: 'PEN', version: 3 });
+    expect(tx.cartItem.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        sku: 'MOCK-AERO-42', quantity: 2,
+        unitPriceSnapshot: expect.any(Prisma.Decimal), priceVersion: '3',
+      }),
+    }));
+  });
+});
+
 describe('CartService - F-017: updateItemQuantityInTransaction', () => {
   let service: CartService;
   let mockPrisma: any;

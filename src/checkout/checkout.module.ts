@@ -8,6 +8,9 @@ import { CheckoutController } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { QuotesService } from './quotes.service';
 import { G7IntegrationModule } from '../auth/g7-integration.module';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service';
+import { NotificationWorkerService } from '../notifications/notification-worker.service';
+import { ShipmentEventConsumerService } from '../notifications/shipment-event-consumer.service';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { G7IntegrationModule } from '../auth/g7-integration.module';
     MockHttpAdapter,
     MarketplaceGateway,
     QuotesService,
+    NotificationOutboxService,
+    NotificationWorkerService,
+    ShipmentEventConsumerService,
     CheckoutService,
   ],
 })

@@ -68,13 +68,54 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
   }
   if (authEnabled === 'true' && httpTimeoutMs > 5000) throw new Error('G7 session flow requires HTTP_TIMEOUT_MS <= 5000');
+  const g5HttpTimeoutMs = Number(config.G5_HTTP_TIMEOUT_MS ?? 150000);
+  if (!Number.isInteger(g5HttpTimeoutMs) || g5HttpTimeoutMs < 1000 || g5HttpTimeoutMs > 180000) {
+    throw new Error('G5_HTTP_TIMEOUT_MS must be an integer between 1000 and 180000');
+  }
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
-  if (!['mock', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock or unconfigured');
+  if (!['mock', 'g5', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock, g5 or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
+  if (ordersSource === 'g5') {
+    if (authEnabled !== 'true') throw new Error('ORDERS_SOURCE=g5 requires AUTH_ENABLED=true');
+    let g5Url: URL;
+    try { g5Url = new URL(String(config.G5_API_URL)); } catch { throw new Error('G5_API_URL is required for ORDERS_SOURCE=g5'); }
+    if (g5Url.username || g5Url.password || g5Url.search || g5Url.hash
+      || (g5Url.protocol !== 'https:' && !(nodeEnv !== 'production' && g5Url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(g5Url.hostname)))) {
+      throw new Error('G5_API_URL must use HTTPS (loopback allowed outside production)');
+    }
+  }
+  const orderConfirmationOutboxEnabled = String(config.ORDER_CONFIRMATION_OUTBOX_ENABLED ?? 'false');
+  if (!['true', 'false'].includes(orderConfirmationOutboxEnabled)) {
+    throw new Error('ORDER_CONFIRMATION_OUTBOX_ENABLED must be true or false');
+  }
+  const notificationEmailKey = String(config.NOTIFICATION_EMAIL_ENCRYPTION_KEY ?? '');
+  if (orderConfirmationOutboxEnabled === 'true' && !/^[0-9a-f]{64}$/i.test(notificationEmailKey)) {
+    throw new Error('NOTIFICATION_EMAIL_ENCRYPTION_KEY must be 32 bytes encoded as hexadecimal when the order confirmation outbox is enabled');
+  }
+  const notificationWorkerEnabled = String(config.NOTIFICATION_WORKER_ENABLED ?? 'false');
+  if (!['true', 'false'].includes(notificationWorkerEnabled)) {
+    throw new Error('NOTIFICATION_WORKER_ENABLED must be true or false');
+  }
+  if ((orderConfirmationOutboxEnabled === 'true' || notificationWorkerEnabled === 'true')
+    && !/^[0-9a-f]{64}$/i.test(notificationEmailKey)) {
+    throw new Error('NOTIFICATION_EMAIL_ENCRYPTION_KEY must be 32 bytes encoded as hexadecimal when notifications are enabled');
+  }
+  const reorderEnabled = String(config.REORDER_ENABLED ?? 'false');
+  const reorderSource = String(config.REORDER_SOURCE ?? 'unconfigured');
+  if (!['true', 'false'].includes(reorderEnabled)) throw new Error('REORDER_ENABLED must be true or false');
+  if (!['mock', 'unconfigured'].includes(reorderSource)) throw new Error('REORDER_SOURCE must be mock or unconfigured');
+  if (reorderEnabled === 'true' && (nodeEnv !== 'test'
+    || reorderSource !== 'mock' || ordersSource !== 'mock')) {
+    throw new Error('REORDER_ENABLED is test-only and requires REORDER_SOURCE=mock and ORDERS_SOURCE=mock');
+  }
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    G5_HTTP_TIMEOUT_MS: g5HttpTimeoutMs,
     ORDERS_SOURCE: ordersSource,
+    ORDER_CONFIRMATION_OUTBOX_ENABLED: orderConfirmationOutboxEnabled === 'true',
+    NOTIFICATION_WORKER_ENABLED: notificationWorkerEnabled === 'true',
+    REORDER_ENABLED: reorderEnabled === 'true', REORDER_SOURCE: reorderSource,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
   };
