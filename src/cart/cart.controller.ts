@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  UnauthorizedException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -107,6 +109,27 @@ export class CartController {
     };
   }
 
+  @Delete(['current/items/:sku', 'items/:sku'])
+  async removeItem(
+    @Param('sku') sku: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    const { sessionHash, customerId } = this.resolveSession(req, res);
+    const expectedVersion = ifMatch ? parseInt(ifMatch, 10) : undefined;
+    const result = await this.cartService.removeItemFromCart({
+      sessionHash,
+      customerId,
+      sku,
+      expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
+    });
+
+    res.setHeader('X-Cart-Version', String(result.version));
+    res.status(204);
+    return;
+  }
+
   @Get(['current', ''])
   async getCart(
     @Req() req: AuthenticatedRequest,
@@ -121,6 +144,71 @@ export class CartController {
     return {
       status: 'OK',
       data: snapshot,
+    };
+  }
+
+  @Post(['current/merge-anonymous', 'merge-anonymous'])
+  async mergeAnonymous(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Inicia sesión para fusionar el carrito.',
+      });
+    }
+
+    const sessionHash = parseSessionCookie(req.headers['cookie']);
+    const result = await this.cartService.mergeAnonymousCart({
+      customerId: req.user.sub,
+      sessionHash: sessionHash || undefined,
+    });
+
+    if (result.cartId) {
+      res.setHeader('X-Cart-Version', String(result.version));
+    }
+
+    if (result.merged) {
+      // Invalida la cookie anónima tras commit exitoso (RN-F020-01)
+      res.setHeader(
+        'Set-Cookie',
+        'cart_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0',
+      );
+    }
+
+    return {
+      status: 'OK',
+      data: result,
+    };
+  }
+
+
+  @Post(['current/items/:sku/move-to-wishlist', 'items/:sku/move-to-wishlist'])
+  async moveItemToWishlist(
+    @Param('sku') sku: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ResponseLike,
+  ) {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Inicia sesión para mover productos a favoritos.',
+      });
+    }
+
+    const expectedVersion = ifMatch ? parseInt(ifMatch.replace(/["']/g, ''), 10) : undefined;
+    const result = await this.cartService.moveItemToWishlist({
+      customerId: req.user.sub,
+      sku,
+      expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
+    });
+
+    res.setHeader('X-Cart-Version', String(result.version));
+    return {
+      status: 'OK',
+      data: result,
     };
   }
 }

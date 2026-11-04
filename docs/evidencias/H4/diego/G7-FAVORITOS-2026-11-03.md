@@ -56,3 +56,14 @@ Las dependencias existentes se reutilizaron mediante junction; no se hizo instal
 - **Revisión:** Fernando revisa los escenarios y la evidencia; cuando haya aportado al artefacto, aplicar segunda revisión independiente a esa parte.
 
 Conclusión del corte: conexión y pruebas locales de autenticación listas para revisión; G6 puede abordarse como siguiente bloque. El cierre integral de la issue conserva sus condiciones REAL/despliegue y aprobación.
+
+## Revalidación al integrar la base actualizada
+
+El PR #239 tenía conflictos con `develop`, por lo que GitHub no ejecutaba sus checks nuevos. Se incorpora `develop` `cae04f78f40fd10fa3106aca38d25488d8181497` mediante merge hacia la rama del PR, sin publicar ni fusionar el PR en `develop`.
+
+- `test/auth-g7.e2e-spec.ts`: se conserva el seguimiento de logout añadido por Jim y el reset de elegibilidad de las pruebas F-036. Se mantienen las ocho pruebas nuevas de favoritos y las correcciones de cuenta/sesión que ya estaban en la rama base.
+- `test/checkout.integration-spec.ts`: se conserva íntegra la versión actual de Leonidas integrada en #262, con sus aserciones PostgreSQL y casos separados. Sustituye la corrección equivalente anterior del candidato, sin cambiar producción ni esquema de Checkout.
+- Corrida aislada sobre la resolución: **44 integración + 26 sesión G7 aprobadas**. Las 26 incluyen 18 existentes de la base actualizada y 8 nuevas de F-036; sustituyen los totales anteriores de 41/21 para este candidato final. Cuatro migraciones, repetición sin pendientes y limpieza del contenedor propio aprobadas.
+- Typecheck y **260 unitarias** aprobados sobre la resolución. HTTP general: **291 aprobadas y 30 omitidas** por falta de DB de sesión en ese runner; las **26 de sesión G7** se ejecutaron y aprobaron por separado con el runner aislado. Las cuatro de cuenta que requieren DB no se presentan como ejecutadas localmente en este corte. CI del candidato final se registra en el seguimiento del PR.
+
+La autenticación productiva incorporada en el merge corresponde al trabajo existente del equipo. El aporte específico F-036 continúa limitado a pruebas y documentación de reutilización; las condiciones REAL/despliegue y revisión no se promueven por resolver conflictos.
