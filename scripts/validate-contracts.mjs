@@ -1,8 +1,14 @@
-// Valida con swagger-cli todos los contratos OpenAPI de docs/contratos.
+// Valida con swagger-cli (versión fijada en devDependencies) todos los contratos
+// OpenAPI de docs/contratos. No pasa por ningún shell: los argumentos se entregan
+// separados al proceso.
 // Uso: npm run docs:validate
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
+
+const require = createRequire(import.meta.url);
+const swaggerCli = require.resolve('@apidevtools/swagger-cli/bin/swagger-cli.js');
 
 const dir = join(process.cwd(), 'docs', 'contratos');
 const files = readdirSync(dir)
@@ -17,8 +23,7 @@ if (files.length === 0) {
 let failed = 0;
 for (const file of files) {
   try {
-    // El nombre proviene de readdirSync y está filtrado por extensión.
-    execSync(`npx --yes @apidevtools/swagger-cli validate "${join(dir, file)}"`, {
+    execFileSync(process.execPath, [swaggerCli, 'validate', join(dir, file)], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     console.log(`OK    ${file}`);

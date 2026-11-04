@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Marketplace Auth BFF — H4
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     Contrato versionado del BFF de cuenta y sesión de Marketplace (F-001–F-005).
     Es una API propia de G1: el navegador solo habla con este BFF y nunca con
@@ -9,8 +9,12 @@ info:
     en servidor y entrega al navegador únicamente cookies opacas HttpOnly. Ningún
     token viaja al JavaScript del navegador ni a localStorage. Las operaciones que
     cambian estado exigen la cabecera Origin del frontend de Marketplace
-    (parámetro OriginHeader). El contrato describe lo implementado en src/auth
-    sobre la rama develop; no acredita despliegue ni homologación con G7 por sí mismo.
+    (parámetro OriginHeader). Los nombres de cookie que aparecen en el texto
+    (g1_session y g1_challenge) son los de desarrollo y pruebas; con
+    NODE_ENV=production el navegador usa __Host-g1_session y __Host-g1_challenge,
+    modelados como esquemas alternativos (sessionCookieProd y challengeCookieProd).
+    El contrato describe lo implementado en src/auth sobre la rama develop; no
+    acredita despliegue ni homologación con G7 por sí mismo.
   x-g7-compatibility:
     status: environment-dependent
     behavior: >-
@@ -296,6 +300,7 @@ paths:
       summary: Pedir el envío del código MFA al correo
       security:
         - challengeCookie: []
+        - challengeCookieProd: []
       parameters:
         - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
@@ -331,6 +336,7 @@ paths:
       summary: Verificar el código MFA y abrir la sesión
       security:
         - challengeCookie: []
+        - challengeCookieProd: []
       parameters:
         - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
@@ -381,6 +387,7 @@ paths:
       security:
         - {}
         - sessionCookie: []
+        - sessionCookieProd: []
       x-traceability:
         feature: F-002, F-003
         implementation: 'AuthController.session -> G7SessionService.session'
@@ -422,6 +429,7 @@ paths:
       summary: Renovar la sesión
       security:
         - sessionCookie: []
+        - sessionCookieProd: []
       parameters:
         - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
@@ -466,6 +474,7 @@ paths:
       security:
         - {}
         - sessionCookie: []
+        - sessionCookieProd: []
       parameters:
         - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
@@ -513,18 +522,36 @@ components:
       in: cookie
       name: g1_session
       description: >-
-        Cookie de sesión opaca. HttpOnly, SameSite=Lax, Path=/ y vigencia de 7 días;
-        en producción usa el prefijo __Host- y el atributo Secure. Contiene solo
-        un identificador: los tokens de G7 viven cifrados en el servidor.
+        Cookie de sesión opaca en desarrollo y pruebas (NODE_ENV distinto de
+        production). HttpOnly, SameSite=Lax, Path=/ y vigencia de 7 días. En
+        producción el navegador usa sessionCookieProd. Contiene solo un
+        identificador: los tokens de G7 viven cifrados en el servidor.
+    sessionCookieProd:
+      type: apiKey
+      in: cookie
+      name: __Host-g1_session
+      description: >-
+        La misma cookie de sesión con el nombre que usa NODE_ENV=production
+        (G7SessionService.cookieName antepone __Host-). Además de HttpOnly,
+        SameSite=Lax, Path=/ y 7 días, lleva el atributo Secure. Es una alternativa
+        de sessionCookie: en cada entorno aplica solo una de las dos.
     challengeCookie:
       type: apiKey
       in: cookie
       name: g1_challenge
       description: >-
-        Cookie del desafío MFA pendiente. HttpOnly, SameSite=Lax, Path=/ y vigencia
-        igual a expiraEn (hasta 300 s); en producción usa el prefijo __Host- y el
-        atributo Secure. Se emite en el login con MFA y se elimina al verificar el
-        código.
+        Cookie del desafío MFA pendiente en desarrollo y pruebas. HttpOnly,
+        SameSite=Lax, Path=/ y vigencia igual a expiraEn (hasta 300 s). Se emite en
+        el login con MFA y se elimina al verificar el código. En producción el
+        navegador usa challengeCookieProd.
+    challengeCookieProd:
+      type: apiKey
+      in: cookie
+      name: __Host-g1_challenge
+      description: >-
+        La misma cookie de desafío MFA con el nombre de producción (prefijo
+        __Host-) y el atributo Secure. Alternativa de challengeCookie según el
+        entorno.
   parameters:
     OriginHeader:
       name: Origin
