@@ -232,7 +232,11 @@ export class CheckoutService {
     if (context.expiresAt <= Date.now()) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
-        data: { state: CheckoutOperationState.FAILED, failureCode: 'QUOTE_EXPIRED', completedAt: new Date() },
+        data: {
+          state: CheckoutOperationState.FAILED,
+          failureCode: 'QUOTE_EXPIRED',
+          completedAt: this.completionTime(operation.createdAt),
+        },
       });
       this.fail(409, 'QUOTE_EXPIRED');
     }
@@ -240,7 +244,11 @@ export class CheckoutService {
     if (!cart || cart.version !== context.cartVersion) {
       await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
-        data: { state: CheckoutOperationState.FAILED, failureCode: 'REVALIDATION_CHANGED', completedAt: new Date() },
+        data: {
+          state: CheckoutOperationState.FAILED,
+          failureCode: 'REVALIDATION_CHANGED',
+          completedAt: this.completionTime(operation.createdAt),
+        },
       });
       this.fail(409, 'REVALIDATION_CHANGED');
     }
@@ -259,7 +267,7 @@ export class CheckoutService {
         data: {
           state: CheckoutOperationState.FAILED,
           failureCode: 'STOCK_NOT_AVAILABLE',
-          completedAt: new Date(),
+          completedAt: this.completionTime(operation.createdAt),
         },
       });
       this.fail(409, 'STOCK_NOT_AVAILABLE');
@@ -272,7 +280,7 @@ export class CheckoutService {
         data: {
           state: CheckoutOperationState.FAILED,
           failureCode: 'REVALIDATION_CHANGED',
-          completedAt: new Date(),
+          completedAt: this.completionTime(operation.createdAt),
         },
       });
       this.fail(409, 'REVALIDATION_CHANGED');
@@ -351,7 +359,7 @@ export class CheckoutService {
           data: {
             state: CheckoutOperationState.FAILED,
             failureCode: 'QUOTE_EXPIRED',
-            completedAt: new Date(),
+            completedAt: this.completionTime(operation.createdAt),
           },
         });
         this.fail(409, 'QUOTE_EXPIRED');
@@ -363,7 +371,7 @@ export class CheckoutService {
           data: {
             state: CheckoutOperationState.FAILED,
             failureCode: 'CHECKOUT_CONTEXT_CHANGED',
-            completedAt: new Date(),
+            completedAt: this.completionTime(operation.createdAt),
           },
         });
         this.fail(409, 'OPERATION_NOT_PREPARED');
@@ -532,7 +540,7 @@ export class CheckoutService {
           state: CheckoutOperationState.SUCCEEDED,
           externalOrderId: order.pedidoId,
           failureCode: null,
-          completedAt: new Date(),
+          completedAt: this.completionTime(operation.createdAt),
         },
       });
       return {
@@ -553,7 +561,7 @@ export class CheckoutService {
           state: CheckoutOperationState.FAILED,
           externalOrderId: null,
           failureCode: order.failureCode ?? 'PAGO_NO_COMPLETADO',
-          completedAt: new Date(),
+          completedAt: this.completionTime(operation.createdAt),
         },
       });
       return {
@@ -783,9 +791,16 @@ export class CheckoutService {
       data: {
         state: CheckoutOperationState.FAILED,
         failureCode: 'CHECKOUT_CONTEXT_CHANGED',
-        completedAt: new Date(),
+        completedAt: this.completionTime(),
       },
     });
+  }
+
+  private completionTime(createdAt?: Date): Date {
+    // PostgreSQL stores microseconds while JavaScript Date stores milliseconds.
+    // Advancing one millisecond prevents a freshly-created row from receiving a
+    // completed_at value that rounds below its persisted created_at value.
+    return new Date(Math.max(Date.now() + 1, (createdAt?.getTime() ?? 0) + 1));
   }
 
   private async withCustomerContextLock<T>(customerId: string, action: () => Promise<T>): Promise<T> {
