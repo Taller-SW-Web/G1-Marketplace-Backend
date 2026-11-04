@@ -1,0 +1,105 @@
+name: CI-CD
+
+# Pipeline H4: Build -> Compile -> Test -> Version -> Deploy -> Smoke test.
+# La versión (SemVer) y el CHANGELOG salen de los commits convencionales;
+# nadie edita la versión a mano.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build, Compile y Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      USE_MOCKS: 'true'
+      AUTH_ISSUER: https://security.example.test
+      AUTH_JWKS_URL: https://security.example.test/jwks
+      # Datasource sintético: sólo para validar/generar Prisma, sin base de datos.
+      DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/not_connected
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+      - name: Validar esquema Prisma
+        run: npm run prisma:validate
+      - name: Build (prisma generate + tsc)
+        run: npm run build
+      - name: Compile (verificación de tipos)
+        run: npm run lint
+      - name: Test (unitarias, e2e, mock-auth, sonda G6)
+        run: npm test
+
+  release:
+    name: Versionado (SemVer + CHANGELOG)
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      published: ${{ steps.semrel.outputs.new_release_published }}
+      version: ${{ steps.semrel.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: semrel
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 24
+          extra_plugins: |
+            @semantic-release/changelog@6
+            @semantic-release/git@10
+            conventional-changelog-conventionalcommits@8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy a Render + Smoke test
+    needs: [build-test, release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pruebas
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://g1-marketplace-backend.onrender.com/health' }}
+    steps:
+      - name: Disparar despliegue en Render
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Falta el secreto RENDER_DEPLOY_HOOK_URL"; exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Despliegue solicitado. Versión: ${{ needs.release.outputs.version || 'sin cambios' }}"
+      - name: Smoke test /health (reintentos por arranque en frío)
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 60 "$HEALTH_URL" || true)
+            echo "intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then cat /tmp/health.json; exit 0; fi
+            sleep 20
+          done
+          echo "::error::/health no respondió 200 en 10 minutos"; exit 1
