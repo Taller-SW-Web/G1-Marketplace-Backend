@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ProductDetailModule } from './catalog/product-detail.module';
+import { DocsModule } from './docs/docs.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
     CatalogModule,
     ProductDetailModule,
     CheckoutModule,
+    DocsModule,
   ],
 })
 export class AppModule {}
