@@ -17,6 +17,7 @@
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
     "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",
     "docs:openapi": "ts-node scripts/openapi.ts",
+    "docs:validate": "node scripts/validate-contracts.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:cart-checkout:e2e": "jest --config ./test/jest-e2e.json --runInBand test/cart-checkout-integration.e2e-spec.ts",

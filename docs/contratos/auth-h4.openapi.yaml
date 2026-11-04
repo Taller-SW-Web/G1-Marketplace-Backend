@@ -1,25 +1,47 @@
 openapi: 3.0.3
 info:
   title: Marketplace Auth BFF — H4
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     Contrato versionado del BFF de cuenta y sesión de Marketplace (F-001–F-005).
     Es una API propia de G1: el navegador solo habla con este BFF y nunca con
     Seguridad (G7). El BFF traduce cada operación a G7, guarda los tokens cifrados
-    en servidor y entrega al navegador únicamente una cookie de sesión opaca
-    (HttpOnly). Ningún token viaja al JavaScript del navegador ni a localStorage.
-    El contrato describe lo implementado en src/auth; no acredita despliegue ni
-    homologación con G7 por sí mismo.
+    en servidor y entrega al navegador únicamente cookies opacas HttpOnly. Ningún
+    token viaja al JavaScript del navegador ni a localStorage. Las operaciones que
+    cambian estado exigen la cabecera Origin del frontend de Marketplace
+    (parámetro OriginHeader). El contrato describe lo implementado en src/auth
+    sobre la rama develop; no acredita despliegue ni homologación con G7 por sí mismo.
   x-g7-compatibility:
-    status: implemented-real-gated-by-flags
+    status: environment-dependent
     behavior: >-
       Login, MFA por correo, refresh y logout se probaron contra G7 REAL con cuentas
-      de prueba (23/10 y 25/10/2026). Registro, recuperación y restablecimiento
-      dependen de las banderas G7_REGISTRATION_ENABLED y G7_RECOVERY_ENABLED y
-      permanecen apagadas hasta la homologación con G7.
+      de prueba (23/10 y 25/10/2026). Registro, recuperación y restablecimiento ya
+      están publicados por G7 y tienen pruebas reales G1/G7 separadas registradas
+      en las issues F-001, F-004 y F-005. Su disponibilidad en cada entorno la
+      decide la bandera G7_REGISTRATION_ENABLED / G7_RECOVERY_ENABLED, que se
+      consulta en GET /api/v1/auth/capabilities. Esto no cierra los gates INT
+      pendientes.
+    evidence: 'https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/211#issuecomment-6623105517'
     errorPolicy: >-
       Solo se reenvían códigos del contrato de G7; los mensajes del proveedor nunca
       llegan al cliente porque pueden contener datos de cuenta.
+  x-timeouts:
+    rule: >-
+      Las llamadas a G7 usan HTTP_TIMEOUT_MS (5 s por defecto), con la excepción de
+      login, solicitud de OTP y verificación de OTP, que esperan hasta 15 s porque G7
+      puede tardar en entregar el desafío. Al agotarse el tiempo, el BFF responde
+      503 AUTH_UNAVAILABLE.
+    perOperation:
+      login: 15 s
+      requestOtp: 15 s
+      verifyOtp: 15 s
+      registerCustomer: 5 s (HTTP_TIMEOUT_MS)
+      requestPasswordRecovery: 5 s (HTTP_TIMEOUT_MS)
+      resetPassword: 5 s (HTTP_TIMEOUT_MS)
+      getPasswordPolicy: 5 s (HTTP_TIMEOUT_MS)
+      refreshSession: 5 s (HTTP_TIMEOUT_MS) más espera de hasta 16 s si otra solicitud ya renueva la misma sesión
+      getSession: 5 s si debe renovar el access token, con la misma espera de hasta 16 s
+      logout: 5 s por llamada de revocación (HTTP_TIMEOUT_MS); el cierre local no depende de G7
   x-runtime-status: implemented-real-behind-AUTH_ENABLED
 servers:
   - url: http://localhost:10000
@@ -37,28 +59,37 @@ paths:
       operationId: getAuthCapabilities
       tags: [Cuenta]
       summary: Consultar qué operaciones de cuenta están habilitadas
+      security: []
       x-traceability:
         feature: F-001, F-004
         implementation: 'AccountController.capabilities -> AccountService.capabilities'
         authentication: 'Pública.'
-        behavior: 'Permite que la interfaz oculte registro o recuperación mientras G7 no las publique.'
+        behavior: 'Permite que la interfaz oculte registro o recuperación mientras el entorno no las habilite. El resultado depende de las banderas del entorno.'
       responses:
         '200':
-          description: Banderas vigentes
+          description: Banderas vigentes del entorno
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Capabilities' }
-              example: { login: true, registro: false, recuperacion: false }
+              examples:
+                banderasApagadas:
+                  summary: Entorno con registro y recuperación apagados
+                  value: { login: true, registro: false, recuperacion: false }
+                banderasEncendidas:
+                  summary: Entorno con registro y recuperación habilitados
+                  value: { login: true, registro: true, recuperacion: true }
   /api/v1/password/politica:
     get:
       operationId: getPasswordPolicy
       tags: [Cuenta]
       summary: Obtener la política de contraseña vigente de G7
+      security: []
       x-traceability:
         feature: F-001, F-005
         implementation: 'AccountController.policy -> AccountService.policy -> G7 password/politica'
         authentication: 'Pública.'
         errorCodes: { '503': [AUTH_UNAVAILABLE] }
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
         behavior: 'Se valida la forma de la respuesta de G7; si es inválida se responde 503 y no se inventa una política.'
       responses:
         '200':
@@ -72,6 +103,9 @@ paths:
       operationId: registerCustomer
       tags: [Cuenta]
       summary: Registrar un cliente (queda pendiente de verificación)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-001
         implementation: 'AccountController.register -> AccountService.register -> G7 auth/registro'
@@ -86,6 +120,7 @@ paths:
           '422': [POLITICA_INCUMPLIDA]
           '429': [RATE_LIMITED]
           '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: true
         content:
@@ -108,6 +143,9 @@ paths:
       operationId: requestPasswordRecovery
       tags: [Cuenta]
       summary: Solicitar el enlace de recuperación de contraseña
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-004
         implementation: 'AccountController.recover -> AccountService.recover -> G7 password/recuperar'
@@ -120,6 +158,7 @@ paths:
           '403': [FORBIDDEN]
           '429': [DEMASIADAS_SOLICITUDES]
           '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: true
         content:
@@ -140,6 +179,9 @@ paths:
       operationId: resetPassword
       tags: [Cuenta]
       summary: Restablecer la contraseña con el token del enlace
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-005
         implementation: 'AccountController.reset -> AccountService.reset -> G7 password/restablecer'
@@ -154,6 +196,7 @@ paths:
           '422': [POLITICA_INCUMPLIDA]
           '429': [RATE_LIMITED]
           '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: true
         content:
@@ -182,24 +225,30 @@ paths:
       operationId: login
       tags: [Sesión]
       summary: Iniciar sesión (con desafío MFA por correo cuando aplica)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-002
         implementation: 'AuthController.login -> G7SessionService.login -> G7 auth/login'
-        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace. No requiere cookie: descarta cualquier sesión o desafío previo.'
         behavior: >-
           Antes de empezar se descartan sesión y desafío anteriores. Con MFA, G7
           devuelve un desafío: el BFF lo guarda en servidor y entrega solo la cookie
           g1_challenge (respuesta mfaRequerido). Sin MFA, entrega directamente la
-          cookie de sesión. Con AUTH_ENABLED apagado responde un resultado MOCK que
-          nunca crea sesión.
+          cookie de sesión. Con AUTH_ENABLED apagado se usa AuthService.login: solo
+          si H3_AUTH_MOCK=true y NODE_ENV no es production responde el resultado
+          MOCK de demostración (MockLogin), que nunca crea sesión ni cookie; con las
+          credenciales de demostración equivocadas responde 401, y fuera de ese modo
+          responde 503 MOCK_NO_DISPONIBLE.
         errorCodes:
           '400': [VALIDACION]
           '401': [CREDENCIALES_INVALIDAS]
           '403': [FORBIDDEN, PASSWORD_CADUCADA]
           '429': [RATE_LIMITED]
           '503': [AUTH_UNAVAILABLE, MOCK_NO_DISPONIBLE]
-        timeoutBehavior: 'El BFF espera hasta 15 s a G7 y responde 503 AUTH_UNAVAILABLE si se agota.'
-        runtimeEvidence: 'REAL contra G7 con cuentas de prueba (23/10 y 25/10/2026); G1 no implementa bloqueo por intentos; cualquier política de ese tipo depende de G7 (429 RATE_LIMITED).'
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
+        runtimeEvidence: 'REAL contra G7 con cuentas de prueba (23/10 y 25/10/2026). G1 no implementa bloqueo por intentos; cualquier política de ese tipo depende de G7 (429 RATE_LIMITED).'
       requestBody:
         required: true
         content:
@@ -207,12 +256,13 @@ paths:
             schema: { $ref: '#/components/schemas/LoginInput' }
       responses:
         '200':
-          description: Sesión iniciada, o desafío MFA pendiente
+          description: Sesión iniciada, desafío MFA pendiente o, solo en modo de demostración, resultado MOCK
           headers:
             Set-Cookie:
               description: >-
-                g1_session (sesión, HttpOnly) o g1_challenge (desafío MFA). En
-                producción llevan el prefijo __Host- y el atributo Secure.
+                g1_session (sesión, HttpOnly) o g1_challenge (desafío MFA); no se
+                envía en el resultado MOCK. En producción llevan el prefijo __Host-
+                y el atributo Secure.
               schema: { type: string }
           content:
             application/json:
@@ -220,11 +270,15 @@ paths:
                 oneOf:
                   - { $ref: '#/components/schemas/Session' }
                   - { $ref: '#/components/schemas/MfaChallenge' }
+                  - { $ref: '#/components/schemas/MockLogin' }
               examples:
                 sesion:
                   value: { authenticated: true, user: { id: 3f1c2e0a-9c1b-4a58-9d3e-0a6c1e4f7b21, nombreCompleto: Cliente Prueba, roles: [CLIENTE] }, scope: 8d1e3f4a-1b2c-4d5e-8f90-123456789abc }
                 mfa:
                   value: { mfaRequerido: true, canal: EMAIL, expiraEn: 300 }
+                mockDesarrollo:
+                  summary: Solo con H3_AUTH_MOCK=true fuera de producción
+                  value: { mode: MOCK, authenticated: false, message: 'Validación de ejemplo completada. No se inició una sesión real.' }
         '400': { $ref: '#/components/responses/InvalidRequest' }
         '401':
           description: Credenciales inválidas (mensaje genérico)
@@ -240,16 +294,21 @@ paths:
       operationId: requestOtp
       tags: [Sesión]
       summary: Pedir el envío del código MFA al correo
+      security:
+        - challengeCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-002
         implementation: 'AuthController.requestOtp -> G7SessionService.otp -> G7 auth/otp/solicitar'
-        authentication: 'Cookie g1_challenge de un login con MFA pendiente; exige Origin.'
+        authentication: 'Cookie g1_challenge de un login con MFA pendiente; exige Origin. Sin ese desafío responde 410 OTP_EXPIRADO.'
         behavior: 'El cuerpo debe estar vacío. El correo se devuelve enmascarado.'
         errorCodes:
           '400': [INVALID_REQUEST]
           '403': [FORBIDDEN]
           '410': [OTP_EXPIRADO]
           '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: false
         content:
@@ -270,10 +329,14 @@ paths:
       operationId: verifyOtp
       tags: [Sesión]
       summary: Verificar el código MFA y abrir la sesión
+      security:
+        - challengeCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-002
         implementation: 'AuthController.verifyOtp -> G7SessionService.otp -> G7 auth/otp/verificar'
-        authentication: 'Cookie g1_challenge; exige Origin.'
+        authentication: 'Cookie g1_challenge; exige Origin. Sin ese desafío responde 410 OTP_EXPIRADO.'
         behavior: >-
           Un código inválido, vencido o con intentos agotados no destruye el desafío
           mientras siga vigente, para poder pedir otro código. Al verificar bien se
@@ -284,6 +347,7 @@ paths:
           '403': [FORBIDDEN]
           '410': [OTP_EXPIRADO]
           '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: true
         content:
@@ -314,18 +378,25 @@ paths:
       operationId: getSession
       tags: [Sesión]
       summary: Consultar la sesión actual (rehidratación al recargar)
+      security:
+        - {}
+        - sessionCookie: []
       x-traceability:
         feature: F-002, F-003
         implementation: 'AuthController.session -> G7SessionService.session'
-        authentication: 'Cookie g1_session opcional; sin ella responde anónimo.'
+        authentication: 'Cookie g1_session opcional (sesión opcional): sin ella, o sin sesión local válida, responde 200 anónimo.'
         behavior: >-
           Es el equivalente de GET /auth/me: la interfaz lo llama al cargar la página
-          y tras F5 para recuperar la identidad sin leer tokens. Renueva el access
-          token si hace falta (refresh de un solo uso, serializado). Si la sesión ya
-          no es válida o fue revocada, borra la cookie.
+          y tras F5 para recuperar la identidad sin leer tokens. Si no hay sesión
+          local válida responde 200 con authenticated=false y borra la cookie. Renueva
+          el access token si hace falta (refresh de un solo uso, serializado). Solo
+          responde 401 en dos casos: cuando G7_INTROSPECTION_ENABLED=true y G7 rechaza
+          la sesión (UNAUTHORIZED, se borra la cookie), o cuando G7 rechaza el refresh
+          (REFRESCO_INVALIDO, se borra la cookie y la sesión local).
         errorCodes:
-          '401': [UNAUTHORIZED]
+          '401': [UNAUTHORIZED, REFRESCO_INVALIDO]
           '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s para renovar con G7 (HTTP_TIMEOUT_MS) y hasta 16 s esperando a otra solicitud que ya renueva la misma sesión; al agotarse responde 503 AUTH_UNAVAILABLE.'
       responses:
         '200':
           description: Sesión autenticada o anónima
@@ -338,7 +409,7 @@ paths:
               examples:
                 anonima: { value: { authenticated: false, scope: anonymous } }
         '401':
-          description: Sesión revocada o vencida; se borra la cookie
+          description: Sesión rechazada por G7 (revocada o refresh inválido); se borra la cookie
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -349,19 +420,24 @@ paths:
       operationId: refreshSession
       tags: [Sesión]
       summary: Renovar la sesión
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-002
         implementation: 'AuthController.refresh -> G7SessionService.refresh'
-        authentication: 'Cookie g1_session; exige Origin.'
+        authentication: 'Cookie g1_session obligatoria; exige Origin.'
         behavior: >-
           El refresh token de G7 es de un solo uso: se reclama con un marcador
           durable antes de llamar a G7 para que ningún reintento lo reutilice. El
-          cuerpo debe estar vacío.
+          cuerpo debe estar vacío. Sin sesión válida responde 401 UNAUTHORIZED.
         errorCodes:
           '400': [INVALID_REQUEST]
-          '401': [UNAUTHORIZED]
+          '401': [UNAUTHORIZED, REFRESCO_INVALIDO]
           '403': [FORBIDDEN]
           '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS) más hasta 16 s de espera si otra solicitud ya renueva la misma sesión; al agotarse responde 503 AUTH_UNAVAILABLE.'
       requestBody:
         required: false
         content:
@@ -375,7 +451,7 @@ paths:
               schema: { $ref: '#/components/schemas/Session' }
         '400': { $ref: '#/components/responses/InvalidRequest' }
         '401':
-          description: Sin sesión válida
+          description: Sin sesión válida o refresh rechazado por G7
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -387,18 +463,30 @@ paths:
       operationId: logout
       tags: [Sesión]
       summary: Cerrar sesión
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
       x-traceability:
         feature: F-003
         implementation: 'AuthController.logout -> G7SessionService.logout'
-        authentication: 'Cookie g1_session; exige Origin.'
+        authentication: 'Cookie g1_session opcional: la operación es idempotente y responde 200 aunque no haya sesión; exige Origin.'
         behavior: >-
           Borra la sesión local y revoca el refresh token en G7. Si G7 falla, el
-          cierre local igualmente se completa y la respuesta lo indica con
-          remoteRevocationPending. Todas las cookies de sesión enviadas se revocan.
+          cierre local igualmente se completa. Todas las cookies de sesión enviadas se
+          revocan y se limpian las cookies de sesión y desafío.
+        remoteRevocationPending: >-
+          true cuando el cierre local se completó pero no se pudo confirmar la
+          revocación en G7 (la llamada a G7 falló o había un refresh en curso). En la
+          rama develop actual, una fila de sesión ilegible no activa el indicador; la
+          PR #253, aún abierta, cambia ese comportamiento. Este contrato debe
+          actualizarse al fusionarse esa PR.
         errorCodes:
           '400': [INVALID_REQUEST]
           '403': [FORBIDDEN]
           '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s por llamada de revocación (HTTP_TIMEOUT_MS); un fallo de G7 no impide el cierre local y se refleja en remoteRevocationPending.'
       requestBody:
         required: false
         content:
@@ -406,7 +494,7 @@ paths:
             schema: { type: object, maxProperties: 0 }
       responses:
         '200':
-          description: Sesión cerrada localmente
+          description: Sesión cerrada localmente (también si no había sesión)
           headers:
             Set-Cookie:
               description: Borra g1_session y g1_challenge (Max-Age=0).
@@ -428,6 +516,25 @@ components:
         Cookie de sesión opaca. HttpOnly, SameSite=Lax, Path=/ y vigencia de 7 días;
         en producción usa el prefijo __Host- y el atributo Secure. Contiene solo
         un identificador: los tokens de G7 viven cifrados en el servidor.
+    challengeCookie:
+      type: apiKey
+      in: cookie
+      name: g1_challenge
+      description: >-
+        Cookie del desafío MFA pendiente. HttpOnly, SameSite=Lax, Path=/ y vigencia
+        igual a expiraEn (hasta 300 s); en producción usa el prefijo __Host- y el
+        atributo Secure. Se emite en el login con MFA y se elimina al verificar el
+        código.
+  parameters:
+    OriginHeader:
+      name: Origin
+      in: header
+      required: true
+      description: >-
+        Debe coincidir con el origen del frontend de Marketplace (G1_WEB_ORIGIN) y
+        Sec-Fetch-Site no puede ser cross-site; de lo contrario responde 403
+        FORBIDDEN. El navegador lo envía automáticamente.
+      schema: { type: string, example: 'https://g1-marketplace-frontend.vercel.app' }
   schemas:
     Capabilities:
       type: object
@@ -455,15 +562,18 @@ components:
       properties:
         correo: { type: string, format: email, maxLength: 254 }
         contrasena: { type: string, minLength: 1, maxLength: 256 }
-        nombres: { type: string, maxLength: 100 }
-        apellidos: { type: string, maxLength: 100 }
+        nombres: { type: string, maxLength: 100, pattern: '\S', description: 'Debe contener al menos un carácter no blanco' }
+        apellidos: { type: string, maxLength: 100, pattern: '\S', description: 'Debe contener al menos un carácter no blanco' }
         celular: { type: string, pattern: '^\+51[0-9]{9}$', example: '+51987654321' }
         aceptaTerminos: { type: boolean, enum: [true] }
     RegistrationAccepted:
       type: object
       required: [id, estado]
       properties:
-        id: { type: string, format: uuid }
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F-]{36}$'
+          description: 'Identificador devuelto por G7: cadena de 36 caracteres hexadecimales o guiones (el BFF no exige formato UUID estricto)'
         estado: { type: string, enum: [PENDIENTE_VERIFICACION] }
     RecoveryInput:
       type: object
@@ -498,19 +608,29 @@ components:
         mfaRequerido: { type: boolean, enum: [true] }
         canal: { type: string, enum: [EMAIL] }
         expiraEn: { type: integer, minimum: 1, maximum: 300, description: Segundos de vigencia del desafío }
+    MockLogin:
+      type: object
+      description: >-
+        Resultado de demostración de AuthService.login. Solo existe con H3_AUTH_MOCK=true
+        fuera de producción y con AUTH_ENABLED apagado; nunca crea sesión ni cookie.
+      required: [mode, authenticated, message]
+      properties:
+        mode: { type: string, enum: [MOCK] }
+        authenticated: { type: boolean, enum: [false] }
+        message: { type: string }
     OtpRequested:
       type: object
       required: [canal, destinoEnmascarado, expiraEn, desafioExpiraEn]
       properties:
         canal: { type: string, enum: [EMAIL] }
-        destinoEnmascarado: { type: string, example: 'c***@correo.com' }
-        expiraEn: { type: integer, description: Segundos de vigencia del código }
-        desafioExpiraEn: { type: integer, description: Segundos restantes del desafío }
+        destinoEnmascarado: { type: string, maxLength: 254, example: 'c***@correo.com' }
+        expiraEn: { type: number, description: Segundos de vigencia del código (G7 los entrega como número) }
+        desafioExpiraEn: { type: number, description: Segundos restantes del desafío (G7 los entrega como número) }
     SessionUser:
       type: object
       required: [id, nombreCompleto, roles]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: string, description: Identificador (sub) del usuario en G7 }
         nombreCompleto: { type: string, maxLength: 200 }
         roles: { type: array, items: { type: string }, example: [CLIENTE] }
     Session:
@@ -531,7 +651,7 @@ components:
       required: [authenticated, remoteRevocationPending]
       properties:
         authenticated: { type: boolean, enum: [false] }
-        remoteRevocationPending: { type: boolean, description: true si G7 no confirmó la revocación del refresh token }
+        remoteRevocationPending: { type: boolean, description: 'true si el cierre local se completó pero no se pudo confirmar la revocación en G7' }
     Error:
       type: object
       required: [code, message]
