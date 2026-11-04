@@ -91,7 +91,7 @@ describe('Wishlist PostgreSQL 16 integration (MOCK identity/catalog)', () => {
   it('rejects blank product ids at the database constraint', async () => {
     await expect(prisma.wishlistItem.create({
       data: { customerId: SANDBOX_CUSTOMERS.A, productId: '   ' },
-    })).rejects.toMatchObject({ code: 'P2004' });
+    })).rejects.toThrow(/wishlist_items_product_id_chk/);
     expect(await prisma.wishlistItem.count()).toBe(0);
   });
 
