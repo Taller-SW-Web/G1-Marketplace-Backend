@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.4.0...v1.5.0) (2026-11-05)
+
+### Features
+
+* **catalog:** habilitar client_credentials opt-in para G6 ([7554b08](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/7554b0831c012bdbb20220be49f4c07b6000744d))
+
 ## [1.4.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.3.0...v1.4.0) (2026-11-05)
 
 ### Features

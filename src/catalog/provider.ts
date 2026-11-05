@@ -7,6 +7,7 @@ import { assertPublicCatalogRead } from './public-read-only';
 import { selectHomeProducts, sampleCatalog } from './home-selection';
 import type { HomeSelectionSources } from './home-selection';
 import type { CatalogEnvironment, CatalogFetch, CatalogProvider, ProductCardDTO, Category, CatalogQuery } from './types';
+import { createClientCredentialsTokenProvider } from './client-credentials-token';
 
 export const CONTRACT_VERSION = '0.6.0-rc.1';
 export const CONTRACT_SHA = 'f64bfe9a097b2a0f74c2600988305443d92f640e';
@@ -72,16 +73,39 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
   let base: URL;
   try { base = new URL(env.PRODUCTOS_BASE_URL || ''); }
   catch { throw invalidProvider('PROVIDER_CONFIG_MISSING'); }
+
+  let tokenUrl: URL | undefined;
+  if (authMode === 'client-credentials') {
+    try { tokenUrl = new URL(env.G7_TOKEN_URL || ''); }
+    catch { throw invalidProvider('PROVIDER_CONFIG_MISSING'); }
+    const localTokenIssuer = env.NODE_ENV !== 'production' && tokenUrl.protocol === 'http:' &&
+      ['localhost', '127.0.0.1'].includes(tokenUrl.hostname);
+    if (
+      (tokenUrl.protocol !== 'https:' && !localTokenIssuer) || tokenUrl.username || tokenUrl.password ||
+      tokenUrl.pathname !== '/api/v1/auth/token' || tokenUrl.search || tokenUrl.hash ||
+      !env.PRODUCTOS_CLIENT_SECRET
+    ) throw invalidProvider('PROVIDER_NOT_APPROVED');
+  }
+
   if (
     (base.protocol !== 'https:' && !(env.NODE_ENV !== 'production' && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname))) ||
     base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
-    !['service-token', 'demo-no-auth', 'public-read-only'].includes(authMode) ||
+    !['service-token', 'demo-no-auth', 'public-read-only', 'client-credentials'].includes(authMode) ||
     (env.NODE_ENV === 'production' && authMode === 'demo-no-auth') ||
     (authMode === 'service-token' && !env.PRODUCTOS_SERVICE_TOKEN) ||
     !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
     env.PRODUCTOS_CONTRACT_VERSION !== CONTRACT_VERSION || env.PRODUCTOS_CONTRACT_SHA !== CONTRACT_SHA ||
     env.CATALOG_INTEGRATION_APPROVED !== 'true'
   ) throw invalidProvider('PROVIDER_NOT_APPROVED');
+
+  const serviceTokens = authMode === 'client-credentials' && tokenUrl
+    ? createClientCredentialsTokenProvider({
+      tokenUrl,
+      clientSecret: env.PRODUCTOS_CLIENT_SECRET!,
+      timeoutMs,
+      fetchImpl,
+    })
+    : undefined;
 
   const featuredIds = configuredFeaturedIds(env, 'REAL');
   const fallback = env.CATALOG_HOME_FALLBACK_ENABLED === 'true' &&
@@ -103,8 +127,12 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
       const headers: Record<string, string> = {
         Accept: 'application/json', 'X-Correlation-Id': providerRequestId,
       };
-      // Only service-token sends credentials. Both explicit public modes ignore stale tokens.
+      // Only authenticated modes send credentials. Explicit public modes ignore stale tokens and G7 secrets.
       if (authMode === 'service-token') headers.Authorization = `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`;
+      if (authMode === 'client-credentials') {
+        if (!serviceTokens) throw invalidProvider('G7_TOKEN_UNAVAILABLE');
+        headers.Authorization = `Bearer ${await serviceTokens.getAccessToken()}`;
+      }
       const response = await fetchImpl(url, {
         method: 'GET', headers, credentials: 'omit',
         redirect: 'error', cache: 'no-store', signal: options.signal ?? AbortSignal.timeout(timeoutMs),

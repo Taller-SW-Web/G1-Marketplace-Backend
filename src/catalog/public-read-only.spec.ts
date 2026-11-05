@@ -44,6 +44,7 @@ describe('public-read-only closed transport boundary', () => {
 describe('production public catalog configuration', () => {
   it.each([undefined, 'synthetic-stale-token'])('reads all existing resources without credentials with token=%s', async token => {
     const fetcher = jest.fn(async (url: URL, options: RequestInit) => {
+      expect(url.origin).toBe(config.PRODUCTOS_BASE_URL);
       expect(options).toMatchObject({ method: 'GET', credentials: 'omit', redirect: 'error', cache: 'no-store' });
       const headers = new Headers(options.headers);
       expect(headers.has('Authorization')).toBe(false);
@@ -58,6 +59,7 @@ describe('production public catalog configuration', () => {
       return emptyPage();
     });
     const provider = createRealProvider({ ...config, PRODUCTOS_SERVICE_TOKEN: token,
+      G7_TOKEN_URL: 'https://g7.example/api/v1/auth/token', PRODUCTOS_CLIENT_SECRET: 'synthetic-unused-secret',
       CATALOG_FEATURED_ENABLED: 'true', CATALOG_FEATURED_APPROVED: 'true', CATALOG_FEATURED_IDS: id }, fetcher);
     expect(provider.source).toBe('REAL');
     expect((await provider.home(id)).featuredProducts[0].productId).toBe(id);
@@ -91,6 +93,38 @@ describe('production public catalog configuration', () => {
       PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' }, fetcher).search(parseQuery(new URLSearchParams()));
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(() => createProvider({ ...config, CATALOG_SOURCE: 'mock' }, fetcher)).toThrow();
+  });
+
+  it.each(['public-read-only', 'client-credentials', 'service-token'])
+  ('keeps %s isolated from the other authentication modes after integrating develop', async authMode => {
+    const tokens: string[] = [];
+    const reads: RequestInit[] = [];
+    const provider = createRealProvider({ ...config, PRODUCTOS_AUTH_MODE: authMode,
+      PRODUCTOS_SERVICE_TOKEN: 'synthetic-static-token',
+      G7_TOKEN_URL: 'https://g7.example/api/v1/auth/token', PRODUCTOS_CLIENT_SECRET: 'synthetic-client-secret',
+    }, async (url, options) => {
+      if (url.origin === 'https://g7.example') {
+        expect(options.method).toBe('POST');
+        expect(new Headers(options.headers).has('Authorization')).toBe(false);
+        expect(new URLSearchParams(String(options.body)).get('scope')).toBe('catalogo:leer');
+        tokens.push(url.href);
+        return Response.json({ accessToken: 'synthetic-issued-token', tokenType: 'Bearer',
+          expiresIn: 3600, scopes: ['catalogo:leer'] });
+      }
+      expect(url.origin).toBe(config.PRODUCTOS_BASE_URL);
+      expect(options).toMatchObject({ method: 'GET', credentials: 'omit', redirect: 'error' });
+      const headers = new Headers(options.headers);
+      expect(headers.has('Cookie')).toBe(false);
+      expect(headers.get('Authorization')).toBe(authMode === 'public-read-only' ? null
+        : authMode === 'service-token' ? 'Bearer synthetic-static-token' : 'Bearer synthetic-issued-token');
+      reads.push(options);
+      if (url.pathname === '/api/v1/categorias') return Response.json({ categories: [] });
+      if (url.pathname === '/api/v1/marcas') return Response.json({ brands: [] });
+      return emptyPage();
+    });
+    await Promise.all([provider.home(), provider.filters!(), provider.search(parseQuery(new URLSearchParams()))]);
+    expect(reads).toHaveLength(4);
+    expect(tokens).toHaveLength(authMode === 'client-credentials' ? 1 : 0);
   });
 
   it.each([401, 403, 503])('does not retry with a token or return mock data on upstream %s', async status => {
