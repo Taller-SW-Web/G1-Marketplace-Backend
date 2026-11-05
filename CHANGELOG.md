@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.2.0...v1.3.0) (2026-11-05)
+
+### Features
+
+* **catalogo:** cerrar demo MOCK de filtros, orden y paginación H4 ([0246295](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/02462957b4149f95bdce9451ab05d26489e075d9))
+
 ## [1.2.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.1.0...v1.2.0) (2026-11-05)
 
 ### Features
