@@ -349,11 +349,11 @@ Los enlaces son trazabilidad explícita. No se afirma que GitHub haya establecid
 
 **Sección:** Alta favorita. **PR:** [#239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239).
 
-**Fuentes:** [docs/QA-DIEGO-CIERRE-2026-11-03.md](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/docs/QA-DIEGO-CIERRE-2026-11-03.md), [docs/evidencias/H4/diego/EVIDENCIA.md](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/docs/evidencias/H4/diego/EVIDENCIA.md)
+**Fuentes:** [trazabilidad documental vigente de F-036](evidencias/H4/diego/F036-DOCUMENTACION-2026-11-05.md), [evidencia local](evidencias/H4/diego/EVIDENCIA.md) y [conexión con sesión G7](evidencias/H4/diego/G7-FAVORITOS-2026-11-03.md).
 
 **Avance:** Casos locales existentes reejecutados con fixtures/proveedores controlados; resultados por suite y límites en el reporte enlazado.
 
-**Falta para cierre:** Revisión independiente y casos UI/API desplegados exigidos por la issue; integración REAL/gates aplicables sin acreditar.
+**Falta para cierre:** La documentación local ya incluye specs, Figma, operación y errores. Quedan revisión independiente, casos UI/API desplegados y evidencia G6 REAL de #177; los proveedores controlados no acreditan esos gates.
 
 **Decisión:** mantener abierta. No hay aprobación independiente registrada; tampoco evidencia desplegada/REAL completa ni justificación de no aplicabilidad para cerrar el DoD.
 

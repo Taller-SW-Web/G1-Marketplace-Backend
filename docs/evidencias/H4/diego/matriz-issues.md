@@ -2,7 +2,7 @@
 
 Snapshot remoto, no aprobación. Las pruebas locales se documentan en EVIDENCIA.md; REAL y despliegue pendientes salvo evidencia específica revisada. Fernando Saire revisa funciones/#214; Jim Segovia #208/#219.
 
-Actualización contractual: #190–#194 se alinearon con agregar conservando favorito; [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15) y [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) en borrador. La tabla conserva el snapshot inicial y sus estados; no acredita cierre.
+Actualización contractual: #190–#194 se alinearon con agregar conservando favorito; [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) está listo para revisión y [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15) conserva su estado propio. La tabla conserva el snapshot inicial y sus estados; no acredita cierre. La trazabilidad vigente de #179 está en [F036-DOCUMENTACION-2026-11-05.md](F036-DOCUMENTACION-2026-11-05.md).
 
 | Issue | Tarea | Estado GitHub | Requisito de trabajo | Pendiente de cierre |
 |---|---|---|---|---|

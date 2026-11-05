@@ -5,7 +5,7 @@ Actualización: [correcciones, 425 pruebas y lista de issues para revisión loca
 Corte: 28/10/2026. Baseline: `origin/develop` `cd0b93a1949aa7b08ecc3495dc5a1224d51dbe14`.
 Responsable: Diego Espinoza. Revisor funcional/QA: Fernando Saire; seguimiento/reestimación: Jim Segovia.
 
-Revisiones concretas en borrador: [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) y [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15). Sin merge, aprobación ni cierre automático. Commits de implementación: favoritos `8017739`, CSAT/pruebas `1ce075e`.
+Revisiones concretas: [Backend #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239) está listo para revisión; [SPECS #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15) conserva su estado propio. Ninguno de estos enlaces implica por sí mismo merge, aprobación ni cierre automático. Commits históricos de implementación: favoritos `8017739`, CSAT/pruebas `1ce075e`. Trazabilidad actual de F-036: [documento de cierre](evidencias/H4/diego/F036-DOCUMENTACION-2026-11-05.md).
 
 ## Qué está implementado
 
