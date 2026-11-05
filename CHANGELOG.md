@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.1.0...v1.2.0) (2026-11-05)
+
+### Features
+
+* **docs:** publicar Swagger UI con los contratos OpenAPI en /docs ([a979634](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a979634e02629be4f6953d4066060564e6ee4bd2))
+
 ## [1.1.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.0.1...v1.1.0) (2026-11-05)
 
 ### Features
