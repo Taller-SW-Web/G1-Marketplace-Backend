@@ -2,12 +2,21 @@ import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { CatalogError } from './errors';
 import { assertPublicCatalogRead } from './public-read-only';
+import { createG6Auth } from './g6-auth';
 import type { CatalogEnvironment, CatalogFetch } from './types';
 
 import { CONTRACT_VERSION, CONTRACT_SHA } from './provider';
 export { CONTRACT_VERSION, CONTRACT_SHA } from './provider';
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const invalidProvider = (reason: string) => new CatalogError('CATALOG_UNAVAILABLE', 503, reason);
+
+// Rebuild a long-lived client if effective server configuration changes; never serialize these values.
+export const G6_CLIENT_CONFIG_KEYS = [
+  'NODE_ENV', 'CATALOG_SOURCE', 'BFF_MODE', 'CATALOG_INTEGRATION_APPROVED',
+  'PRODUCTOS_BASE_URL', 'PRODUCTOS_AUTH_MODE', 'PRODUCTOS_SERVICE_TOKEN',
+  'PRODUCTOS_CONTRACT_VERSION', 'PRODUCTOS_CONTRACT_SHA', 'PRODUCTOS_MEDIA_HOSTS', 'PRODUCTOS_TIMEOUT_MS',
+  'G7_TOKEN_URL', 'PRODUCTOS_CLIENT_SECRET',
+] as const;
 
 /** F-011 GET client; shares public route policy with the existing catalog transport. */
 export function createG6Client(env: CatalogEnvironment, fetchImpl: CatalogFetch = fetch) {
@@ -20,14 +29,12 @@ export function createG6Client(env: CatalogEnvironment, fetchImpl: CatalogFetch 
   if (
     (base.protocol !== 'https:' && !(env.NODE_ENV !== 'production' && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname))) ||
     base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
-    !['service-token', 'demo-no-auth', 'public-read-only'].includes(authMode) ||
-    (env.NODE_ENV === 'production' && authMode === 'demo-no-auth') ||
-    (authMode === 'service-token' && !env.PRODUCTOS_SERVICE_TOKEN) ||
     (authMode === 'public-read-only' && (env.CATALOG_SOURCE !== 'real' || env.BFF_MODE !== 'real')) ||
     !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
     env.PRODUCTOS_CONTRACT_VERSION !== CONTRACT_VERSION || env.PRODUCTOS_CONTRACT_SHA !== CONTRACT_SHA ||
     env.CATALOG_INTEGRATION_APPROVED !== 'true'
   ) throw invalidProvider('PROVIDER_NOT_APPROVED');
+  const auth = createG6Auth(env, fetchImpl, timeoutMs);
 
   async function request(path: string, requestId?: string,
     options: { allowProductNotFound?: boolean; signal?: AbortSignal } = {}): Promise<unknown> {
@@ -49,9 +56,10 @@ export function createG6Client(env: CatalogEnvironment, fetchImpl: CatalogFetch 
       const headers: Record<string, string> = {
         Accept: 'application/json', 'X-Correlation-Id': providerRequestId,
       };
-      // Both explicit anonymous modes omit credentials, even if a stale token exists.
+      // Shared with Home/listing: only authenticated modes add a server credential.
       // Public-read-only additionally enforces the route/query allowlist above.
-      if (authMode === 'service-token') headers.Authorization = `Bearer ${env.PRODUCTOS_SERVICE_TOKEN}`;
+      const authorization = await auth.getAuthorization();
+      if (authorization) headers.Authorization = authorization;
       const response = await fetchImpl(url, {
         method: 'GET', headers, credentials: 'omit',
         redirect: 'error', cache: 'no-store', signal: options.signal ?? AbortSignal.timeout(timeoutMs),

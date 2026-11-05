@@ -15,7 +15,8 @@ import {
 import type { Observable } from 'rxjs';
 
 export function catalogSource(): 'MOCK' | 'REAL' {
-  if (process.env.CATALOG_SOURCE === 'real' || process.env.PRODUCTOS_AUTH_MODE === 'public-read-only') return 'REAL';
+  if (process.env.CATALOG_SOURCE === 'real' ||
+      ['public-read-only', 'client-credentials'].includes(process.env.PRODUCTOS_AUTH_MODE ?? '')) return 'REAL';
   return (process.env.BFF_MODE ?? 'mock') === 'mock' ? 'MOCK' : 'REAL';
 }
 

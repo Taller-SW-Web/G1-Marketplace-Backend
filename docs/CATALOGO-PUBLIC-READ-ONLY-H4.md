@@ -11,10 +11,13 @@ El valor predeterminado sigue siendo `service-token`. `.env.example` mantiene `C
 | Modo | Producción | Credenciales salientes a G6 |
 | --- | --- | --- |
 | `service-token` (predeterminado) | Permitido con contrato y configuración válidos | `Authorization: Bearer <PRODUCTOS_SERVICE_TOKEN>`; token obligatorio |
+| `client-credentials` (opt-in, integrado desde #274) | Permitido con emisor HTTPS y secreto servidor válidos | Token obtenido de G7 y cacheado/renovado en memoria; Bearer a G6 |
 | `demo-no-auth` | Prohibido | Ninguna; sólo ensayo fuera de producción |
 | `public-read-only` | Permitido con contrato y configuración válidos | Ninguna, incluso si quedó un token configurado |
 
 El transporte público usa exclusivamente `GET`, `credentials: omit`, `redirect: error` y `cache: no-store`. Construye sus propios encabezados `Accept` y `X-Correlation-Id`: no reenvía el Bearer ni las cookies del visitante y no agrega el token del servidor. El origen sigue fijado por configuración del BFF, nunca por parámetros del navegador.
+
+La integración con develop conserva también `client-credentials`, ya incorporado por #274. Seleccionar `public-read-only` no consulta G7 ni utiliza `PRODUCTOS_CLIENT_SECRET`, aunque ambos estén configurados. Las regresiones prueban los tres modos de producción y la prohibición de demo-no-auth; no hay cambio automático entre modos. La ficha F011 por slug se integra por separado en #275.
 
 Una lista cerrada valida el destino antes de llamar a G6:
 

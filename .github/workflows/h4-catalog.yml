@@ -56,6 +56,7 @@ jobs:
       - run: npm run test:e2e -- --testPathPatterns=catalog-home-policy
       - run: npm run test:g6:contract
       - run: npm run test:e2e -- --testPathPatterns=catalog-public-read-only
+      - run: npm run test:e2e -- --testPathPatterns=catalog-auth-compat
       - run: npm run test:e2e -- --testPathPatterns=catalog.e2e
       - name: Migrate disposable PostgreSQL from scratch
         run: npm run prisma:deploy

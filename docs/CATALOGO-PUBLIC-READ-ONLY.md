@@ -1,8 +1,10 @@
 # Catálogo G6: `public-read-only` opt-in
 
-Ampliación de BE #273 (modo público existente), sobre Backend develop v1.4.0. Se conserva esa entrega y se añade F-011 por separado. Este modo **no es el default**, no obtiene tokens, no altera la autorización de G6 ni configura Render. El camino `service-token` continúa disponible para el trabajo paralelo de client_credentials.
+Ampliación de BE #273 (modo público existente), ya integrado en develop junto con #274 (client_credentials). Se conserva esa entrega y se añade F-011 por separado. Este modo **no es el default**, no obtiene tokens, no altera la autorización de G6 ni configura Render. `service-token` sigue siendo el default; `client-credentials` permanece opt-in y ahora también funciona en F011.
 
 ## Activación explícita
+
+El host Supabase y el presupuesto de 15 s del ejemplo corresponden exclusivamente al ensayo local autorizado. Para un entorno compartido/producción deben confirmarse los medios y el presupuesto con sus responsables; esta PR no aprueba ni aplica esos valores en Render.
 
 ```dotenv
 CATALOG_SOURCE=real
@@ -20,6 +22,23 @@ PRODUCTOS_TIMEOUT_MS=15000
 Las tres primeras variables impiden combinar este modo con fixtures de ficha. Configuración incompleta falla cerrada. El default sigue siendo `service-token`, que exige su credencial; `demo-no-auth` conserva la restricción que impide usarlo con NODE_ENV=production. El nuevo modo admite configuración de producción únicamente de forma explícita; esta PR **no autoriza ni ejecuta su despliegue**.
 
 `public-read-only` no envía Authorization aunque haya un token residual configurado, ni reenvía la cookie/JWT del visitante. Cada llamada usa método GET explícito, `redirect: error`, `cache: no-store`, timeout y correlación UUID. No cambia de modo, no reintenta autenticado y no devuelve fixtures cuando falla el proveedor, el contrato, TLS o la configuración.
+
+## Compatibilidad con los modos autenticados
+
+Home/listado/maestros y la ficha F011 utilizan la misma política `g6-auth.ts` y el proveedor de tokens de #274:
+
+| Modo | Autorización saliente |
+| --- | --- |
+| `service-token` (default) | Bearer estático de servidor; no llama a G7 |
+| `client-credentials` (opt-in) | Obtiene el token de G7 y envía su Bearer; ignora un token estático residual |
+| `public-read-only` (opt-in) | Ninguna; ignora tanto token estático como URL/secreto G7 |
+| `demo-no-auth` | Ninguna, únicamente fuera de producción |
+
+Para F011 autenticada se necesitan igualmente `CATALOG_SOURCE=real`, `BFF_MODE=real`, aprobación y pin contractual. Seleccionar client-credentials con flags inconsistentes falla cerrado: no sirve una ficha de fixture. Además requiere `G7_TOKEN_URL` HTTPS con ruta `/api/v1/auth/token` y `PRODUCTOS_CLIENT_SECRET` por el canal protegido de servidor. No se solicita ni registra el secreto en GitHub.
+
+F011 conserva un cliente por instancia de servicio y configuración efectiva. Así comparte una emisión en consultas concurrentes, reutiliza el token vigente y permite la renovación anticipada de #274 entre consultas. Si cambia el modo/origen/pin/medios/presupuesto/secreto se reconstruye el cliente; una configuración nueva inválida no reutiliza credenciales anteriores. Home y F011 mantienen sus clientes/cachés independientes dentro del proceso; no se persisten tokens ni se comparte una caché de respuestas de catálogo.
+
+Un fallo de G7 se traduce al error seguro de F011 sin probar token estático, público o MOCK. Esto integra el código del consumidor, no demuestra un grant real ni una emisión G7 en producción. Las pruebas nuevas usan dos orígenes HTTP locales para verificar que el secreto sólo va al emisor y el token emitido sólo a G6, sin credenciales del visitante.
 
 ## Lista exacta del consumidor G1
 
@@ -101,6 +120,8 @@ Con G6 público vivo y el Backend compilado de esta propuesta: categorías 200 R
 
 La consulta de filtros conservó 503 de marcas; no se atribuye disponibilidad del proveedor a esa operación. Su conexión y validación se prueban con upstream HTTP controlado. El ensayo es local y sin JWT; no acredita grant, revisión independiente ni despliegue. F-012–F-015 muestran sus errores de integración y no se presenta compra habilitada.
 
-Esta ampliación no incorpora la rama paralela `client-credentials`: mantiene el proveedor de catálogo de #273 y comparte su política de rutas. La adquisición de tokens para F-011 requiere integrar después el proveedor de credenciales de Leónidas; no se simula con un token vacío ni se cambia automáticamente a público.
+Actualización de compatibilidad: #274 y #273 ya están integradas en develop v1.6.0. Esta ampliación incorpora ese develop y reutiliza el proveedor de credenciales de Leónidas también para F011, mediante la política compartida descrita arriba. No se simula un token vacío ni se cambia automáticamente a público.
 
-Validación del conjunto basado en #273: 504 pruebas unitarias y 345 HTTP PASS; 22 casos dependientes de BD se omitieron, no se atribuyen como ejecutados. Tipos/build y cinco OpenAPI PASS. Después de compartir el pin contractual se repitieron las 95 pruebas de los dos modos públicos (original y ampliación), sin regresión. La navegación real de Edge se repitió contra el conjunto final, sin interceptar HTTP. La validación del catálogo y su cliente autenticado anterior se conserva en las pruebas de #273.
+El ensayo original basado en #273 tuvo 504 pruebas unitarias y 345 HTTP PASS. La navegación de Edge documentada arriba corresponde a ese ensayo; no se repitió como prueba del despliegue de develop v1.6.0.
+
+Validación local del conjunto compatible con develop v1.6.0: 532 pruebas unitarias y 352 HTTP PASS; 22 casos dependientes de BD se omitieron, no se atribuyen como ejecutados. Tipos/build, 4 pruebas del servidor de autenticación simulado, 6 del probe, 4 del inspector de configuración y cinco OpenAPI PASS. Las pruebas nuevas comprueban los tres modos de acceso en Home, filtros, búsqueda y ficha, además de caché/renovación de tokens y rechazo seguro de configuraciones o emisión inválidas. G7/G6 se controlan localmente: estos resultados no acreditan grants ni disponibilidad externa.

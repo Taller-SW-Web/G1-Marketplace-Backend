@@ -12,6 +12,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { realProductDetail } from './product-detail.real';
+import { createG6Client, G6_CLIENT_CONFIG_KEYS } from './g6-client';
 import {
   isProductDetailResponse,
   type ProductDetailResponseDTO,
@@ -29,6 +30,16 @@ function simulateLatency(): Promise<void> {
 
 @Injectable()
 export class ProductDetailService {
+  private realClient?: { values: Array<string | undefined>; client: ReturnType<typeof createG6Client> };
+
+  private configuredClient() {
+    const values = G6_CLIENT_CONFIG_KEYS.map(key => process.env[key]);
+    if (this.realClient && this.realClient.values.every((value, index) => value === values[index]))
+      return this.realClient.client;
+    const client = createG6Client(process.env, fetch);
+    this.realClient = { values, client };
+    return client;
+  }
   /**
    * Obtiene el detalle de un producto por slug.
    *
@@ -41,8 +52,9 @@ export class ProductDetailService {
     // REAL selection always wins over fixture defaults; misconfiguration fails closed.
     const bffMode = process.env.BFF_MODE ?? 'mock';
 
-    if (process.env.CATALOG_SOURCE === 'real' || process.env.PRODUCTOS_AUTH_MODE === 'public-read-only' || bffMode !== 'mock')
-      return realProductDetail(slug, process.env, fetch, requestId);
+    if (process.env.CATALOG_SOURCE === 'real' ||
+        ['public-read-only', 'client-credentials'].includes(process.env.PRODUCTOS_AUTH_MODE ?? '') || bffMode !== 'mock')
+      return realProductDetail(slug, process.env, fetch, requestId, () => this.configuredClient());
 
     await simulateLatency();
 

@@ -53,13 +53,15 @@ export function projectProductDetail(payload: unknown, slug: string, mediaHosts:
 }
 
 export async function realProductDetail(slug: string, env: CatalogEnvironment = process.env,
-  fetchImpl: CatalogFetch = fetch, requestId?: string): Promise<ProductDetailResponseDTO> {
+  fetchImpl: CatalogFetch = fetch, requestId?: string,
+  createClient: () => ReturnType<typeof createG6Client> = () => createG6Client(env, fetchImpl),
+): Promise<ProductDetailResponseDTO> {
   try {
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 120)
       throw new CatalogException(400, ERROR_CODES.INVALID_PRODUCT_SLUG, 'Slug inválido');
     if (env.CATALOG_SOURCE !== 'real' || env.BFF_MODE !== 'real')
       throw new CatalogException(503, ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE, 'Integración no configurada');
-    const client = createG6Client(env, fetchImpl);
+    const client = createClient();
     const payload = await client.get(`/api/v1/productos/por-slug/${encodeURIComponent(slug)}?canal=MARKETPLACE`,
       requestId, { allowProductNotFound: true });
     if (payload === null) throw new CatalogException(404, ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no disponible');
