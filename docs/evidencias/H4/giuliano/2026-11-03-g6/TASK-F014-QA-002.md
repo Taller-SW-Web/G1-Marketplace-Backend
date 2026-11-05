@@ -15,3 +15,10 @@ No se ejecutó PostgreSQL real ni DAST de staging. La evidencia de app local/MOC
 Este aporte de Giuliano continúa las ramas de Sebastián; no modifica asignación ni revisor de la issue. Se mantiene separado de las entregas F-006–F-010. No se afirma aprobación humana, identidad G7, integración REAL ni despliegue. No se ejecutaron reservas, consumo de cupón ni operaciones contra servicios remotos.
 
 La issue conserva su DoD y permanece abierta. Faltan revisión independiente del nuevo corte, integración autorizada y comprobación del SHA desplegado. IA: Codex para implementación, pruebas y registro; revisión humana pendiente.
+
+
+## Revalidación 05/11/2026 tras #232
+
+PR #266 actualizada con develop y reapuntada a develop. Conflictos resueltos conservando cuatro estados, validación cerrada de campos e identidad y los cambios integrados de Sebastián. OpenAPI 1.1.0 alineado con UNDETERMINED; incluye respuesta HTTP de producto-demostracion-7 validada contra el schema.
+
+Build, tipos, 299 unitarias y 114 HTTP/contratos PASS; cinco OpenAPI válidos. Después del ajuste documental del contrato, 12 pruebas OpenAPI PASS. Ensayo MOCK local; no se llama a inventario G6 ni se certifican grants o producción. El demo del viernes 06/11 a las 12:00 Lima será MOCK rotulado local junto con BE #265 y FE #124/#125. Configuración Render exclusivamente a cargo de Andrés. Las issues conservan su DoD y revisión independiente.
