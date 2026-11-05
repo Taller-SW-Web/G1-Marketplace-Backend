@@ -3,14 +3,15 @@
  *
  * Responsabilidades:
  *   - En modo MOCK (H3): retornar fixture según slug recibido
- *   - En modo REAL (post I-01): llamar a Productos y Ofertas, mapear respuesta al DTO
+ *   - En modo REAL opt-in: llamar a G6 y mapear el contrato F-011 sin fallback.
  *
- * ⚠️ MOCK — Mientras I-01 esté bloqueado, solo se retornan fixtures.
+ * REAL requires explicit configuration. Upstream failures never return fixtures.
  *
  * @see SPECS/contrato-api/F-011-detalle-producto.md
  */
 
 import { Injectable } from '@nestjs/common';
+import { realProductDetail } from './product-detail.real';
 import {
   isProductDetailResponse,
   type ProductDetailResponseDTO,
@@ -36,52 +37,46 @@ export class ProductDetailService {
    * @throws {CatalogException} 404 si no se encuentra, 503 si no disponible,
    *   504 en timeout (slugs MOCK) o 502 si la respuesta no cumple el contrato
    */
-  async getBySlug(slug: string): Promise<ProductDetailResponseDTO> {
-    // Modo MOCK activo mientras I-01 esté bloqueado
+  async getBySlug(slug: string, requestId?: string): Promise<ProductDetailResponseDTO> {
+    // REAL selection always wins over fixture defaults; misconfiguration fails closed.
     const bffMode = process.env.BFF_MODE ?? 'mock';
 
-    if (bffMode === 'mock') {
-      await simulateLatency();
+    if (process.env.CATALOG_SOURCE === 'real' || process.env.PRODUCTOS_AUTH_MODE === 'public-read-only' || bffMode !== 'mock')
+      return realProductDetail(slug, process.env, fetch, requestId);
 
-      if (slug === 'producto-error-503-mock') {
-        throw new CatalogException(503, ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE, 'Servicio de catálogo no disponible');
-      }
-      if (slug === 'producto-error-504-mock') {
-        throw new CatalogException(504, ERROR_CODES.PRODUCT_CATALOG_TIMEOUT, 'Timeout al consultar el servicio de catálogo');
-      }
+    await simulateLatency();
 
-      // Lookup por slug conocido — sin fallback: 'producto-no-existente-mock'
-      // y cualquier slug fuera del fixture responden 404 (cada tarjeta del
-      // listado F-006/F-007 tiene su ficha en MOCK_PRODUCTS_BY_SLUG).
-      const fixture =
-        slug === 'producto-sin-specs-mock'
-          ? MOCK_PRODUCT_NO_SPECS
-          : MOCK_PRODUCTS_BY_SLUG.get(slug);
-      if (!fixture) {
-        throw new CatalogException(404, ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
-      }
-      const response: ProductDetailResponseDTO = {
-        ...fixture,
-        meta: { source: 'MOCK', retrievedAt: new Date().toISOString() },
-      };
-
-      // Guardia de contrato: respuesta malformada → 502 (API-CA-F011-04)
-      if (!isProductDetailResponse(response)) {
-        throw new CatalogException(
-          502,
-          ERROR_CODES.PRODUCT_CATALOG_INVALID_RESPONSE,
-          'Respuesta del catálogo fuera de contrato',
-        );
-      }
-
-      return response;
+    if (slug === 'producto-error-503-mock') {
+      throw new CatalogException(503, ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE, 'Servicio de catálogo no disponible');
+    }
+    if (slug === 'producto-error-504-mock') {
+      throw new CatalogException(504, ERROR_CODES.PRODUCT_CATALOG_TIMEOUT, 'Timeout al consultar el servicio de catálogo');
     }
 
-    // TODO (post I-01): llamar a Productos y Ofertas y mapear respuesta
-    throw new CatalogException(
-      503,
-      ERROR_CODES.PRODUCT_CATALOG_UNAVAILABLE,
-      'I-01 gate not closed — integración no disponible',
-    );
+    // Lookup por slug conocido — sin fallback: 'producto-no-existente-mock'
+    // y cualquier slug fuera del fixture responden 404 (cada tarjeta del
+    // listado F-006/F-007 tiene su ficha en MOCK_PRODUCTS_BY_SLUG).
+    const fixture =
+      slug === 'producto-sin-specs-mock'
+        ? MOCK_PRODUCT_NO_SPECS
+        : MOCK_PRODUCTS_BY_SLUG.get(slug);
+    if (!fixture) {
+      throw new CatalogException(404, ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
+    }
+    const response: ProductDetailResponseDTO = {
+      ...fixture,
+      meta: { source: 'MOCK', retrievedAt: new Date().toISOString() },
+    };
+
+    // Guardia de contrato: respuesta malformada → 502 (API-CA-F011-04)
+    if (!isProductDetailResponse(response)) {
+      throw new CatalogException(
+        502,
+        ERROR_CODES.PRODUCT_CATALOG_INVALID_RESPONSE,
+        'Respuesta del catálogo fuera de contrato',
+      );
+    }
+
+    return response;
   }
 }

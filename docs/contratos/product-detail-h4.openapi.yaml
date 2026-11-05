@@ -5,13 +5,13 @@ info:
   description: >-
     Contrato versionado del BFF de detalle y región comercial de la ficha de
     producto (F-011 a F-015). Describe lo implementado en src/catalog sobre la
-    rama feat/h4-f012-f015-detalle-comercial: los datos provienen de fixtures
-    MOCK mientras el gate I-01 permanezca bloqueado, por lo que este documento
+    rama integrada: F-011 dispone de proveedor REAL opt-in; las regiones
+    comerciales F-012 a F-015 conservan su integración pendiente. Este documento
     no acredita integración REAL, homologación con G6 ni despliegue. Las rutas
     son públicas y no requieren Authorization. Los errores usan
     application/problem+json (RFC 9457) con code, status, instance y requestId,
     y toda respuesta incluye X-Request-Id y X-Catalog-Source.
-  x-runtime-status: implemented-mock-only
+  x-runtime-status: f011-opt-in-real-commerce-mock-only
   x-source-of-truth:
     - SPECS/contrato-api/F-011-detalle-producto.md
     - SPECS/contrato-api/F-012-precio-oferta-descuento.md
@@ -24,7 +24,7 @@ info:
     - 'F-014: UNDETERMINED implementado en MOCK conforme M01; el mapper G6 no activa transporte REAL ni acredita integración.'
   x-g6-compatibility:
     catalog:
-      status: implemented-mock-only
+      status: f011-opt-in-real
       behavior: F-011, F-012, F-013 y F-015 adaptan Productos/Catálogo; F-014 adapta Inventario sin exponer saldos ni ubicaciones.
     pricing:
       status: implemented-mock-only

@@ -202,6 +202,8 @@ export function createRealProvider(env: CatalogEnvironment, fetchImpl: CatalogFe
 
 export function createProvider(env: CatalogEnvironment = process.env, fetchImpl?: CatalogFetch,
   sources: HomeSelectionSources = {}): CatalogProvider {
+  if (env.PRODUCTOS_AUTH_MODE === 'public-read-only' && env.CATALOG_SOURCE !== 'real')
+    throw invalidProvider('PUBLIC_READ_ONLY_REQUIRES_REAL');
   if (env.CATALOG_SOURCE === 'mock') {
     if (env.NODE_ENV === 'production') throw new Error('CATALOG_SOURCE=mock is forbidden in production');
     return createMockProvider({ featuredProductIds: configuredFeaturedIds(env, 'MOCK'),
