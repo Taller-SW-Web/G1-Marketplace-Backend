@@ -9,7 +9,9 @@ import { validateEnvironment as validateH3Environment } from './config/environme
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ProductCommerceModule } from './catalog/product-commerce.module';
 import { ProductDetailModule } from './catalog/product-detail.module';
+import { DocsModule } from './docs/docs.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 
 @Module({
@@ -27,7 +29,9 @@ import { WishlistModule } from './wishlist/wishlist.module';
     CartModule,
     CatalogModule,
     ProductDetailModule,
+    ProductCommerceModule,
     CheckoutModule,
+    DocsModule,
   ],
 })
 export class AppModule {}

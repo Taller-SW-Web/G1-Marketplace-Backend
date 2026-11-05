@@ -133,18 +133,18 @@ test("provider maps one-based page, canal, category and name order; projects pub
   let seen!: { url: URL; options: RequestInit };
   const provider = createRealProvider(env, async (url, options) => {
     seen = { url, options };
-    return Response.json({ ...pagePayload(), pagina: 2 });
+    return Response.json({ ...pagePayload(), pagina: 2, total: 25 });
   });
   const result = await provider.search(
     parse("q=polo&page=1&categoryIds=running&sort=NAME_DESC"),
-    "correlation-test",
+    "a891739e-640e-411f-a1c9-ef704593bbf2",
   );
   assert.equal(seen.url.searchParams.get("pagina"), "2");
   assert.equal(seen.url.searchParams.get("tamanio"), "24");
   assert.equal(seen.url.searchParams.get("canal"), "MARKETPLACE");
   assert.equal(seen.url.searchParams.get("categoriaId"), "running");
   assert.equal(seen.url.searchParams.get("orden"), "NOMBRE_DESC");
-  assert.equal(new Headers(seen.options.headers).get("X-Correlation-Id"), "correlation-test");
+  assert.equal(new Headers(seen.options.headers).get("X-Correlation-Id"), "a891739e-640e-411f-a1c9-ef704593bbf2");
   assert.equal(
     new Headers(seen.options.headers).get("Authorization"),
     "Bearer synthetic-test-token",
@@ -241,10 +241,10 @@ test.each([undefined, 'stale-service-token'])('explicit demo mode omits Authoriz
   const provider = createRealProvider({ ...env, PRODUCTOS_AUTH_MODE: 'demo-no-auth', PRODUCTOS_SERVICE_TOKEN: token },
     async (_url, options) => {
       expect(new Headers(options.headers).has('Authorization')).toBe(false);
-      expect(new Headers(options.headers).get('X-Correlation-Id')).toBe('demo-correlation');
+      expect(new Headers(options.headers).get('X-Correlation-Id')).toBe('38fa15d6-5125-4f0e-903c-81a94dba0d36');
       return Response.json(pagePayload());
     });
-  expect((await provider.search(parse('q=polo'), 'demo-correlation')).data).toHaveLength(1);
+  expect((await provider.search(parse('q=polo'), '38fa15d6-5125-4f0e-903c-81a94dba0d36')).data).toHaveLength(1);
 });
 
 test.each(['', 'anonymous'])('invalid authentication mode %s fails closed instead of bypassing token validation', (mode) => {

@@ -49,7 +49,7 @@ export class AccountService {
   }
   async recover(input: RecoveryDto, request: CookieRequest) {
     this.gate('recuperacion', request);
-    try { await this.g7.call('password/recuperar', { correo: input.correo.trim() }, undefined, 202); }
+    try { await this.g7.call('password/recuperar', { correo: input.correo.trim(), canalOrigen: 'MARKETPLACE' }, undefined, 202); }
     catch (error) {
       if (error instanceof ApiError && error.getStatus() === 429) {
         const body = error.getResponse();
@@ -57,13 +57,31 @@ export class AccountService {
           retryAfterSeconds: record(body) && typeof body.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined,
         });
       }
+      // The contract only defines 202 and 429. Any other provider answer (even a 400) could vary by
+      // account, so it is never forwarded: recovery has no per-account response besides the neutral 429.
+      if (error instanceof ApiError) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
       throw error;
     }
     // No account lookup, local email storage, or different response for unknown accounts.
   }
   async reset(input: ResetPasswordDto, request: CookieRequest) {
     this.gate('recuperacion', request);
-    await this.g7.call('password/restablecer', { token: input.token, nuevaContrasena: input.nuevaContrasena }, undefined, 204);
+    try { await this.g7.call('password/restablecer', { token: input.token, nuevaContrasena: input.nuevaContrasena }, undefined, 204); }
+    catch (error) {
+      // Only the reset contract may reach the client; codes of other G7 operations (login, OTP) mean nothing here.
+      const reply = error instanceof ApiError ? error.getResponse() : undefined;
+      const code = record(reply) ? reply.code : undefined;
+      const contract: Record<number, string> = { 401: 'TOKEN_RECUPERACION_INVALIDO', 410: 'TOKEN_RECUPERACION_EXPIRADO', 422: 'POLITICA_INCUMPLIDA' };
+      if (error instanceof ApiError && contract[error.getStatus()] && code !== contract[error.getStatus()]) {
+        if (error.getStatus() === 401) throw new ApiError(401, contract[401], 'No pudimos completar el acceso.');
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
+      }
+      // Statuses outside the reset contract (400, 403, 409 ...) carry login/registration codes: never forward them.
+      if (error instanceof ApiError && ![401, 410, 422, 429].includes(error.getStatus())) {
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Acceso no disponible temporalmente.');
+      }
+      throw error;
+    }
     // G7 owns token consumption and revocation of the affected user's sessions.
     // A 204 has no target UUID; never infer identity from a client-supplied field.
   }

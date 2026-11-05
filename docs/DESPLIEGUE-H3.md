@@ -1,5 +1,7 @@
 # Despliegue del corte H3 de catálogo
 
+> Actualización 05/11/2026: [decisión MOCK local, límites y entrega a Andrés](DEMO-CATALOGO-2026-11-06.md). Las secciones siguientes conservan el contexto histórico H3.
+
 > **Entorno actual solicitado: Docker local.** Render queda como referencia futura. Consultar [Docker H3](DOCKER-H3.md) para levantar los tres servicios. No se ha desplegado en Render.
 
 Preparación técnica del 16/10/2026 en las ramas individuales de Giuliano. No acredita despliegue, integración REAL, aprobación ni cierre H3. Los PR #11 Backend y #3 Frontend siguen en draft hacia develop. No desplegar main: Backend/main conserva la aplicación anterior.

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
@@ -15,6 +15,7 @@ type AuthenticatedData = Extract<SessionData, { kind: 'session' }>;
 
 @Injectable()
 export class G7SessionService {
+  private readonly logger = new Logger(G7SessionService.name);
   constructor(private readonly config: ConfigService, private readonly provider: G7Client,
     private readonly store: SessionStore, private readonly verifier: AuthGuard) {}
 
@@ -26,6 +27,12 @@ export class G7SessionService {
     const prefix = `${this.cookieName(challenge)}=`;
     const values = request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix));
     return values?.length === 1 ? values[0].slice(prefix.length) : undefined;
+  }
+  // Logout must not trust an ambiguous cookie header: every submitted value is revoked.
+  private allCookies(request: CookieRequest, challenge = false): string[] {
+    const prefix = `${this.cookieName(challenge)}=`;
+    return (request.headers.cookie?.split(';').map(part => part.trim()).filter(part => part.startsWith(prefix)) ?? [])
+      .map(part => part.slice(prefix.length));
   }
   private setCookie(response: CookieResponse, opaque: string, age: number, challenge = false) {
     response.append('Set-Cookie', `${this.cookieName(challenge)}=${opaque}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${this.config.get('NODE_ENV') === 'production' ? '; Secure' : ''}`);
@@ -39,19 +46,24 @@ export class G7SessionService {
   }
 
   private async validate(value: unknown, expectedSub?: string): Promise<AuthenticatedData> {
+    const reject = (stage: string): ApiError => {
+      this.logger.warn(JSON.stringify({ event: 'g7_session_rejected', stage }));
+      return unavailable();
+    };
     if (!record(value) || typeof value.accessToken !== 'string' || typeof value.refreshToken !== 'string'
       || value.refreshToken.length < 1 || value.refreshToken.length > 8192 || value.tokenType !== 'Bearer'
       || typeof value.expiresIn !== 'number' || !Number.isInteger(value.expiresIn) || value.expiresIn < 1
       || value.expiresIn > 900 || !record(value.usuario) || typeof value.usuario.nombreCompleto !== 'string'
-      || !Array.isArray(value.usuario.roles)) throw unavailable();
+      || !Array.isArray(value.usuario.roles)) throw reject('response_shape');
     const principal = await this.verifier.authenticate(value.accessToken);
     const claims = JSON.parse(Buffer.from(value.accessToken.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>;
     const now = Math.floor(Date.now() / 1000);
-    if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles) || !claims.roles.includes('CLIENTE')
+    if (claims.tipo !== 'acceso' || !Array.isArray(claims.roles)
       || !claims.roles.every(role => typeof role === 'string') || typeof claims.iat !== 'number'
       || !Number.isInteger(claims.iat) || claims.iat > now + 30 || typeof claims.jti !== 'string' || !claims.jti
-      || typeof claims.exp !== 'number' || claims.exp <= claims.iat
-      || principal.sub !== value.usuario.id || (expectedSub && principal.sub !== expectedSub)) throw unavailable();
+      || typeof claims.exp !== 'number' || claims.exp <= claims.iat) throw reject('claims_shape');
+    if (!claims.roles.includes('CLIENTE')) throw reject('client_role_missing');
+    if (principal.sub !== value.usuario.id || (expectedSub && principal.sub !== expectedSub)) throw reject('subject_mismatch');
     // Persist only the fields consumed by G1, not the full G7 profile.
     const tokens: G7Session = { accessToken: value.accessToken, refreshToken: value.refreshToken, tokenType: 'Bearer',
       expiresIn: value.expiresIn, usuario: { id: principal.sub,
@@ -80,8 +92,17 @@ export class G7SessionService {
     const value = await this.provider.call('auth/login', input);
     if (record(value) && value.mfaRequerido === true) {
       if (typeof value.challengeToken !== 'string' || !value.challengeToken || value.challengeToken.length > 8192
-        || typeof value.expiraEn !== 'number' || !Number.isInteger(value.expiraEn) || value.expiraEn < 1 || value.expiraEn > 300) throw unavailable();
-      const opaque = await this.store.create({ kind: 'challenge', challengeToken: value.challengeToken }, new Date(Date.now() + value.expiraEn * 1000));
+        || typeof value.expiraEn !== 'number' || !Number.isInteger(value.expiraEn) || value.expiraEn < 1 || value.expiraEn > 300) {
+        this.logger.warn(JSON.stringify({ event: 'g7_login_failed', stage: 'challenge_response' }));
+        throw unavailable();
+      }
+      let opaque: string;
+      try {
+        opaque = await this.store.create({ kind: 'challenge', challengeToken: value.challengeToken }, new Date(Date.now() + value.expiraEn * 1000));
+      } catch (error) {
+        this.logger.warn(JSON.stringify({ event: 'g7_login_failed', stage: 'challenge_store', errorType: error instanceof Error ? error.name : 'Unknown' }));
+        throw error;
+      }
       this.setCookie(response, opaque, value.expiraEn, true);
       return { mfaRequerido: true, canal: 'EMAIL', expiraEn: value.expiraEn };
     }
@@ -91,23 +112,41 @@ export class G7SessionService {
   async otp(request: CookieRequest, response: CookieResponse, codigo?: string) {
     this.assertOrigin(request);
     const result = await this.store.locked<{ value?: unknown; error?: unknown }>(this.cookie(request, true), async (session) => {
-      if (!session || session.data.kind !== 'challenge') return { result: { error: new ApiError(410, 'OTP_EXPIRADO', 'Vuelve a iniciar sesión.') } };
+      if (!session || session.data.kind !== 'challenge') {
+        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'local_challenge_missing',
+          cookiePresent: Boolean(this.cookie(request, true)) }));
+        return { result: { error: new ApiError(410, 'OTP_EXPIRADO', 'Vuelve a iniciar sesión.') } };
+      }
       try {
         const value = await this.provider.call(codigo === undefined ? 'auth/otp/solicitar' : 'auth/otp/verificar',
           { challengeToken: session.data.challengeToken, ...(codigo === undefined ? { canal: 'EMAIL' } : { codigo }) });
-        if (codigo !== undefined) return { result: { value }, remove: true };
+        if (codigo !== undefined) {
+          this.logger.log(JSON.stringify({ event: 'g7_otp_verified', stage: 'provider' }));
+          return { result: { value }, remove: true };
+        }
         if (!record(value) || value.canal !== 'EMAIL' || typeof value.destinoEnmascarado !== 'string'
           || typeof value.expiraEn !== 'number' || typeof value.desafioExpiraEn !== 'number') throw unavailable();
         return { result: { value: { canal: 'EMAIL', destinoEnmascarado: value.destinoEnmascarado.slice(0, 254),
           expiraEn: value.expiraEn, desafioExpiraEn: value.desafioExpiraEn } } };
       } catch (error) {
-        const terminal = error instanceof ApiError && ['OTP_INTENTOS_AGOTADOS', 'OTP_EXPIRADO', 'TOKEN_INVALIDO'].includes((error.getResponse() as { code: string }).code);
-        return { result: { error }, remove: terminal || codigo !== undefined && !(error instanceof ApiError && error.getStatus() === 401) };
+        // An expired or exhausted code does not revoke the G7 challenge. Keep it
+        // so the user can request another code while the challenge is still valid.
+        const code = error instanceof ApiError ? (error.getResponse() as { code: string }).code : '';
+        const retryable = ['CODIGO_INVALIDO', 'OTP_EXPIRADO', 'OTP_INTENTOS_AGOTADOS'].includes(code);
+        this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'provider', code,
+          challengeRemainingSeconds: Math.max(0, Math.ceil((session.expiresAt.getTime() - Date.now()) / 1000)) }));
+        return { result: { error }, remove: code === 'TOKEN_INVALIDO' || codigo !== undefined && !retryable };
       }
     });
     if ('error' in result) throw result.error;
     if (codigo === undefined) return result.value;
-    return this.establish(result.value, request, response);
+    try {
+      return await this.establish(result.value, request, response);
+    } catch (error) {
+      this.logger.warn(JSON.stringify({ event: 'g7_otp_rejected', stage: 'session_establish',
+        errorType: error instanceof Error ? error.name : 'Unknown' }));
+      throw error;
+    }
   }
 
   async access(opaque: string | undefined, force = false): Promise<AuthenticatedData | null> {
@@ -191,16 +230,18 @@ export class G7SessionService {
   async logout(request: CookieRequest, response: CookieResponse) {
     this.assertOrigin(request);
     // Read and delete under one lock; do not renew merely to log out.
-    const removed = await this.store.locked(this.cookie(request), async session => ({
-      result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
-    }));
-    await this.store.remove(this.cookie(request, true));
-    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
-    let remoteRevocationPending = removed?.refreshing ?? false;
-    if (removed) {
+    let remoteRevocationPending = false;
+    for (const opaque of [...new Set(this.allCookies(request))]) {
+      const removed = await this.store.locked(opaque, async session => ({
+        result: session?.data.kind === 'session' ? { tokens: session.data.tokens, refreshing: Boolean(session.data.refreshing) } : null, remove: true,
+      }));
+      if (!removed) continue;
+      remoteRevocationPending ||= removed.refreshing;
       try { await this.provider.call('auth/logout', { refreshToken: removed.tokens.refreshToken }); }
       catch { remoteRevocationPending = true; }
     }
+    for (const opaque of new Set(this.allCookies(request, true))) await this.store.remove(opaque);
+    this.setCookie(response, '', 0); this.setCookie(response, '', 0, true);
     return { authenticated: false, remoteRevocationPending };
   }
 }

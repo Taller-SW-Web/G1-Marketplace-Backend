@@ -1,14 +1,19 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { CheckoutController } from '../src/checkout/checkout.controller';
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { NotFoundFilter } from '../src/http/not-found.filter';
 import { AuthGuard } from '../src/security/auth.guard';
+import { validationExceptionFactory } from '../src/http/validation-exception.factory';
 
 describe('CheckoutController (e2e)', () => {
   let app: INestApplication;
   const checkout = {
+    listAddresses: jest.fn(),
+    createAddress: jest.fn(),
+    createQuote: jest.fn(),
+    applyBenefit: jest.fn(),
     getOperation: jest.fn(),
     createOrder: jest.fn(),
   };
@@ -29,6 +34,13 @@ describe('CheckoutController (e2e)', () => {
       })
       .compile();
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      forbidUnknownValues: true,
+      exceptionFactory: validationExceptionFactory,
+    }));
     app.useGlobalFilters(new NotFoundFilter());
     await app.init();
   });
@@ -37,6 +49,93 @@ describe('CheckoutController (e2e)', () => {
     if (app) await app.close();
   });
   beforeEach(() => jest.clearAllMocks());
+
+  it('lists the authenticated owner addresses using the incoming Bearer token', async () => {
+    checkout.listAddresses.mockResolvedValue([{ addressId: 'ADR-1', street: 'Av. Lima 123' }]);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/checkout/delivery-addresses')
+      .set('Authorization', 'Bearer e2e-token')
+      .expect(200);
+
+    expect(response.body).toEqual({ data: [{ addressId: 'ADR-1', street: 'Av. Lima 123' }] });
+    expect(checkout.listAddresses).toHaveBeenCalledWith('e2e-token');
+  });
+
+  it('creates an address for the principal and rejects client-supplied ownership fields', async () => {
+    const addressInput = {
+      street: 'Av. Lima 123',
+      district: 'Miraflores',
+      province: 'Lima',
+      department: 'Lima',
+      phone: '999999999',
+    };
+    checkout.createAddress.mockResolvedValue({ addressId: 'ADR-NEW', ...addressInput });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/checkout/delivery-addresses')
+      .set('Authorization', 'Bearer e2e-token')
+      .send(addressInput)
+      .expect(201);
+
+    expect(response.body.data.addressId).toBe('ADR-NEW');
+    expect(checkout.createAddress).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'e2e-token',
+      addressInput,
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/v1/checkout/delivery-addresses')
+      .set('Authorization', 'Bearer e2e-token')
+      .send({ ...addressInput, userId: 'attacker-controlled-user' })
+      .expect(400);
+    expect(checkout.createAddress).toHaveBeenCalledTimes(1);
+  });
+
+  it('quotes only using the authenticated subject, address/cart version and cart session', async () => {
+    const quoteInput = { addressId: 'ADR-1', cartVersion: 7 };
+    checkout.createQuote.mockResolvedValue({ quoteId: 'Q-1', addressId: 'ADR-1', cartVersion: 7 });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/checkout/quotes')
+      .set('Authorization', 'Bearer e2e-token')
+      .set('Cookie', 'cart_session=checkout-session-hash-123456')
+      .send(quoteInput)
+      .expect(200);
+
+    expect(response.body.data).toEqual({ quoteId: 'Q-1', addressId: 'ADR-1', cartVersion: 7 });
+    expect(checkout.createQuote).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'e2e-token',
+      quoteInput,
+      'checkout-session-hash-123456',
+    );
+  });
+
+  it('applies a benefit to the authenticated quote without accepting client totals', async () => {
+    const benefitInput = { quoteId: 'Q-1', couponCode: 'SAVE20' };
+    checkout.applyBenefit.mockResolvedValue({ quoteId: 'Q-2', total: { amount: 335, currency: 'PEN' } });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/checkout/benefits')
+      .set('Authorization', 'Bearer e2e-token')
+      .send(benefitInput)
+      .expect(200);
+
+    expect(response.body.data.quoteId).toBe('Q-2');
+    expect(checkout.applyBenefit).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      benefitInput,
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/v1/checkout/benefits')
+      .set('Authorization', 'Bearer e2e-token')
+      .send({ ...benefitInput, total: 1 })
+      .expect(400);
+    expect(checkout.applyBenefit).toHaveBeenCalledTimes(1);
+  });
 
   it('keeps the F-026 POST response flat and forwards its idempotency key', async () => {
     checkout.createOrder.mockResolvedValue({

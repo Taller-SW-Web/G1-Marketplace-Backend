@@ -29,6 +29,8 @@ jobs:
       - run: npm run prisma:validate
       - run: npm run build
       - run: npm run lint
+      - name: Validate OpenAPI contracts
+        run: npm run docs:validate
       - run: npm test
       - name: Verify generated OpenAPI
         run: |
