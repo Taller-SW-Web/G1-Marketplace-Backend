@@ -23,7 +23,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
   let app: INestApplication; let server: Server; let prisma: PrismaService; let store: SessionStore;
-  let issuer: string; let refreshCalls = 0; let logoutFails = false; let refreshFails: boolean | 'timeout' = false; let sessionRole = 'CLIENTE';
+  let issuer: string; let refreshCalls = 0; let logoutFails = false; let logoutCalls = 0; let refreshFails: boolean | 'timeout' = false; let sessionRole = 'CLIENTE';
   const refreshes = new Map<string, string>();
   const challenges = new Set<string>();
   const serviceCredential = randomBytes(32).toString('base64url');
@@ -98,6 +98,7 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
         refreshes.delete(body.refreshToken); res.end(JSON.stringify(tokens(id))); return;
       }
       if (req.url === '/api/v1/auth/logout') {
+        logoutCalls++;
         if (logoutFails) return error(503, 'NO_DISPONIBLE');
         refreshes.delete(body.refreshToken); res.statusCode = 204; res.end(); return;
       }
@@ -116,7 +117,7 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     prisma = app.get(PrismaService); store = app.get(SessionStore);
   });
   beforeEach(async () => {
-    refreshCalls = 0; logoutFails = false; refreshFails = false; sessionRole = 'CLIENTE';
+    refreshCalls = 0; logoutCalls = 0; logoutFails = false; refreshFails = false; sessionRole = 'CLIENTE';
     introspectionInactive = false; introspectionFails = false;
     app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'false');
     await prisma.authSession.deleteMany(); await prisma.wishlistItem.deleteMany();
@@ -235,6 +236,75 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', value).expect(401);
     const again = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
     expect(again.body.remoteRevocationPending).toBe(false);
+  });
+  it('F-003 logout revokes the refresh remotely, invalidates later use of the old cookie and is idempotent', async () => {
+    const response = await login().expect(200); const value = cookie(response);
+    const stored = await store.locked(value.split('=')[1], async row => ({ result: row?.data.kind === 'session' ? row.data.tokens.refreshToken : '' }));
+    expect(refreshes.has(stored)).toBe(true);
+    const closed = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
+    expect(closed.body).toEqual({ authenticated: false, remoteRevocationPending: false });
+    expect(refreshes.has(stored)).toBe(false); expect(await prisma.authSession.count()).toBe(0);
+    expect(closed.headers['cache-control']).toBe('no-store, private');
+    const cleared = (closed.headers['set-cookie'] as unknown as string[]);
+    expect(cleared.filter(item => item.includes('Max-Age=0')).length).toBe(2);
+    expect(JSON.stringify(closed.body) + cleared.join()).not.toContain(stored);
+    const after = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200);
+    expect(after.body).toEqual({ authenticated: false, scope: 'anonymous' });
+    await request(app.getHttpServer()).post('/api/v1/auth/refresh').set('Cookie', value).set('Origin', origin).send({}).expect(401);
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', value).expect(401);
+    expect(refreshCalls).toBe(0);
+    // Repeated logout, with the stale cookie or with none, is a no-op that never calls G7 again.
+    for (const cookies of [[value], []]) {
+      const again = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', cookies).set('Origin', origin).send({}).expect(200);
+      expect(again.body).toEqual({ authenticated: false, remoteRevocationPending: false });
+    }
+  });
+  it('F-003 logout keeps persisted wishlist rows and does not affect another account session', async () => {
+    await prisma.wishlistItem.createMany({ data: [{ customerId: A, productId: 'ONLY-A' }, { customerId: B, productId: 'ONLY-B' }] });
+    const a = cookie(await login().expect(200)); const b = cookie(await login('b@fixture.test').expect(200));
+    await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', a).set('Origin', origin).send({}).expect(200);
+    expect(await prisma.wishlistItem.count()).toBe(2);
+    await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', a).expect(401);
+    const second = await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', b).expect(200);
+    expect(second.body.map((item: { productId: string }) => item.productId)).toEqual(['ONLY-B']);
+    // Account switch: A's logout followed by B's login on the same browser yields only B's identity and rows.
+    const switched = cookie(await login('b@fixture.test').set('Cookie', a).expect(200));
+    const mine = await request(app.getHttpServer()).get('/api/v1/wishlist').set('Cookie', switched).expect(200);
+    expect(mine.body.map((item: { productId: string }) => item.productId)).toEqual(['ONLY-B']);
+  });
+  it('F-003 logout CSRF: rejects missing/foreign/cross-site origin, GET, bearer-only and body tokens without destroying the session', async () => {
+    const value = cookie(await login().expect(200)); const server = () => request(app.getHttpServer());
+    const rejected = await server().post('/api/v1/auth/logout').set('Cookie', value).send({}).expect(403);
+    expect(JSON.stringify(rejected.body)).not.toMatch(/refresh|token/i);
+    await server().post('/api/v1/auth/logout').set('Cookie', value).set('Origin', 'null').send({}).expect(403);
+    await server().post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).set('Sec-Fetch-Site', 'cross-site').send({}).expect(403);
+    await server().post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({ refreshToken: 'injected' }).expect(400);
+    await server().post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send([]).expect(400);
+    await server().get('/api/v1/auth/logout').set('Cookie', value).expect(404);
+    expect(await prisma.authSession.count()).toBe(1);
+    expect(logoutCalls).toBe(0);
+    await server().get('/api/v1/auth/session').set('Cookie', value).expect(200);
+    // A bearer does not substitute for the cookie: nothing is revoked by it.
+    await server().post('/api/v1/auth/logout').set('Authorization', `Bearer ${tokens(A).accessToken}`).set('Origin', origin).send({}).expect(200);
+    expect(await prisma.authSession.count()).toBe(1);
+    expect(logoutCalls).toBe(0);
+  });
+  it('F-003 logout during an in-flight refresh reports pending remote revocation and never resurrects the session', async () => {
+    const value = cookie(await login().expect(200));
+    await store.locked(value.split('=')[1], async row => {
+      if (!row || row.data.kind !== 'session') throw new Error('Missing test session');
+      return { result: null, data: { ...row.data, refreshing: { id: randomUUID(), startedAt: Date.now() } } };
+    });
+    const closed = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
+    expect(closed.body.remoteRevocationPending).toBe(true); expect(await prisma.authSession.count()).toBe(0);
+    await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200)
+      .expect(res => expect(res.body.authenticated).toBe(false));
+  });
+  it('F-003 logout revokes every session cookie sent when the browser submits duplicates', async () => {
+    const first = cookie(await login().expect(200)); const second = cookie(await login('b@fixture.test').expect(200));
+    const closed = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', `${first}; ${second}`).set('Origin', origin).send({}).expect(200);
+    expect(closed.body.remoteRevocationPending).toBe(false);
+    expect(await prisma.authSession.count()).toBe(0); expect(logoutCalls).toBe(2);
   });
   it('rejects signed non-customer identities and tampered persisted ciphertext', async () => {
     sessionRole = 'VENDEDOR'; await login().expect(503); expect(await prisma.authSession.count()).toBe(0);

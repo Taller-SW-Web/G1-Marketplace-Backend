@@ -1,6 +1,6 @@
 {
   "name": "g1-marketplace-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend Marketplace Multicanal - NestJS & Prisma ORM",
   "main": "dist/main.js",
   "scripts": {
@@ -17,8 +17,12 @@
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
     "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",
     "docs:openapi": "ts-node scripts/openapi.ts",
+    "docs:validate": "node scripts/validate-contracts.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:contract": "jest --config ./test/jest-e2e.json --runInBand test/openapi-contract.e2e-spec.ts",
+    "contract:validate": "node scripts/validate-openapi-contracts.mjs",
+    "test:cart-checkout:e2e": "jest --config ./test/jest-e2e.json --runInBand test/cart-checkout-integration.e2e-spec.ts",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage --runInBand",
     "lint": "tsc --noEmit -p tsconfig.json",
@@ -50,15 +54,20 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@apidevtools/swagger-cli": "4.0.4",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.2.7",
     "@swc/core": "^1.16.18",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.0",
     "@types/supertest": "^6.0.3",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "jest": "^30.5.2",
+    "js-yaml": "^4.3.2",
     "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

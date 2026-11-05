@@ -133,7 +133,7 @@ test("provider maps one-based page, canal, category and name order; projects pub
   let seen!: { url: URL; options: RequestInit };
   const provider = createRealProvider(env, async (url, options) => {
     seen = { url, options };
-    return Response.json({ ...pagePayload(), pagina: 2 });
+    return Response.json({ ...pagePayload(), pagina: 2, total: 25 });
   });
   const result = await provider.search(
     parse("q=polo&page=1&categoryIds=running&sort=NAME_DESC"),
