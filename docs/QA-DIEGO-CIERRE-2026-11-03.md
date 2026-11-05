@@ -297,11 +297,11 @@ Los enlaces son trazabilidad explícita. No se afirma que GitHub haya establecid
 
 **Sección:** Lectura de favoritos. **PR:** [#239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239).
 
-**Fuentes:** [src/wishlist/wishlist-read.service.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/src/wishlist/wishlist-read.service.ts), [test/wishlist-handoff.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist-handoff.integration-spec.ts)
+**Fuentes:** [reporte de seguridad F-037](evidencias/H4/diego/F037-QA-SEGURIDAD-2026-11-05.md), [src/wishlist/wishlist-read.service.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/src/wishlist/wishlist-read.service.ts), [test/wishlist-handoff.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist-handoff.integration-spec.ts)
 
-**Avance:** Casos locales existentes reejecutados con fixtures/proveedores controlados; resultados por suite y límites en el reporte enlazado.
+**Avance:** Aislamiento A/B, cambio de cuenta, identidad manipulada, caché privada, allowlist de respuesta y fallos neutros verificados. El CI del candidato ejecutó build, PostgreSQL 16, suites G7/Favoritos, SAST, SCA y secretos sin hallazgos altos/críticos.
 
-**Falta para cierre:** Revisión independiente y casos UI/API desplegados exigidos por la issue; integración REAL/gates aplicables sin acreditar. DAST aplicable no ejecutado sobre destino externo; moderadas de desarrollo pendientes de aceptación.
+**Falta para cierre:** sólo gates externos: revisión independiente, despliegue identificable por SHA con cuentas A/B autorizadas e integración G6 REAL de #182. El DAST público aplicable está documentado, pero no se atribuye al PR porque el destino no publica SHA.
 
 **Decisión:** mantener abierta. No hay aprobación independiente registrada; tampoco evidencia desplegada/REAL completa ni justificación de no aplicabilidad para cerrar el DoD.
 
