@@ -1,7 +1,7 @@
 name: H4 Catalog Backend
 on:
   push:
-    branches: [feat/giuliano-hito4, feat/giuliano-h4-issues-20261103]
+    branches: [feat/giuliano-hito4, feat/giuliano-h4-issues-20261103, feat/catalog-public-read-only-20261105]
   workflow_dispatch:
 permissions:
   contents: read
@@ -55,6 +55,7 @@ jobs:
       - run: npm run test:catalog:h4:config
       - run: npm run test:e2e -- --testPathPatterns=catalog-home-policy
       - run: npm run test:g6:contract
+      - run: npm run test:e2e -- --testPathPatterns=catalog-public-read-only
       - run: npm run test:e2e -- --testPathPatterns=catalog.e2e
       - name: Migrate disposable PostgreSQL from scratch
         run: npm run prisma:deploy
