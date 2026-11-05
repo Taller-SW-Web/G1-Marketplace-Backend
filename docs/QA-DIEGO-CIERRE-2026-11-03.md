@@ -167,11 +167,11 @@ Los enlaces son trazabilidad explícita. No se afirma que GitHub haya establecid
 
 **Sección:** Agregar al carrito conservando favorito. **PR:** [#239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239).
 
-**Fuentes:** [src/wishlist/wishlist-cart.service.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/src/wishlist/wishlist-cart.service.ts), [test/wishlist-handoff.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist-handoff.integration-spec.ts)
+**Fuentes:** [documentación consolidada F-039](evidencias/H4/diego/F039-DOCUMENTACION-2026-11-05.md), [QA seguridad F-039](evidencias/H4/diego/F039-QA-SEGURIDAD-2026-11-05.md), [src/wishlist/wishlist-cart.service.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/src/wishlist/wishlist-cart.service.ts), [test/wishlist-handoff.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist-handoff.integration-spec.ts)
 
-**Avance:** Casos locales existentes reejecutados con fixtures/proveedores controlados; resultados por suite y límites en el reporte enlazado.
+**Avance:** Trazabilidad SPECS→endpoint→servicio/transacción→pruebas, contrato vigente, errores, operación y dependencias de integración consolidados en F039-DOCUMENTACION-2026-11-05.md. QA de seguridad específica enlazada por separado.
 
-**Falta para cierre:** Revisión independiente y casos UI/API desplegados exigidos por la issue; integración REAL/gates aplicables sin acreditar. DAST aplicable no ejecutado sobre destino externo; moderadas de desarrollo pendientes de aceptación. Alinear FE mover/quitar con BE conservar favorito y aceptación SPECS #15.
+**Falta para cierre:** Por instrucción del usuario, la issue queda detenida hasta solicitar la integración real. Después se requiere homologación G6 de #192, aceptación formal SPECS #15, despliegue identificable por SHA y revisión independiente. La documentación local no acredita esos gates.
 
 **Decisión:** mantener abierta. No hay aprobación independiente registrada; tampoco evidencia desplegada/REAL completa ni justificación de no aplicabilidad para cerrar el DoD.
 

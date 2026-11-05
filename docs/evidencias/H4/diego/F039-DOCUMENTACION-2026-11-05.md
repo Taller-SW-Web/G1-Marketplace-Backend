@@ -1,0 +1,47 @@
+# F-039 — Agregar al carrito conservando el favorito
+
+Fecha: 05/11/2026. Issue documental: [#194](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/194). Implementación: [Backend PR #239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239). QA seguridad: [issue #193](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/193) y [reporte QA](F039-QA-SEGURIDAD-2026-11-05.md). Responsable: Diego Espinoza. Revisión independiente: Fernando Saire (`saire22`), pendiente.
+
+## Decisión vigente y estado del contrato
+
+La decisión del usuario para este corte es **agregar una unidad por acción explícita al carrito y conservar el favorito y su `createdAt`, tanto si la operación termina correctamente como si falla**. No hay eliminación/movimiento automático, retry automático, selección de SKU/variante arbitraria ni ruta `move-to-cart`.
+
+El endpoint implementado es `POST /api/v1/wishlist/items/{productId}/add-to-cart`; no acepta body, query ni `Idempotency-Key`. El contrato está propuesto en [SPECS PR #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15). Su estado independiente debe verificarse allí; la decisión conversacional no equivale a aprobación formal del PR.
+
+## Trazabilidad SPECS → implementación → pruebas
+
+| Capa | Referencia y correspondencia |
+|---|---|
+| Requisito funcional/API | [F-039 funcional](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/develop/SPECS/funcional/F-039-mover-favorito-carrito.md), [contrato API](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/develop/SPECS/contrato-api/F-039-mover-favorito-carrito.md), [SPECS PR #15](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/15). El nombre histórico “mover” no describe la decisión vigente de conservar. |
+| UI/flujo | [V-009 Favoritos](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/develop/SPECS/ui/vistas/V-009-favoritos.md), [handoff de Favoritos](../../../FAVORITOS-FRONTEND-HANDOFF.md). La UI debe conservar la tarjeta/estado favorito tras agregar y navegar al carrito sólo por acción explícita. |
+| HTTP | [`WishlistController.addToCart`](../../../../src/wishlist/wishlist.controller.ts): valida ausencia de body, query y clave idempotente; deriva titular de G7 y devuelve `200`. |
+| Orquestación/transacción | [`WishlistCartService`](../../../../src/wishlist/wishlist-cart.service.ts): bloquea contexto de titular, exige favorito propio con `FOR SHARE`, resuelve SKU mediante catálogo y añade una unidad dentro de una transacción. No borra ni actualiza `WishlistItem`. |
+| Carrito | [`CartService`](../../../../src/cart/cart.service.ts): reutiliza bloqueo por titular, revalida cantidad total y cotización antes de confirmar. |
+| Catálogo G6 | [`RealWishlistCatalog`](../../../../src/catalog/real-wishlist-catalog.ts): producto simple resuelve SKU; producto con variantes exige selección y produce `422` con ruta interna basada en slug validado. Precio/stock/proveedor se validan antes de confirmar la escritura. |
+| Pruebas | [`wishlist-handoff.integration-spec.ts`](../../../../test/wishlist-handoff.integration-spec.ts), [`real-wishlist-catalog.spec.ts`](../../../../src/catalog/real-wishlist-catalog.spec.ts) y [`F039 QA seguridad`](F039-QA-SEGURIDAD-2026-11-05.md). |
+
+## Comportamiento y errores documentados
+
+| Caso | Resultado observado en pruebas controladas |
+|---|---|
+| Éxito | `200`, suma una unidad y conserva ID/fecha del favorito; persistencia verificada tras reiniciar la app. |
+| Dos acciones explícitas | Suma dos unidades sin duplicar/eliminar el favorito. |
+| Favorito ausente o de otro titular | `409 CART_CONFLICT`; no crea carrito. |
+| Producto retirado | `404 PRODUCT_NOT_AVAILABLE`; no hay escritura parcial. |
+| Producto con variantes | `422 VARIANT_SELECTION_REQUIRED`; no se selecciona SKU automáticamente; `redirectUrl` es ruta interna. |
+| Stock insuficiente | `409 STOCK_LIMIT_REACHED`; conserva el carrito previo y el favorito. |
+| Catálogo/condición comercial no disponible | `503` neutro; conserva el favorito y no deja carrito parcial. |
+| Error inyectado tras escribir carrito dentro de la transacción | `500 INTERNAL_ERROR`; PostgreSQL revierte la escritura del carrito y mantiene favorito/fecha. |
+| Body, query o clave no admitidos / no autenticado | `400` / `401`; operación no realizada. |
+
+Las pruebas usan PostgreSQL temporal y proveedores controlados. Son evidencia de contrato e invariantes locales, no de homologación G6 real. Los detalles, comandos, scans compartidos y limitaciones de seguridad están separados en el [reporte QA #193](F039-QA-SEGURIDAD-2026-11-05.md).
+
+## Operación, configuración y límites
+
+La integración real de Catálogo se mantiene detrás de aprobación explícita. El adaptador requiere configuración y grant técnico aprobados; G1 no transmite identidad humana a G6. La adición F-039 necesita además aprobación de consulta de cantidad y `WISHLIST_FULFILLMENT_REF` válido para `ENVIO_DOMICILIO`, además de URL HTTPS, token privado, timeout y allowlist de medios descritos en [entregas H4](../../../DIEGO-H4-ENTREGAS.md). Sin precondiciones, se falla de forma cerrada; no se usa fixture como fallback en producción.
+
+La respuesta `422` no autoriza una navegación externa: el slug se valida y la ruta se forma en el servidor. No hay reserva de stock, promesa de inventario ni selección de variante. Una llamada repetida sólo agrega otra unidad si fue otra acción explícita del usuario; no se reintenta en automático.
+
+## Estado documental y siguiente paso
+
+Esta documentación cubre lo que G1 puede preparar antes de solicitar/homologar la integración. Por instrucción del usuario, el seguimiento de la issue #194 queda **bloqueado** hasta que se solicite la integración real; no se deben adelantar validaciones dependientes ni marcarla como terminada. Cuando se solicite, hacen falta contrato/provider y grant autorizados, datos de producto/stock/precio, traza sanitizada positivo/error/timeout, verificación de despliegue por SHA y revisión independiente.
