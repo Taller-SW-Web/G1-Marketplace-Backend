@@ -45,6 +45,8 @@ jobs:
         run: npm run lint
       - name: Test (unitarias, e2e, mock-auth, sonda G6)
         run: npm test
+      - name: Validar contratos OpenAPI (swagger-cli)
+        run: npm run docs:validate
 
   release:
     name: Versionado (SemVer + CHANGELOG)

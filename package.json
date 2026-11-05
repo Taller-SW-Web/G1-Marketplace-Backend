@@ -17,6 +17,7 @@
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
     "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",
     "docs:openapi": "ts-node scripts/openapi.ts",
+    "docs:validate": "node scripts/validate-contracts.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:contract": "jest --config ./test/jest-e2e.json --runInBand test/openapi-contract.e2e-spec.ts",
@@ -53,7 +54,7 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@apidevtools/swagger-cli": "^4.0.4",
+    "@apidevtools/swagger-cli": "4.0.4",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.2.7",
     "@swc/core": "^1.16.18",
