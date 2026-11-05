@@ -362,11 +362,11 @@ Los enlaces son trazabilidad explícita. No se afirma que GitHub haya establecid
 
 **Sección:** Alta favorita. **PR:** [#239](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/239).
 
-**Fuentes:** [src/wishlist/wishlist.repository.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/src/wishlist/wishlist.repository.ts), [test/wishlist.e2e-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist.e2e-spec.ts), [test/wishlist.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist.integration-spec.ts)
+**Fuentes:** [reporte de seguridad vigente](evidencias/H4/diego/F036-QA-SEGURIDAD-2026-11-05.md), [test/wishlist.e2e-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist.e2e-spec.ts), [test/wishlist.integration-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/wishlist.integration-spec.ts) y [test/auth-g7.e2e-spec.ts](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/feat/diego-h4-favoritos-csat/test/auth-g7.e2e-spec.ts).
 
 **Avance:** Casos locales existentes reejecutados con fixtures/proveedores controlados; resultados por suite y límites en el reporte enlazado.
 
-**Falta para cierre:** Revisión independiente y casos UI/API desplegados exigidos por la issue; integración REAL/gates aplicables sin acreditar. DAST aplicable no ejecutado sobre destino externo; moderadas de desarrollo pendientes de aceptación.
+**Falta para cierre:** SCA vigente y sondeo público dirigidos ya documentados. Falta identificar/desplegar el SHA candidato, repetir DAST aplicable y casos autenticados A/B sobre ese destino, aceptar o corregir riesgos de desarrollo/cabeceras y obtener revisión independiente.
 
 **Decisión:** mantener abierta. No hay aprobación independiente registrada; tampoco evidencia desplegada/REAL completa ni justificación de no aplicabilidad para cerrar el DoD.
 
