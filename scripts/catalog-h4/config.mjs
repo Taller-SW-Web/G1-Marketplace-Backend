@@ -14,6 +14,7 @@ export function inspectCatalogConfig(env = process.env) {
       realSourceSelected: env.CATALOG_SOURCE === 'real', mockSourceSelected: env.CATALOG_SOURCE === 'mock',
       integrationFlagSet: env.CATALOG_INTEGRATION_APPROVED === 'true', baseUrlPresent: !!env.PRODUCTOS_BASE_URL,
       serviceTokenPresent: !!env.PRODUCTOS_SERVICE_TOKEN, demoNoAuthSelected: env.PRODUCTOS_AUTH_MODE === 'demo-no-auth',
+      publicReadOnlySelected: env.PRODUCTOS_AUTH_MODE === 'public-read-only',
       contractPinMatches: env.PRODUCTOS_CONTRACT_VERSION === CONTRACT_VERSION && env.PRODUCTOS_CONTRACT_SHA === CONTRACT_SHA,
       mediaAllowlistPresent: !!env.PRODUCTOS_MEDIA_HOSTS, featuredEnabled: env.CATALOG_FEATURED_ENABLED === 'true',
       featuredApprovalFlagSet: env.CATALOG_FEATURED_APPROVED === 'true', featuredIdsPresent: !!env.CATALOG_FEATURED_IDS,

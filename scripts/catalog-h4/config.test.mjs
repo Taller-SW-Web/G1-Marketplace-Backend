@@ -22,3 +22,13 @@ test('invalid origins, credentials and IDs never appear in the report', () => {
   assert.ok(!text.includes('synthetic-private-value')); assert.ok(!text.includes('private-selection'));
   assert.ok(!text.includes('user:private')); assert.equal(result.source, 'UNCONFIGURED');
 });
+
+test('explicit production public reads need no token but do not certify deployment or a grant', () => {
+  const result = inspectCatalogConfig({ NODE_ENV: 'production', CATALOG_SOURCE: 'real',
+    CATALOG_INTEGRATION_APPROVED: 'true', PRODUCTOS_AUTH_MODE: 'public-read-only',
+    PRODUCTOS_BASE_URL: 'https://provider.example',
+    PRODUCTOS_CONTRACT_VERSION: CONTRACT_VERSION, PRODUCTOS_CONTRACT_SHA: CONTRACT_SHA });
+  assert.equal(result.source, 'REAL'); assert.equal(result.checks.publicReadOnlySelected, true);
+  assert.equal(result.checks.serviceTokenPresent, false); assert.equal(result.checks.demoNoAuthSelected, false);
+  assert.equal(result.grantVerified, false); assert.equal(result.deployedShaVerified, false);
+});

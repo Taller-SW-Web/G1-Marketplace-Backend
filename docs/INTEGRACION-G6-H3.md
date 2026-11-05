@@ -24,6 +24,8 @@ El navegador llama a Next; Next llama a NestJS; sólo NestJS llama al origen G6.
 
 `PRODUCTOS_AUTH_MODE` se configura sólo en Backend:
 
+**Actualización H4:** existe el modo opt-in `public-read-only`, permitido en producción para las lecturas existentes mediante una lista cerrada de GET, sin Authorization ni cookies. `demo-no-auth` sigue prohibido en producción y `service-token` sigue siendo el valor predeterminado. Ver [alcance, pruebas, activación y reversión](CATALOGO-PUBLIC-READ-ONLY-H4.md). El procedimiento Docker H3 de abajo conserva su configuración local; no es una plantilla de producción.
+
 | Valor | Comportamiento |
 |---|---|
 | `service-token` (predeterminado) | Requiere `PRODUCTOS_SERVICE_TOKEN`; añade `Authorization: Bearer ...` |
