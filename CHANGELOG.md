@@ -1,3 +1,9 @@
+## [1.6.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.5.0...v1.6.0) (2026-11-05)
+
+### Features
+
+* **catalog:** add explicit production public-read-only mode ([a7ec322](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7ec3227803e0824dfb034f0fac129627f8cac58)), closes [#45](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45)
+
 ## [1.5.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.4.0...v1.5.0) (2026-11-05)
 
 ### Features
