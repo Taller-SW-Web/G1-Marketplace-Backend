@@ -71,3 +71,16 @@ Con el PR #239 en `fccf4b4d6093b90145e7bf8e091b0b5535c11768` se reejecutaron los
 - Gitleaks 8.30.1 sobre fuente y 175 commits: **sin secretos**.
 
 Los jobs vigentes del PR (Backend Node 22/24, CI-CD, sesión G7 y verificación aislada) estaban verdes antes de este incremento documental. Con esta evidencia #178 queda preparada para solicitar revisión independiente, conservando explícitamente los pendientes de deployment identificado, cuentas A/B, producto G6 no elegible, DAST autorizado y aceptación de riesgos.
+
+## Cruce con evidencia OPS #206
+
+La evidencia publicada por OPS en [#206](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/206#issuecomment-6637463557) aporta los siguientes controles transversales:
+
+- Gitleaks y Semgrep concluyeron sin hallazgos bloqueantes en el corte evaluado por OPS.
+- SCA de producción concluyó con cero vulnerabilidades.
+- Los hallazgos moderados de tooling de desarrollo fueron documentados y aceptados por su responsable sin aplicar cambios mayores forzados.
+- Se declaró explícitamente que ZAP/Burp o fuzzing intrusivo no deben ejecutarse contra Render productivo; esas pruebas se limitan a contenedores locales o staging aislado.
+
+Esta referencia fortalece la justificación de riesgo y explica por qué el sondeo público de esta evidencia fue deliberadamente seguro. No reemplaza la aprobación independiente: #206 continúa abierta y el inventario exacto de SCA de este HEAD (4 bajas y 17 moderadas de desarrollo) debe ser confirmado por el revisor.
+
+Con ello, los bloqueos restantes de #178 quedan acotados a: identificar el SHA/ID del deployment candidato; disponer por canal seguro de cuentas A/B y un producto G6 no elegible; ejecutar el DAST autenticado en staging aislado autorizado; y obtener la aprobación independiente de #178 y de la aceptación de riesgo aplicable al HEAD.

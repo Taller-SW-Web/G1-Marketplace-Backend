@@ -64,3 +64,11 @@ Pendientes posteriores a la revisión:
 - realizar DAST autenticado únicamente en staging propio/autorizado;
 - aceptar o corregir los riesgos moderados y registrar hallazgos/retest;
 - obtener la aprobación independiente de Fernando Saire.
+
+## Cruce con evidencia OPS #206
+
+La evidencia transversal de [#206](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/206#issuecomment-6637463557) registra Gitleaks y Semgrep satisfactorios, cero vulnerabilidades runtime y la justificación para aceptar vulnerabilidades moderadas limitadas al tooling de desarrollo. También prohíbe ejecutar DAST intrusivo contra Render productivo y reserva ZAP/Burp o fuzzing para contenedores locales o staging aislado.
+
+Por tanto, el sondeo público no autenticado de F-038 es el máximo alcance seguro sobre producción y no debe ampliarse con mutaciones reales sin autorización. La referencia de OPS aún no equivale a una aprobación independiente y su conteo corresponde a su propio corte; el revisor debe confirmar que la aceptación cubre el inventario actual de 4 bajas y 17 moderadas de desarrollo.
+
+Los bloqueos restantes de #188 son: SHA/ID de deployment identificable; cuentas A/B entregadas por canal seguro; fixture G6 no elegible; staging aislado autorizado para DAST autenticado; y aprobación independiente de los resultados y del riesgo residual.
