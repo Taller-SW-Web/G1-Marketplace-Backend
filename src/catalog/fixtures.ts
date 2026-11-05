@@ -1,5 +1,6 @@
 import type { CatalogProvider, Category, ProductCardDTO } from "./types";
 import { CatalogError } from './errors';
+import { randomIndices, selectHomeProducts } from './home-selection';
 // Synthetic fixtures only. Never used as a fallback for a failed real provider.
 const categories: Category[] = [
   { categoryId: "running", name: "Running" },
@@ -24,11 +25,27 @@ const products: ProductCardDTO[] = Array.from({ length: 32 }, (_, i) => ({
   },
 }));
 
-export function createMockProvider(): CatalogProvider {
+export function createMockProvider(options: {
+  featuredProductIds?: readonly string[];
+  products?: readonly ProductCardDTO[];
+  fallbackEnabled?: boolean;
+  salesProductIds?: readonly string[];
+  randomIndex?: (max: number) => number;
+} = {}): CatalogProvider {
+  const catalog = options.products ?? products;
   return {
     source: "MOCK",
     async home() {
-      return { categories, featuredProducts: [] };
+      const featuredProducts = await selectHomeProducts({
+        ids: options.featuredProductIds ?? [], fallback: options.fallbackEnabled === true,
+        source: 'MOCK', signal: AbortSignal.timeout(5000),
+        load: async id => catalog.find(product => product.productId === id) ?? null,
+        // Synthetic fixtures explicitly model either a ranked history or a cold start.
+        salesRanking: async () => ({ hasHistory: !!options.salesProductIds?.length,
+          orderedProductIds: options.salesProductIds ?? [] }),
+        randomProducts: async () => randomIndices(catalog.length, options.randomIndex).map(index => catalog[index]),
+      });
+      return { categories, featuredProducts };
     },
     async filters() {
       return { categories, brands: [{ brandId: 'mock-brand', name: 'Marca de demostración' }] };
@@ -38,7 +55,7 @@ export function createMockProvider(): CatalogProvider {
           query.brandId && query.brandId !== 'mock-brand') throw new CatalogError('INVALID_FILTER', 400);
       // Prices here are synthetic test data, never projected as commercial amounts.
       const fixturePrice = (product: ProductCardDTO) => 10 * Number(product.productId.replace('mock-product-', ''));
-      let results = products.filter(
+      let results = catalog.filter(
         (product) =>
           (!query.q ||
             product.name
@@ -52,9 +69,8 @@ export function createMockProvider(): CatalogProvider {
       if (query.sort)
         results = [...results].sort(
           (a, b) =>
-            (a.name.localeCompare(b.name, "es") ||
-              a.productId.localeCompare(b.productId)) *
-            (query.sort === "NAME_DESC" ? -1 : 1),
+            a.name.localeCompare(b.name, "es") * (query.sort === "NAME_DESC" ? -1 : 1) ||
+            a.productId.localeCompare(b.productId),
         );
       const totalElements = results.length;
       return {
