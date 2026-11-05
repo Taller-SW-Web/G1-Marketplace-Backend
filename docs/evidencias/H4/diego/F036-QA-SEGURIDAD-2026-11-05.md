@@ -59,3 +59,15 @@ Los casos de aplicación devolvieron `X-Request-Id`. En la muestra no se observa
 - Ejecutar con credenciales autorizadas los casos A/B, `customerId` manipulado, sesión revocada y producto G6 no elegible; verificar cero escrituras.
 - Resolver o aceptar formalmente los hallazgos SCA de desarrollo y decidir el tratamiento de cabeceras.
 - Adjuntar revisión independiente, hallazgos y retest.
+
+## Retest previo a revisión — 05/11/2026
+
+Con el PR #239 en `fccf4b4d6093b90145e7bf8e091b0b5535c11768` se reejecutaron los controles locales compartidos con F-038:
+
+- `test/wishlist.e2e-spec.ts`: **31/31 PASS**.
+- `wishlist.service.spec.ts` y `wishlist-read.service.spec.ts`: **10/10 PASS**.
+- `npm run typecheck`: **PASS**.
+- SCA runtime: **0**; árbol completo: **4 bajas, 17 moderadas, 0 altas/críticas**.
+- Gitleaks 8.30.1 sobre fuente y 175 commits: **sin secretos**.
+
+Los jobs vigentes del PR (Backend Node 22/24, CI-CD, sesión G7 y verificación aislada) estaban verdes antes de este incremento documental. Con esta evidencia #178 queda preparada para solicitar revisión independiente, conservando explícitamente los pendientes de deployment identificado, cuentas A/B, producto G6 no elegible, DAST autorizado y aceptación de riesgos.
