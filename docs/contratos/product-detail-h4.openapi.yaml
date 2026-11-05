@@ -1,0 +1,1185 @@
+openapi: 3.0.3
+info:
+  title: Marketplace Product Detail BFF — H4 (F-011–F-015)
+  version: 1.0.0
+  description: >-
+    Contrato versionado del BFF de detalle y región comercial de la ficha de
+    producto (F-011 a F-015). Describe lo implementado en src/catalog sobre la
+    rama feat/h4-f012-f015-detalle-comercial: los datos provienen de fixtures
+    MOCK mientras el gate I-01 permanezca bloqueado, por lo que este documento
+    no acredita integración REAL, homologación con G6 ni despliegue. Las rutas
+    son públicas y no requieren Authorization. Los errores usan
+    application/problem+json (RFC 9457) con code, status, instance y requestId,
+    y toda respuesta incluye X-Request-Id y X-Catalog-Source.
+  x-runtime-status: implemented-mock-only
+  x-source-of-truth:
+    - SPECS/contrato-api/F-011-detalle-producto.md
+    - SPECS/contrato-api/F-012-precio-oferta-descuento.md
+    - SPECS/contrato-api/F-013-seleccion-atributos-variante.md
+    - SPECS/contrato-api/F-014-consultar-disponibilidad-stock.md
+    - SPECS/contrato-api/F-015-productos-relacionados.md
+  x-known-gaps:
+    - 'F-011: ETag/If-None-Match y 304 no están implementados en este corte; el contrato publica sólo 200 y errores.'
+    - 'F-012/F-014: el modo REAL no se activa hasta cerrar I-01; en modo no-MOCK los servicios responden 503 normalizado.'
+    - 'F-014: UNDETERMINED (INDETERMINADO en G6) queda pendiente de homologación bilateral G-G6-COMPAT y no forma parte de v1.'
+  x-g6-compatibility:
+    catalog:
+      status: implemented-mock-only
+      behavior: F-011, F-012, F-013 y F-015 adaptan Productos/Catálogo; F-014 adapta Inventario sin exponer saldos ni ubicaciones.
+    pricing:
+      status: implemented-mock-only
+      behavior: El BFF deriva discountPercent de regularAmount y saleAmount; no inventa ofertas ni descuentos.
+    inventory:
+      status: implemented-mock-only
+      behavior: Sólo publica AVAILABLE, STOCK_LOW y OUT_OF_STOCK. Un error externo nunca se traduce a OUT_OF_STOCK.
+    recommendations:
+      status: implemented-mock-only
+      behavior: Máximo 8 tarjetas completas, sin duplicados y sin el producto de origen; un fallo técnico se degrada a 200 con arreglo vacío.
+    G-G6-COMPAT:
+      status: pending-real-provider-contract-and-sanitized-integration-evidence
+      behavior: La disponibilidad indeterminada requiere aprobación de las specs de G1 y conformidad documentada de G6 antes de ampliar v1.
+servers:
+  - url: http://localhost:10000
+    description: Desarrollo local
+  - url: https://g1-marketplace-backend.onrender.com
+    description: Backend desplegado en Render
+tags:
+  - name: Detalle
+    description: Ficha descriptiva y galería del producto.
+  - name: Comercial
+    description: Precio, variantes, disponibilidad y productos relacionados.
+security: []
+paths:
+  /api/v1/catalog/products/{slug}:
+    get:
+      operationId: getProductDetail
+      tags: [Detalle]
+      summary: Obtener la ficha descriptiva de un producto por slug canónico
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-011
+        implementation: 'ProductDetailController.getBySlug -> ProductDetailService.getBySlug'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Devuelve sólo identidad comercial, marca, descripción, especificaciones
+          técnicas y galería. No devuelve precio, stock, SKU, variantes, cupón ni
+          recomendaciones. Un slug inválido se rechaza antes de consultar el origen.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '502': [PRODUCT_CATALOG_INVALID_RESPONSE]
+          '503': [PRODUCT_CATALOG_UNAVAILABLE]
+          '504': [PRODUCT_CATALOG_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Ficha descriptiva completa; no contiene campos comerciales
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetailResponse'
+              examples:
+                fichaMock:
+                  summary: Ficha MOCK de F-011
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      slug: zapatillas-running-aero-x
+                      name: Zapatillas Running Aero X [MOCK]
+                      brand:
+                        brandId: BR-MOCK
+                        name: BrandMock
+                      description: Descripción de prueba. Producto ficticio.
+                      technicalSpecifications:
+                        - group: Características
+                          name: Material
+                          value: Malla técnica
+                          displayOrder: 1
+                        - group: Características
+                          name: Peso
+                          value: '280'
+                          unit: g
+                          displayOrder: 2
+                      media:
+                        - mediaId: MED-001
+                          type: IMAGE
+                          url: https://placehold.co/600x400
+                          alt: Vista frontal [MOCK]
+                          displayOrder: 1
+                        - mediaId: MED-002
+                          type: IMAGE
+                          url: https://placehold.co/600x400?text=2
+                          alt: Vista lateral [MOCK]
+                          displayOrder: 2
+                    meta:
+                      source: MOCK
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '502':
+          $ref: '#/components/responses/ProductDetailInvalidResponse'
+        '503':
+          $ref: '#/components/responses/ProductDetailUnavailable'
+        '504':
+          $ref: '#/components/responses/ProductDetailTimeout'
+  /api/v1/catalog/products/{slug}/price:
+    get:
+      operationId: getProductPrice
+      tags: [Comercial]
+      summary: Consultar el precio vigente y la oferta del producto o SKU
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+        - $ref: '#/components/parameters/OptionalSku'
+      x-traceability:
+        feature: F-012
+        implementation: 'ProductPriceController.getPrice -> ProductPriceService.getPrice'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Para productos con variantes exige sku y valida que pertenezca al
+          producto. discountPercent se deriva de regularAmount y saleAmount
+          cuando la oferta está vigente; sin oferta, saleAmount, discountPercent
+          y validUntil son null. No expone cupón, stock ni total de pedido.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '409': [PRODUCT_VARIANT_SELECTION_REQUIRED, SKU_NOT_BELONG_TO_PRODUCT]
+          '422': [PRICE_NOT_AVAILABLE]
+          '502': [PRICING_INVALID_RESPONSE]
+          '503': [PRICING_UNAVAILABLE]
+          '504': [PRICING_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Precio vigente con oferta derivada o sin oferta
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPriceResponse'
+              examples:
+                conOferta:
+                  summary: Oferta vigente con descuento derivado
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      sku: SKU-MOCK-001
+                      price:
+                        regularAmount: 299.9
+                        saleAmount: 254.9
+                        currency: PEN
+                        discountPercent: 15
+                        validFrom: '2026-09-01T00:00:00.000Z'
+                        validUntil: '2026-12-31T23:59:59.000Z'
+                        priceVersion: 8
+                    meta:
+                      channel: MARKETPLACE
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+                sinOferta:
+                  summary: Precio regular sin oferta vigente
+                  value:
+                    data:
+                      productId: mock-product-2
+                      sku: SKU-MOCK-003
+                      price:
+                        regularAmount: 99.9
+                        saleAmount: null
+                        currency: PEN
+                        discountPercent: null
+                        validFrom: '2026-09-01T00:00:00.000Z'
+                        validUntil: null
+                        priceVersion: 1
+                    meta:
+                      channel: MARKETPLACE
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/PriceNotAvailable'
+        '502':
+          $ref: '#/components/responses/PriceInvalidResponse'
+        '503':
+          $ref: '#/components/responses/PriceUnavailable'
+        '504':
+          $ref: '#/components/responses/PriceTimeout'
+  /api/v1/catalog/products/{slug}/variants:
+    get:
+      operationId: getProductVariants
+      tags: [Comercial]
+      summary: Listar atributos y variantes activas del producto
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-013
+        implementation: 'ProductVariantsController.getBySlug -> ProductVariantsService.getBySlug'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Sólo publica variantes ACTIVE. Cada sku y variantId es único y cada
+          combinación de atributos aparece una sola vez. No expone stock ni
+          precio. Un producto sin variantes devuelve hasVariants=false con
+          atributos y variantes vacíos.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '502': [CATALOG_INVALID_RESPONSE]
+          '503': [CATALOG_UNAVAILABLE]
+          '504': [CATALOG_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Variantes activas o producto simple sin variantes
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductVariantsResponse'
+              examples:
+                productoSimple:
+                  summary: Producto sin variantes
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      hasVariants: false
+                      attributes: []
+                      variants: []
+                productoVariable:
+                  summary: Producto con color y talla
+                  value:
+                    data:
+                      productId: PRD-VAR-MOCK-001
+                      hasVariants: true
+                      attributes:
+                        - id: color
+                          label: Color
+                          values:
+                            - id: negro
+                              label: Negro
+                            - id: blanco
+                              label: Blanco
+                        - id: size
+                          label: Talla
+                          values:
+                            - id: '42'
+                              label: '42'
+                            - id: '43'
+                              label: '43'
+                      variants:
+                        - variantId: VAR-MOCK-1
+                          sku: SKU-MOCK-VAR-1
+                          status: ACTIVE
+                          attributes:
+                            color: negro
+                            size: '42'
+                          image:
+                            url: https://placehold.co/600x400?text=AERO-NEGRO-42
+                            alt: Zapatilla negro talla 42
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '502':
+          $ref: '#/components/responses/VariantsInvalidResponse'
+        '503':
+          $ref: '#/components/responses/VariantsUnavailable'
+        '504':
+          $ref: '#/components/responses/VariantsTimeout'
+  /api/v1/catalog/products/{slug}/availability:
+    get:
+      operationId: getProductAvailability
+      tags: [Comercial]
+      summary: Consultar la disponibilidad comercial del producto o SKU
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+        - $ref: '#/components/parameters/OptionalSku'
+      x-traceability:
+        feature: F-014
+        implementation: 'ProductAvailabilityController.getAvailability -> ProductAvailabilityService.getAvailability'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Para productos con variantes exige sku y valida que pertenezca al
+          producto. Sólo publica AVAILABLE, STOCK_LOW y OUT_OF_STOCK. No expone
+          cantidades, onHand, reserved ni ubicaciones. Un error de inventario se
+          publica como 502/503/504 y nunca como OUT_OF_STOCK. UNDETERMINED queda
+          pendiente de homologación G-G6-COMPAT.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '409': [PRODUCT_VARIANT_SELECTION_REQUIRED, SKU_NOT_BELONG_TO_PRODUCT]
+          '502': [INVENTORY_INVALID_RESPONSE]
+          '503': [INVENTORY_UNAVAILABLE]
+          '504': [INVENTORY_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Estado comercial sin saldos ni ubicaciones
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+            Cache-Control:
+              description: Caché corta de la lectura de disponibilidad
+              schema:
+                type: string
+                example: public, max-age=30
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAvailabilityResponse'
+              examples:
+                disponible:
+                  summary: Producto simple disponible
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      sku: SKU-MOCK-001
+                      availability: AVAILABLE
+                      checkedAt: '2026-11-04T12:00:00.000Z'
+                stockBajo:
+                  summary: Variante con stock bajo
+                  value:
+                    data:
+                      productId: PRD-VAR-MOCK-001
+                      sku: SKU-MOCK-VAR-2
+                      availability: STOCK_LOW
+                      checkedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/AvailabilityInvalidResponse'
+        '503':
+          $ref: '#/components/responses/AvailabilityUnavailable'
+        '504':
+          $ref: '#/components/responses/AvailabilityTimeout'
+  /api/v1/catalog/products/{slug}/recommendations:
+    get:
+      operationId: getProductRecommendations
+      tags: [Comercial]
+      summary: Listar productos relacionados completos y deduplicados
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-015
+        implementation: 'ProductRecommendationsController.getRecommendations -> ProductRecommendationsService.getRecommendations'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Región no crítica: devuelve como máximo 8 tarjetas completas, activas
+          y deduplicadas, sin el producto de origen. Un candidato incompleto se
+          omite y un fallo técnico se degrada a 200 con arreglo vacío. Sólo un
+          slug fuera del patrón canónico responde 400.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Tarjetas relacionadas o arreglo vacío por ausencia o degradación
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationsResponse'
+              examples:
+                conRelacionados:
+                  summary: Cuatro tarjetas relacionadas
+                  value:
+                    data:
+                      - productId: mock-product-1
+                        slug: producto-demostracion-1
+                        name: Zapatillas de running 01
+                        image:
+                          url: https://placehold.co/600x400?text=1A
+                          alt: Zapatillas de running 01 [MOCK]
+                        type: CROSS_SELL
+                        price:
+                          amount: 89.9
+                          currency: PEN
+                        presentationOrder: 1
+                      - productId: mock-product-2
+                        slug: producto-demostracion-2
+                        name: Polo de entrenamiento 02
+                        image:
+                          url: https://placehold.co/600x400?text=2A
+                          alt: Polo de entrenamiento 02 [MOCK]
+                        type: UPSELL
+                        price: null
+                        presentationOrder: 2
+                    meta:
+                      sourceProductId: PRD-MOCK-001
+                sinRelacionados:
+                  summary: Degradación válida a arreglo vacío
+                  value:
+                    data: []
+                    meta:
+                      sourceProductId: PRD-MOCK-NONE
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+components:
+  headers:
+    XRequestId:
+      description: Identificador de correlación generado o conservado por el BFF.
+      schema:
+        type: string
+        minLength: 1
+    XCatalogSource:
+      description: Origen de la respuesta de catálogo.
+      schema:
+        type: string
+        enum: [MOCK, REAL]
+  parameters:
+    ProductSlug:
+      name: slug
+      in: path
+      required: true
+      description: Slug canónico del producto (1 a 120 caracteres).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      example: zapatillas-running-aero-x
+    OptionalSku:
+      name: sku
+      in: query
+      required: false
+      description: >-
+        SKU vendible. Es obligatorio para productos con variantes y, si se
+        envía, debe pertenecer al producto.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+      example: SKU-MOCK-001
+  schemas:
+    ProductDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductDetail'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [source, retrievedAt]
+          properties:
+            source:
+              type: string
+              enum: [MOCK, PRODUCTS_OFFERS]
+              description: MOCK identifica datos de demostración; PRODUCTS_OFFERS es la fuente real post I-01.
+            retrievedAt:
+              type: string
+              format: date-time
+    ProductDetail:
+      type: object
+      additionalProperties: false
+      required: [productId, slug, name, brand, technicalSpecifications, media]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        brand:
+          $ref: '#/components/schemas/ProductBrand'
+        description:
+          type: string
+          maxLength: 10000
+        technicalSpecifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/TechnicalSpecification'
+        media:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProductMedia'
+    ProductBrand:
+      type: object
+      additionalProperties: false
+      required: [brandId, name]
+      properties:
+        brandId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    TechnicalSpecification:
+      type: object
+      additionalProperties: false
+      required: [name, value, displayOrder]
+      properties:
+        group:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+          minimum: 0
+    ProductMedia:
+      type: object
+      additionalProperties: false
+      required: [mediaId, type, url, alt, displayOrder]
+      properties:
+        mediaId:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [IMAGE]
+        url:
+          type: string
+          format: uri
+          pattern: '^https://\S+$'
+        alt:
+          type: string
+          minLength: 1
+        displayOrder:
+          type: integer
+          minimum: 0
+    ProductPriceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductPrice'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [channel, retrievedAt]
+          properties:
+            channel:
+              type: string
+              enum: [MARKETPLACE]
+            retrievedAt:
+              type: string
+              format: date-time
+    ProductPrice:
+      type: object
+      additionalProperties: false
+      required: [productId, sku, price]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        price:
+          $ref: '#/components/schemas/Price'
+    Price:
+      type: object
+      additionalProperties: false
+      required: [regularAmount, saleAmount, currency, discountPercent, validFrom, validUntil, priceVersion]
+      properties:
+        regularAmount:
+          type: number
+          minimum: 0.01
+        saleAmount:
+          type: number
+          minimum: 0.01
+          nullable: true
+          description: Debe ser menor que regularAmount cuando no es null.
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Derivado por el BFF como round((regularAmount - saleAmount) / regularAmount * 100).
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: No puede ser anterior a validFrom cuando no es null.
+        priceVersion:
+          type: integer
+          minimum: 0
+    ProductVariantsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductVariants'
+    ProductVariants:
+      type: object
+      additionalProperties: false
+      required: [productId, hasVariants, attributes, variants]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        hasVariants:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariantAttribute'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+      description: >-
+        Si hasVariants=false, attributes y variants deben ser arreglos vacíos.
+        Si hasVariants=true, ambos deben tener al menos un elemento.
+    VariantAttribute:
+      type: object
+      additionalProperties: false
+      required: [id, label, values]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        label:
+          type: string
+          minLength: 1
+        values:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VariantAttributeValue'
+    VariantAttributeValue:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        label:
+          type: string
+          minLength: 1
+    ProductVariant:
+      type: object
+      additionalProperties: false
+      required: [variantId, sku, status, attributes, image]
+      properties:
+        variantId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [ACTIVE]
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+            minLength: 1
+        image:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [url, alt]
+          properties:
+            url:
+              type: string
+              format: uri
+              pattern: '^https://\S+$'
+            alt:
+              type: string
+              minLength: 1
+    ProductAvailabilityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductAvailability'
+    ProductAvailability:
+      type: object
+      additionalProperties: false
+      required: [productId, sku, availability, checkedAt]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        availability:
+          type: string
+          enum: [AVAILABLE, STOCK_LOW, OUT_OF_STOCK]
+          description: >-
+            UNDETERMINED no forma parte de v1 mientras G-G6-COMPAT no esté
+            homologado. Un error externo nunca se convierte en OUT_OF_STOCK.
+        checkedAt:
+          type: string
+          format: date-time
+    RecommendationsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/RecommendationCard'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [sourceProductId]
+          properties:
+            sourceProductId:
+              type: string
+              minLength: 1
+    RecommendationCard:
+      type: object
+      additionalProperties: false
+      required: [productId, slug, name, image, type, price, presentationOrder]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        name:
+          type: string
+          minLength: 1
+        image:
+          $ref: '#/components/schemas/RecommendationImage'
+        type:
+          type: string
+          enum: [CROSS_SELL, UPSELL]
+        price:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [amount, currency]
+          properties:
+            amount:
+              type: number
+              minimum: 0.01
+            currency:
+              type: string
+              pattern: '^[A-Z]{3}$'
+        presentationOrder:
+          type: integer
+          minimum: 0
+    RecommendationImage:
+      type: object
+      additionalProperties: false
+      required: [url, alt]
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: '^https://\S+$'
+        alt:
+          type: string
+          minLength: 1
+    ProblemDetails:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, instance, requestId]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          minLength: 1
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          minLength: 1
+          description: Código estable del contrato; nunca un código interno del proveedor.
+        detail:
+          type: string
+          description: Mensaje propio de Marketplace; nunca datos del proveedor.
+        instance:
+          type: string
+          minLength: 1
+        requestId:
+          type: string
+          minLength: 1
+  responses:
+    InvalidProductSlug:
+      description: 400 INVALID_PRODUCT_SLUG — el slug no cumple el patrón canónico
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            slugInvalido:
+              value:
+                type: https://marketplace.example.com/problems/invalid-product-slug
+                title: El slug no cumple el formato definido.
+                status: 400
+                code: INVALID_PRODUCT_SLUG
+                instance: /api/v1/catalog/products/SLUG_INVALIDO!
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductNotFound:
+      description: 404 PRODUCT_NOT_AVAILABLE — producto inexistente, inactivo o no elegible
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            noDisponible:
+              value:
+                type: https://marketplace.example.com/problems/product-not-available
+                title: Producto no disponible
+                status: 404
+                code: PRODUCT_NOT_AVAILABLE
+                instance: /api/v1/catalog/products/producto-no-existente-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    Conflict:
+      description: 409 — selección de variante requerida o SKU ajeno al producto
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            seleccionRequerida:
+              value:
+                type: https://marketplace.example.com/problems/product-variant-selection-required
+                title: Selecciona una variante antes de consultar el precio.
+                status: 409
+                code: PRODUCT_VARIANT_SELECTION_REQUIRED
+                instance: /api/v1/catalog/products/producto-variable-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+            skuAjeno:
+              value:
+                type: https://marketplace.example.com/problems/sku-not-belong-to-product
+                title: El SKU no corresponde a este producto.
+                status: 409
+                code: SKU_NOT_BELONG_TO_PRODUCT
+                instance: /api/v1/catalog/products/producto-variable-mock/price?sku=SKU-MOCK-001
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceNotAvailable:
+      description: 422 PRICE_NOT_AVAILABLE — no hay precio comercial vigente para el SKU
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            sinPrecio:
+              value:
+                type: https://marketplace.example.com/problems/price-not-available
+                title: Precio no disponible por el momento.
+                status: 422
+                code: PRICE_NOT_AVAILABLE
+                instance: /api/v1/catalog/products/producto-variable-mock/price?sku=SKU-MOCK-VAR-3
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailInvalidResponse:
+      description: 502 PRODUCT_CATALOG_INVALID_RESPONSE — ficha fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            fichaInvalida:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-invalid-response
+                title: Respuesta inválida del catálogo.
+                status: 502
+                code: PRODUCT_CATALOG_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/zapatillas-running-aero-x
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailUnavailable:
+      description: 503 PRODUCT_CATALOG_UNAVAILABLE — no se obtuvo una ficha utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-unavailable
+                title: El catálogo no está disponible.
+                status: 503
+                code: PRODUCT_CATALOG_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailTimeout:
+      description: 504 PRODUCT_CATALOG_TIMEOUT — el origen agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoLento:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-timeout
+                title: El catálogo tardó demasiado en responder.
+                status: 504
+                code: PRODUCT_CATALOG_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceInvalidResponse:
+      description: 502 PRICING_INVALID_RESPONSE — importes, moneda o vigencia inválidos
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            precioInvalido:
+              value:
+                type: https://marketplace.example.com/problems/pricing-invalid-response
+                title: La respuesta de precios no es válida.
+                status: 502
+                code: PRICING_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceUnavailable:
+      description: 503 PRICING_UNAVAILABLE — no se obtuvo una respuesta de precios utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            preciosNoDisponibles:
+              value:
+                type: https://marketplace.example.com/problems/pricing-unavailable
+                title: El servicio de precios no está disponible.
+                status: 503
+                code: PRICING_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceTimeout:
+      description: 504 PRICING_TIMEOUT — el servicio de precios agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            preciosLentos:
+              value:
+                type: https://marketplace.example.com/problems/pricing-timeout
+                title: El servicio de precios tardó demasiado en responder.
+                status: 504
+                code: PRICING_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsInvalidResponse:
+      description: 502 CATALOG_INVALID_RESPONSE — variantes fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            variantesInvalidas:
+              value:
+                type: https://marketplace.example.com/problems/catalog-invalid-response
+                title: La respuesta de variantes no es válida.
+                status: 502
+                code: CATALOG_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsUnavailable:
+      description: 503 CATALOG_UNAVAILABLE — no se obtuvo una respuesta de variantes utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/catalog-unavailable
+                title: El catálogo no está disponible.
+                status: 503
+                code: CATALOG_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsTimeout:
+      description: 504 CATALOG_TIMEOUT — el catálogo agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoLento:
+              value:
+                type: https://marketplace.example.com/problems/catalog-timeout
+                title: El catálogo tardó demasiado en responder.
+                status: 504
+                code: CATALOG_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityInvalidResponse:
+      description: 502 INVENTORY_INVALID_RESPONSE — disponibilidad fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioInvalido:
+              value:
+                type: https://marketplace.example.com/problems/inventory-invalid-response
+                title: La respuesta de inventario no es válida.
+                status: 502
+                code: INVENTORY_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityUnavailable:
+      description: 503 INVENTORY_UNAVAILABLE — no se obtuvo una disponibilidad utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/inventory-unavailable
+                title: El inventario no está disponible.
+                status: 503
+                code: INVENTORY_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityTimeout:
+      description: 504 INVENTORY_TIMEOUT — inventario agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioLento:
+              value:
+                type: https://marketplace.example.com/problems/inventory-timeout
+                title: El inventario tardó demasiado en responder.
+                status: 504
+                code: INVENTORY_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85

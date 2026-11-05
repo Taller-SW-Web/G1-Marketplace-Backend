@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.0.1...v1.1.0) (2026-11-05)
+
+### Features
+
+* **catalog:** endpoints comerciales F-011 a F-015 y contrato OpenAPI en modo MOCK ([f24741f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/f24741faa00d71bf72d20d67c5596920f5fb598c))
+
 ## [1.0.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.0.0...v1.0.1) (2026-11-04)
 
 ### Bug Fixes
