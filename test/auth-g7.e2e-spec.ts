@@ -13,6 +13,8 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { configureApp } from '../src/http/configure-app';
 import { WishlistModule } from '../src/wishlist/wishlist.module';
 import { WishlistCatalog } from '../src/catalog/wishlist-catalog';
+import { ProductEligibilityPort } from '../src/catalog/product-eligibility';
+import { ApiError } from '../src/http/api-error';
 
 // This suite deletes only its explicitly named disposable local database rows.
 // Both G7 and product projections below are fixtures, not external integration evidence.
@@ -29,6 +31,8 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
   const serviceCredential = randomBytes(32).toString('base64url');
   const serviceBearer = randomBytes(32).toString('base64url');
   let introspectionInactive = false; let introspectionFails = false;
+  // G6 is controlled independently; human identity always uses Jim's G7 session/RS256 guard.
+  const eligibility = jest.fn<Promise<boolean>, [string]>();
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const jwk = { ...publicKey.export({ format: 'jwk' }), alg: 'RS256', use: 'sig', kid: 'fixture-g7-h4' };
   function tokens(id: string) {
@@ -111,12 +115,14 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
         AUTH_JWKS_URL: `${issuer}/.well-known/jwks.json`, AUTH_SESSION_KEY: randomBytes(32).toString('base64'),
         G1_WEB_ORIGIN: origin, HTTP_TIMEOUT_MS: 500, CORS_ORIGINS: [origin], H3_SANDBOX_ENABLED: false,
         G7_INTROSPECTION_ENABLED: 'false', G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: serviceCredential })] }), AuthModule, WishlistModule] })
+      .overrideProvider(ProductEligibilityPort).useValue({ isActive: eligibility })
       .overrideProvider(WishlistCatalog).useValue({ project: async (id: string) => ({ name: id, slug: 'fixture-product',
         brand: 'Fixture', image: null, price: null, availability: 'AVAILABLE' }) }).compile();
     app = module.createNestApplication(); configureApp(app); await app.init();
     prisma = app.get(PrismaService); store = app.get(SessionStore);
   });
   beforeEach(async () => {
+    eligibility.mockReset().mockResolvedValue(true);
     refreshCalls = 0; logoutCalls = 0; logoutFails = false; refreshFails = false; sessionRole = 'CLIENTE';
     introspectionInactive = false; introspectionFails = false;
     app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'false');
@@ -197,6 +203,94 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     expect(await prisma.wishlistItem.count({ where: { customerId: A } })).toBe(1);
     const bearer = tokens(A).accessToken;
     await request(app.getHttpServer()).get('/api/v1/wishlist').set('Authorization', `Bearer ${bearer}`).expect(200);
+  });
+  it('F-036 saves through the opaque G7 session with 201/200, stable timestamps and independent A/B rows', async () => {
+    const a = cookie(await login().expect(200));
+    const b = cookie(await login('b@fixture.test').expect(200));
+    const save = (value: string, status: number) => request(app.getHttpServer()).post('/api/v1/wishlist/items')
+      .set('Cookie', value).set('Origin', origin).send({ productId: 'PRD-1' }).expect(status).expect({ productId: 'PRD-1' });
+    await save(a, 201);
+    const first = await prisma.wishlistItem.findUniqueOrThrow({ where: { customerId_productId: { customerId: A, productId: 'PRD-1' } } });
+    await save(a, 200); await save(b, 201);
+    const repeated = await prisma.wishlistItem.findUniqueOrThrow({ where: { id: first.id } });
+    expect(repeated.createdAt).toEqual(first.createdAt);
+    expect(await prisma.wishlistItem.findMany({ orderBy: { customerId: 'asc' }, select: { customerId: true, productId: true } }))
+      .toEqual([{ customerId: A, productId: 'PRD-1' }, { customerId: B, productId: 'PRD-1' }]);
+    expect(app.get(ConfigService).get('H3_SANDBOX_ENABLED')).toBe(false);
+    expect(refreshCalls).toBe(0);
+  });
+  it('F-036 rejects anonymous and MFA-only requests, then saves only after the shared OTP flow succeeds', async () => {
+    const path = '/api/v1/wishlist/items';
+    await request(app.getHttpServer()).post(path).set('Origin', origin).send({ productId: 'PRD-1' }).expect(401);
+    const challenge = cookie(await login('mfa@fixture.test').expect(200), 'g1_challenge');
+    await request(app.getHttpServer()).post(path).set('Cookie', challenge).set('Origin', origin).send({ productId: 'PRD-1' }).expect(401);
+    expect(eligibility).not.toHaveBeenCalled(); expect(await prisma.wishlistItem.count()).toBe(0);
+    const verified = await request(app.getHttpServer()).post('/api/v1/auth/otp/verificar')
+      .set('Cookie', challenge).set('Origin', origin).send({ codigo: '123456' }).expect(200);
+    await request(app.getHttpServer()).post(path).set('Cookie', cookie(verified)).set('Origin', origin)
+      .send({ productId: 'PRD-1' }).expect(201);
+    expect((await prisma.wishlistItem.findFirstOrThrow()).customerId).toBe(A);
+  });
+  it('F-036 rejects expired and logged-out sessions without reaching G6 or persistence', async () => {
+    const path = '/api/v1/wishlist/items';
+    const expired = cookie(await login().expect(200));
+    await prisma.authSession.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    await request(app.getHttpServer()).post(path).set('Cookie', expired).set('Origin', origin).send({ productId: 'PRD-1' }).expect(401);
+    const closed = cookie(await login().expect(200));
+    await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', closed).set('Origin', origin).send({}).expect(200);
+    await request(app.getHttpServer()).post(path).set('Cookie', closed).set('Origin', origin).send({ productId: 'PRD-1' }).expect(401);
+    expect(eligibility).not.toHaveBeenCalled(); expect(await prisma.wishlistItem.count()).toBe(0);
+  });
+  it('F-036 renews an expired access token through the shared session and retains the owner', async () => {
+    const value = cookie(await login('b@fixture.test').expect(200)); await expireAccess(value);
+    const save = () => request(app.getHttpServer()).post('/api/v1/wishlist/items').set('Cookie', value)
+      .set('Origin', origin).send({ productId: 'PRD-1' });
+    await save().expect(201); await save().expect(200);
+    expect(refreshCalls).toBe(1);
+    expect(await prisma.wishlistItem.count()).toBe(1);
+    expect((await prisma.wishlistItem.findFirstOrThrow()).customerId).toBe(B);
+  });
+  it('F-036 fails closed on an uncertain refresh without saving or replaying the one-use refresh', async () => {
+    const value = cookie(await login().expect(200)); await expireAccess(value); refreshFails = 'timeout';
+    const save = () => request(app.getHttpServer()).post('/api/v1/wishlist/items').set('Cookie', value)
+      .set('Origin', origin).send({ productId: 'PRD-1' });
+    await save().expect(503); await save().expect(401);
+    expect(refreshCalls).toBe(1); expect(eligibility).not.toHaveBeenCalled();
+    expect(await prisma.wishlistItem.count()).toBe(0); expect(await prisma.authSession.count()).toBe(0);
+  });
+  it('F-036 rejects client owner selection, forged bearer overrides and CSRF before eligibility', async () => {
+    const value = cookie(await login().expect(200));
+    const path = '/api/v1/wishlist/items';
+    await request(app.getHttpServer()).post(path).set('Cookie', value).set('Origin', origin)
+      .send({ productId: 'PRD-1', customerId: B }).expect(400);
+    await request(app.getHttpServer()).post(`${path}?customerId=${B}`).set('Cookie', value).set('Origin', origin)
+      .send({ productId: 'PRD-1' }).expect(400);
+    await request(app.getHttpServer()).post(path).set('Cookie', value).set('Origin', origin).set('Authorization', 'Bearer forged')
+      .send({ productId: 'PRD-1' }).expect(401);
+    for (const badOrigin of ['', 'https://evil.test']) {
+      await request(app.getHttpServer()).post(path).set('Cookie', value).set('Origin', badOrigin).send({ productId: 'PRD-1' }).expect(403);
+    }
+    expect(eligibility).not.toHaveBeenCalled(); expect(await prisma.wishlistItem.count()).toBe(0);
+  });
+  it('F-036 rejects revoked or unavailable G7 introspection before a favorite can be saved', async () => {
+    app.get(ConfigService).set('G7_INTROSPECTION_ENABLED', 'true');
+    const value = cookie(await login().expect(200));
+    const save = () => request(app.getHttpServer()).post('/api/v1/wishlist/items').set('Cookie', value)
+      .set('Origin', origin).send({ productId: 'PRD-1' });
+    introspectionFails = true; await save().expect(503);
+    expect(await prisma.authSession.count()).toBe(1);
+    introspectionFails = false; introspectionInactive = true; await save().expect(401);
+    expect(eligibility).not.toHaveBeenCalled(); expect(await prisma.wishlistItem.count()).toBe(0);
+  });
+  it('F-036 preserves the authenticated session during a G6 failure and saves after eligibility recovers', async () => {
+    const value = cookie(await login().expect(200));
+    const save = () => request(app.getHttpServer()).post('/api/v1/wishlist/items').set('Cookie', value)
+      .set('Origin', origin).send({ productId: 'PRD-1' });
+    eligibility.mockRejectedValueOnce(new ApiError(503, 'CATALOG_UNAVAILABLE', 'Catálogo no disponible'));
+    await save().expect(503); expect(await prisma.wishlistItem.count()).toBe(0);
+    const session = await request(app.getHttpServer()).get('/api/v1/auth/session').set('Cookie', value).expect(200);
+    expect(session.body.user.id).toBe(A);
+    await save().expect(201); expect(refreshCalls).toBe(0);
   });
   it('enforces CSRF and rejects token injection in bodies', async () => {
     await request(app.getHttpServer()).post('/api/v1/auth/login').send({ correo: 'a@fixture.test', contrasena: 'Fixture-only!123' }).expect(403);
