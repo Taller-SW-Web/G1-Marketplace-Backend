@@ -65,15 +65,16 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     owner = SANDBOX_CUSTOMERS.A; providerStatus = 201; providerCode = ''; malformed = false; timeout = false;
     mutationTimeout = false; orderStatus = 200;
     sent = []; tokenSeen = undefined; jest.clearAllMocks(); });
-  const submit = (body: object = { sentiment: 'GOOD', reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, id?: string) =>
-    request(app.getHttpServer()).post(endpoint).auth(token(id), { type: 'bearer' }).send(body);
+  const submit = (body: object = { sentiment: 'GOOD', reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, id?: string,
+    accessToken = token(id)) => request(app.getHttpServer()).post(endpoint).auth(accessToken, { type: 'bearer' }).send(body);
 
   it.each([['GOOD', 5], ['REGULAR', 3], ['BAD', 1]])('maps %s to %s with verified owner and no second CSAT table', async (sentiment, score) => {
-    const response = await submit({ sentiment, reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }).expect(201);
+    const accessToken = token();
+    const response = await submit({ sentiment, reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, undefined, accessToken).expect(201);
     expect(response.headers['cache-control']).toContain('no-store');
     expect(sent).toEqual([{ pedidoId: orderId, clienteId: SANDBOX_CUSTOMERS.A, canal: 'MARKETPLACE',
       puntuacion: score, comentario: 'Motivos: [ENTREGA_RAPIDA] - Excelente' }]);
-    expect(tokenSeen).toBe(`Bearer ${token()}`);
+    expect(tokenSeen).toBe(`Bearer ${accessToken}`);
     expect(promptState).toBe('SUBMITTED');
     await submit().expect(409); expect(sent).toHaveLength(1);
   });
