@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Marketplace Product Detail BFF — H4 (F-011–F-015)
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     Contrato versionado del BFF de detalle y región comercial de la ficha de
     producto (F-011 a F-015). Describe lo implementado en src/catalog sobre la
@@ -21,7 +21,7 @@ info:
   x-known-gaps:
     - 'F-011: ETag/If-None-Match y 304 no están implementados en este corte; el contrato publica sólo 200 y errores.'
     - 'F-012/F-014: el modo REAL no se activa hasta cerrar I-01; en modo no-MOCK los servicios responden 503 normalizado.'
-    - 'F-014: UNDETERMINED (INDETERMINADO en G6) queda pendiente de homologación bilateral G-G6-COMPAT y no forma parte de v1.'
+    - 'F-014: UNDETERMINED implementado en MOCK conforme M01; el mapper G6 no activa transporte REAL ni acredita integración.'
   x-g6-compatibility:
     catalog:
       status: implemented-mock-only
@@ -31,13 +31,13 @@ info:
       behavior: El BFF deriva discountPercent de regularAmount y saleAmount; no inventa ofertas ni descuentos.
     inventory:
       status: implemented-mock-only
-      behavior: Sólo publica AVAILABLE, STOCK_LOW y OUT_OF_STOCK. Un error externo nunca se traduce a OUT_OF_STOCK.
+      behavior: Publica AVAILABLE, STOCK_LOW, OUT_OF_STOCK y UNDETERMINED. Un error externo nunca se traduce a OUT_OF_STOCK.
     recommendations:
       status: implemented-mock-only
       behavior: Máximo 8 tarjetas completas, sin duplicados y sin el producto de origen; un fallo técnico se degrada a 200 con arreglo vacío.
     G-G6-COMPAT:
       status: pending-real-provider-contract-and-sanitized-integration-evidence
-      behavior: La disponibilidad indeterminada requiere aprobación de las specs de G1 y conformidad documentada de G6 antes de ampliar v1.
+      behavior: Cuatro estados preparados conforme M01. Pendientes transporte REAL, grants y evidencia de integración desplegada.
 servers:
   - url: http://localhost:10000
     description: Desarrollo local
@@ -316,10 +316,10 @@ paths:
         authentication: 'Pública; no requiere Authorization.'
         behavior: >-
           Para productos con variantes exige sku y valida que pertenezca al
-          producto. Sólo publica AVAILABLE, STOCK_LOW y OUT_OF_STOCK. No expone
+          producto. Publica AVAILABLE, STOCK_LOW, OUT_OF_STOCK y UNDETERMINED. No expone
           cantidades, onHand, reserved ni ubicaciones. Un error de inventario se
-          publica como 502/503/504 y nunca como OUT_OF_STOCK. UNDETERMINED queda
-          pendiente de homologación G-G6-COMPAT.
+          publica como 502/503/504 y nunca como OUT_OF_STOCK ni UNDETERMINED.
+          UNDETERMINED es una respuesta comercial válida con 200, sin compra.
         errorCodes:
           '400': [INVALID_PRODUCT_SLUG]
           '404': [PRODUCT_NOT_AVAILABLE]
@@ -753,10 +753,10 @@ components:
           minLength: 1
         availability:
           type: string
-          enum: [AVAILABLE, STOCK_LOW, OUT_OF_STOCK]
+          enum: [AVAILABLE, STOCK_LOW, OUT_OF_STOCK, UNDETERMINED]
           description: >-
-            UNDETERMINED no forma parte de v1 mientras G-G6-COMPAT no esté
-            homologado. Un error externo nunca se convierte en OUT_OF_STOCK.
+            UNDETERMINED indica disponibilidad por confirmar, con reintento y sin
+            compra. Un error externo nunca se convierte en estado comercial.
         checkedAt:
           type: string
           format: date-time
