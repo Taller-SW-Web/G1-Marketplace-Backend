@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.3.0...v1.4.0) (2026-11-05)
+
+### Features
+
+* **f014:** disponibilidad indeterminada y contrato OpenAPI coherente ([bc6fd4d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bc6fd4de27142d0ef59bf3dbabf804e69434c9e6))
+
 ## [1.3.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.2.0...v1.3.0) (2026-11-05)
 
 ### Features
