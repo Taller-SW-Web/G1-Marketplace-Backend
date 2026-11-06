@@ -10,7 +10,7 @@
  *   503 CATALOG_UNAVAILABLE
  *   504 CATALOG_TIMEOUT
  *
- * ⚠️ MOCK — H3/H4: respuestas desde fixtures hasta cerrar I-01.
+ * MOCK conserva fixtures; REAL explícito proyecta el detalle comercial G6.
  *
  * @see SPECS/contrato-api/F-013-seleccion-atributos-variante.md
  */
@@ -19,6 +19,7 @@ import {
   Controller,
   Get,
   Param,
+  Req,
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
@@ -39,6 +40,7 @@ export class ProductVariantsController {
   @Get(':slug/variants')
   async getBySlug(
     @Param('slug') slug: string,
+    @Req() request?: { requestId?: string },
   ): Promise<ProductVariantsResponseDTO> {
     const validation = validateProductSlug(slug);
     if (!validation.valid) {
@@ -50,7 +52,7 @@ export class ProductVariantsController {
     }
 
     try {
-      return await this.productVariants.getBySlug(slug);
+      return await this.productVariants.getBySlug(slug, request?.requestId);
     } catch (error) {
       if (error instanceof BffCatalogException) throw error;
       console.error('[BFF Catalog] Error inesperado en getBySlug (variants)');

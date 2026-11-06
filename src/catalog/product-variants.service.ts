@@ -4,15 +4,15 @@
  * Responsabilidades:
  *   - En modo MOCK: devolver las variantes fixture del slug.
  *   - Filtrar variantes no activas antes de validar el contrato.
- *   - En modo REAL (post I-01): adaptar `EXT-OUT-CAT-02` y no exponer stock ni
- *     precio.
- *
- * ⚠️ MOCK — Mientras I-01 esté bloqueado sólo se sirven fixtures.
+ *   - En modo REAL explícito: reutilizar el detalle comercial G6 para F-013,
+ *     validando etiquetas/combinaciones sin exponer stock ni precio.
  *
  * @see SPECS/contrato-api/F-013-seleccion-atributos-variante.md
  */
 
 import { Injectable } from '@nestjs/common';
+import { createG6Client, G6_CLIENT_CONFIG_KEYS } from './g6-client';
+import { realProductVariants } from './product-variants.real';
 import { BffCatalogException } from './bff-catalog.exception';
 import type { ProductVariantDTO } from './product-variants.dto';
 import {
@@ -57,21 +57,26 @@ const isActiveVariant = (
 
 @Injectable()
 export class ProductVariantsService {
+  private realClient?: { values: Array<string | undefined>; client: ReturnType<typeof createG6Client> };
+
+  private configuredClient() {
+    const values = G6_CLIENT_CONFIG_KEYS.map(key => process.env[key]);
+    if (this.realClient && this.realClient.values.every((value, index) => value === values[index])) return this.realClient.client;
+    const client = createG6Client(process.env, fetch);
+    this.realClient = { values, client };
+    return client;
+  }
   /**
    * Obtiene atributos y variantes activas de un producto.
    *
    * @param slug - Slug ya validado por el controlador
    * @throws {BffCatalogException} 404, 502, 503 o 504 según contrato
    */
-  async getBySlug(slug: string): Promise<ProductVariantsResponseDTO> {
+  async getBySlug(slug: string, requestId?: string): Promise<ProductVariantsResponseDTO> {
     const bffMode = process.env.BFF_MODE ?? 'mock';
-    if (bffMode !== 'mock') {
-      throw new BffCatalogException(
-        503,
-        VARIANT_ERROR_CODES.CATALOG_UNAVAILABLE,
-        'I-01 gate not closed — catalog integration unavailable',
-      );
-    }
+    if (process.env.CATALOG_SOURCE === 'real' ||
+        ['public-read-only', 'client-credentials'].includes(process.env.PRODUCTOS_AUTH_MODE ?? '') || bffMode !== 'mock')
+      return realProductVariants(slug, process.env, fetch, requestId, () => this.configuredClient());
 
     await simulateLatency();
 
