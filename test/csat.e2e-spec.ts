@@ -107,6 +107,34 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     await submit({ sentiment: 'REGULAR' }).expect(201);
     expect(sent[0]).toMatchObject({ puntuacion: 3, comentario: '' });
   });
+  it('treats HTML-like comments as inert provider text, never reflects them and stores no rating locally', async () => {
+    const untrusted = '<img src=x onerror=alert(1)> persona@example.test';
+    const response = await submit({ sentiment: 'BAD', reasons: ['RETRASO'], comment: untrusted }).expect(201);
+    expect(response.text).toBe('');
+    expect(JSON.stringify(response.headers)).not.toContain(untrusted);
+    expect(sent).toEqual([{ pedidoId: orderId, clienteId: SANDBOX_CUSTOMERS.A, canal: 'MARKETPLACE', puntuacion: 1,
+      comentario: `Motivos: [RETRASO] - ${untrusted}` }]);
+    expect(update).toHaveBeenCalledWith({
+      where: { customerId: SANDBOX_CUSTOMERS.A, externalOrderId: orderId, state: { not: 'SUBMITTED' } },
+      data: { state: 'SUBMITTED', submittedAt: expect.any(Date), dismissedAt: null },
+    });
+    expect(JSON.stringify(update.mock.calls)).not.toContain(untrusted);
+    expect(JSON.stringify(update.mock.calls)).not.toContain('puntuacion');
+  });
+  it('treats HTML-like comments as inert provider text, never reflects them and stores no rating locally', async () => {
+    const untrusted = '<img src=x onerror=alert(1)> persona@example.test';
+    const response = await submit({ sentiment: 'BAD', reasons: ['RETRASO'], comment: untrusted }).expect(201);
+    expect(response.text).toBe('');
+    expect(JSON.stringify(response.headers)).not.toContain(untrusted);
+    expect(sent).toEqual([{ pedidoId: orderId, clienteId: SANDBOX_CUSTOMERS.A, canal: 'MARKETPLACE', puntuacion: 1,
+      comentario: `Motivos: [RETRASO] - ${untrusted}` }]);
+    expect(update).toHaveBeenCalledWith({
+      where: { customerId: SANDBOX_CUSTOMERS.A, externalOrderId: orderId, state: { not: 'SUBMITTED' } },
+      data: { state: 'SUBMITTED', submittedAt: expect.any(Date), dismissedAt: null },
+    });
+    expect(JSON.stringify(update.mock.calls)).not.toContain(untrusted);
+    expect(JSON.stringify(update.mock.calls)).not.toContain('puntuacion');
+  });
   it('reconciles a canonical provider duplicate, but never an arbitrary conflict', async () => {
     providerStatus = 409; providerCode = 'UNKNOWN_CONFLICT'; await submit().expect(503);
     expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
