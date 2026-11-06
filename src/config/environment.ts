@@ -69,6 +69,10 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
       throw new Error('AUTH_SESSION_KEY requires 32 random bytes encoded as base64');
     }
   }
+  if (config.PRODUCTOS_AUTH_MODE === 'public-read-only' &&
+      (config.CATALOG_SOURCE !== 'real' || config.BFF_MODE !== 'real' || config.CATALOG_INTEGRATION_APPROVED !== 'true')) {
+    throw new Error('public-read-only requires explicit REAL catalog/detail and integration approval');
+  }
   const useMocks = String(config.USE_MOCKS ?? 'false').toLowerCase();
   if (!['true', 'false'].includes(useMocks)) throw new Error('USE_MOCKS must be true or false');
   if (useMocks === 'true' && nodeEnv === 'production') throw new Error('USE_MOCKS cannot be enabled in production');

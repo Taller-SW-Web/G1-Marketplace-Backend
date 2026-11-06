@@ -24,12 +24,20 @@ El navegador llama a Next; Next llama a NestJS; sólo NestJS llama al origen G6.
 
 `PRODUCTOS_AUTH_MODE` se configura sólo en Backend:
 
+**Actualización H4:** existe el modo opt-in `public-read-only`, permitido en producción para las lecturas existentes mediante una lista cerrada de GET, sin Authorization ni cookies. `demo-no-auth` sigue prohibido en producción y `service-token` sigue siendo el valor predeterminado. Ver [alcance, pruebas, activación y reversión](CATALOGO-PUBLIC-READ-ONLY-H4.md). El procedimiento Docker H3 de abajo conserva su configuración local; no es una plantilla de producción.
+
 | Valor | Comportamiento |
 |---|---|
 | `service-token` (predeterminado) | Requiere `PRODUCTOS_SERVICE_TOKEN`; añade `Authorization: Bearer ...` |
+| `public-read-only` (opt-in H4) | Permitido también en producción para la lista cerrada de GET existentes; no envía Authorization/cookies ni obtiene tokens de G7 |
 | `demo-no-auth` | Opción explícita para la demo temporal anunciada por G6. No necesita token y omite Authorization, incluso si quedó una credencial antigua configurada |
+| `client-credentials` (opt-in) | Obtiene un token de servicio de G7, lo conserva solo en memoria y lo renueva antes de expirar. Requiere `G7_TOKEN_URL` y el secreto `PRODUCTOS_CLIENT_SECRET` configurado únicamente en Render |
 
-Un modo desconocido se rechaza. Ambos modos mantienen origen HTTPS, revisión contractual fijada, configuración explícita `CATALOG_INTEGRATION_APPROVED=true`, timeout, correlación y validación del DTO. Esta bandera habilita la prueba acordada; no certifica homologación bilateral ni grants.
+Un modo desconocido se rechaza. Todos los modos mantienen origen HTTPS, revisión contractual fijada, configuración explícita `CATALOG_INTEGRATION_APPROVED=true`, timeout, correlación y validación del DTO. Esta bandera habilita la prueba acordada; no certifica homologación bilateral ni grants.
+
+Para activar `client-credentials`, configurar `PRODUCTOS_AUTH_MODE=client-credentials` solo después de que G7 haya concedido el grant. El cliente está fijado como `modulo-marketplace` y solicita únicamente `catalogo:leer` mediante `POST` form-urlencoded a `G7_TOKEN_URL` (`/api/v1/auth/token`). No se envía audiencia: G7 la deriva de los scopes concedidos. Se valida que la respuesta sea Bearer, tenga una vida útil positiva y conceda `catalogo:leer`; el margen de renovación es el menor entre 60 segundos y el 10 % de la vigencia. Solicitudes de renovación simultáneas comparten una sola llamada. Si falla una renovación anticipada, puede usarse el token cacheado solo mientras siga vigente; sin token válido, el catálogo falla cerrado con 503 sanitizado, sin fallback a modo estático, público ni mocks.
+
+`PRODUCTOS_CLIENT_SECRET` es un secreto de Render; no copiar su valor a `.env`, archivos versionados, pruebas ni logs. Las pruebas usan credenciales sintéticas y un G7 falso. La prueba real con G7 queda pendiente hasta que se confirme el grant; una respuesta sin `catalogo:leer` se rechaza.
 
 401/403, 429, 503, timeout o JSON inválido producen `CATALOG_UNAVAILABLE` con 503. El diagnóstico sanitizado `PROVIDER_HTTP_503` distingue una respuesta externa de un error de configuración. Los errores de proveedor nunca cierran la sesión del visitante ni activan un fallback.
 

@@ -14,6 +14,7 @@ describe('CheckoutController (e2e)', () => {
     createAddress: jest.fn(),
     createQuote: jest.fn(),
     applyBenefit: jest.fn(),
+    prepare: jest.fn(),
     getOperation: jest.fn(),
     createOrder: jest.fn(),
   };
@@ -113,6 +114,24 @@ describe('CheckoutController (e2e)', () => {
     );
   });
 
+  it('rejects client-supplied quote amounts and lines before calling the service', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/checkout/quotes')
+      .set('Authorization', 'Bearer e2e-token')
+      .send({
+        addressId: 'ADR-1',
+        cartVersion: 7,
+        subtotal: 1,
+        discount: 0,
+        shipping: 0,
+        total: 1,
+        lines: [{ sku: 'ATTACKER-SKU', quantity: 1 }],
+      })
+      .expect(400);
+
+    expect(checkout.createQuote).not.toHaveBeenCalled();
+  });
+
   it('applies a benefit to the authenticated quote without accepting client totals', async () => {
     const benefitInput = { quoteId: 'Q-1', couponCode: 'SAVE20' };
     checkout.applyBenefit.mockResolvedValue({ quoteId: 'Q-2', total: { amount: 335, currency: 'PEN' } });
@@ -135,6 +154,50 @@ describe('CheckoutController (e2e)', () => {
       .send({ ...benefitInput, total: 1 })
       .expect(400);
     expect(checkout.applyBenefit).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards the authenticated principal and idempotency key for preparation', async () => {
+    const input = { quoteId: 'Q-1', cartVersion: 7, simulationConfirmed: true };
+    const idempotencyKey = '33333333-3333-4333-8333-333333333333';
+    checkout.prepare.mockResolvedValue({
+      checkoutOperationId: '44444444-4444-4444-8444-444444444444',
+      state: 'PREPARED',
+      simulationConsent: 'RECORDED',
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/checkout/preparations')
+      .set('Authorization', 'Bearer e2e-token')
+      .set('Cookie', 'cart_session=checkout-session-hash-123456')
+      .set('Idempotency-Key', idempotencyKey)
+      .send(input)
+      .expect(201);
+
+    expect(response.body.data).toMatchObject({ state: 'PREPARED', simulationConsent: 'RECORDED' });
+    expect(checkout.prepare).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      input,
+      idempotencyKey,
+      'checkout-session-hash-123456',
+    );
+  });
+
+  it('rejects card and payment credentials from preparation requests', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/checkout/preparations')
+      .set('Authorization', 'Bearer e2e-token')
+      .set('Idempotency-Key', '33333333-3333-4333-8333-333333333333')
+      .send({
+        quoteId: 'Q-1',
+        cartVersion: 7,
+        simulationConfirmed: true,
+        cardNumber: '4111111111111111',
+        cvv: '123',
+        paymentToken: 'attacker-supplied-token',
+      })
+      .expect(400);
+
+    expect(checkout.prepare).not.toHaveBeenCalled();
   });
 
   it('keeps the F-026 POST response flat and forwards its idempotency key', async () => {

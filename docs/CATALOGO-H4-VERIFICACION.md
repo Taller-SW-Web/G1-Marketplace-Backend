@@ -43,6 +43,8 @@ El runner no controla la UI, inyecta timeouts, ejecuta DAST ni prueba reservas/c
 
 ## Comprobar configuración privada sin imprimirla
 
+El modo opt-in `PRODUCTOS_AUTH_MODE=public-read-only` permite las lecturas existentes en producción sin credenciales. El inspector lo distingue mediante `publicReadOnlySelected`; no acredita por ello disponibilidad, despliegue ni grants. Consultar [la guía del modo público](CATALOGO-PUBLIC-READ-ONLY-H4.md). El valor predeterminado sigue siendo `service-token`; `demo-no-auth` sigue prohibido en producción.
+
 ```powershell
 npm run build
 npm run test:catalog:h4:config

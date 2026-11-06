@@ -129,6 +129,113 @@ test("real mode requires approval, token and pinned contract", async () => {
     });
   }
 });
+
+test("client_credentials mode requires an explicit G7 endpoint and secret", async () => {
+  const missingEndpoint = createProvider({
+    ...env, PRODUCTOS_AUTH_MODE: "client-credentials", PRODUCTOS_CLIENT_SECRET: "synthetic-test-secret",
+  });
+  await assert.rejects(missingEndpoint.search(parse("q=polo")), {
+    code: "CATALOG_UNAVAILABLE", diagnostic: "PROVIDER_CONFIG_MISSING", status: 503,
+  });
+
+  const missingSecret = createProvider({
+    ...env, PRODUCTOS_AUTH_MODE: "client-credentials", G7_TOKEN_URL: "https://g7.example/api/v1/auth/token",
+  });
+  await assert.rejects(missingSecret.search(parse("q=polo")), {
+    code: "CATALOG_UNAVAILABLE", diagnostic: "PROVIDER_NOT_APPROVED", status: 503,
+  });
+});
+
+test("client_credentials mode obtains one scoped token and attaches it only to G6 reads", async () => {
+  const g7TokenUrl = "https://g7.example/api/v1/auth/token";
+  const requests: Array<{ url: URL; options: RequestInit }> = [];
+  const provider = createRealProvider({
+    ...env,
+    NODE_ENV: "production",
+    PRODUCTOS_AUTH_MODE: "client-credentials",
+    G7_TOKEN_URL: g7TokenUrl,
+    PRODUCTOS_CLIENT_SECRET: "synthetic-test-secret",
+  }, async (url, options) => {
+    requests.push({ url, options });
+    if (url.href === g7TokenUrl) return Response.json({
+      accessToken: "synthetic-g7-access-token",
+      tokenType: "Bearer",
+      expiresIn: 3600,
+      scopes: ["catalogo:leer"],
+    });
+    return Response.json({ ...pagePayload(), pagina: 1 });
+  });
+
+  const results = await Promise.all([
+    provider.search(parse("q=polo")),
+    provider.search(parse("q=running")),
+  ]);
+  const tokenRequests = requests.filter(({ url }) => url.href === g7TokenUrl);
+  const g6Requests = requests.filter(({ url }) => url.origin === "https://provider.example");
+
+  expect(results).toHaveLength(2);
+  expect(tokenRequests).toHaveLength(1);
+  expect(g6Requests).toHaveLength(2);
+  const tokenRequest = tokenRequests[0];
+  expect(tokenRequest.options.method).toBe("POST");
+  expect(new Headers(tokenRequest.options.headers).get("Content-Type")).toBe("application/x-www-form-urlencoded");
+  const form = new URLSearchParams(String(tokenRequest.options.body));
+  expect(form.get("grant_type")).toBe("client_credentials");
+  expect(form.get("client_id")).toBe("modulo-marketplace");
+  expect(form.get("client_secret")).toBe("synthetic-test-secret");
+  expect(form.get("scope")).toBe("catalogo:leer");
+  expect(form.has("aud")).toBe(false);
+  expect(new Headers(tokenRequest.options.headers).has("Authorization")).toBe(false);
+  for (const request of g6Requests) {
+    expect(new Headers(request.options.headers).get("Authorization")).toBe("Bearer synthetic-g7-access-token");
+    expect(JSON.stringify(request.options)).not.toContain("synthetic-test-secret");
+  }
+  expect(JSON.stringify(results)).not.toContain("synthetic-g7-access-token");
+});
+
+test("service-token remains the default and does not request a G7 token", async () => {
+  const requests: Array<{ url: URL; options: RequestInit }> = [];
+  const provider = createRealProvider({
+    ...env,
+    G7_TOKEN_URL: "https://g7.example/api/v1/auth/token",
+    PRODUCTOS_CLIENT_SECRET: "synthetic-test-secret",
+  }, async (url, options) => {
+    requests.push({ url, options });
+    return Response.json(pagePayload());
+  });
+
+  await provider.search(parse("q=polo"));
+
+  expect(requests).toHaveLength(1);
+  expect(requests[0].url.origin).toBe("https://provider.example");
+  expect(new Headers(requests[0].options.headers).get("Authorization")).toBe("Bearer synthetic-test-token");
+});
+
+test("client_credentials mode never falls back to a configured static token after G7 rejects", async () => {
+  let g6Calls = 0;
+  const provider = createRealProvider({
+    ...env,
+    PRODUCTOS_AUTH_MODE: "client-credentials",
+    PRODUCTOS_SERVICE_TOKEN: "stale-static-token-must-not-be-used",
+    G7_TOKEN_URL: "https://g7.example/api/v1/auth/token",
+    PRODUCTOS_CLIENT_SECRET: "synthetic-test-secret",
+  }, async (url) => {
+    if (url.hostname === "g7.example") return new Response(
+      JSON.stringify({ detail: "synthetic-test-secret must not escape" }), { status: 401 },
+    );
+    g6Calls += 1;
+    return Response.json(pagePayload());
+  });
+
+  let failure: unknown;
+  try { await provider.search(parse("q=polo")); }
+  catch (error) { failure = error; }
+  expect(failure).toMatchObject({ diagnostic: "G7_TOKEN_REJECTED", status: 503 });
+  expect(String(failure)).not.toContain("synthetic-test-secret");
+  expect(String(failure)).not.toContain("stale-static-token-must-not-be-used");
+  expect(g6Calls).toBe(0);
+});
+
 test("provider maps one-based page, canal, category and name order; projects public fields only", async () => {
   let seen!: { url: URL; options: RequestInit };
   const provider = createRealProvider(env, async (url, options) => {

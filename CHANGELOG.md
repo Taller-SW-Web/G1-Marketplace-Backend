@@ -1,3 +1,21 @@
+## [1.7.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.6.0...v1.7.0) (2026-11-06)
+
+### Features
+
+* **f011:** consumir detalle REAL con modo publico explicito ([0864d7a](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0864d7a612a535d6a4b1e797873eaadd596c1139)), closes [#64](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/64) [#65](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/65) [#273](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/273)
+
+## [1.6.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.5.0...v1.6.0) (2026-11-05)
+
+### Features
+
+* **catalog:** add explicit production public-read-only mode ([a7ec322](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7ec3227803e0824dfb034f0fac129627f8cac58)), closes [#45](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45)
+
+## [1.5.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.4.0...v1.5.0) (2026-11-05)
+
+### Features
+
+* **catalog:** habilitar client_credentials opt-in para G6 ([7554b08](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/7554b0831c012bdbb20220be49f4c07b6000744d))
+
 ## [1.4.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.3.0...v1.4.0) (2026-11-05)
 
 ### Features

@@ -239,6 +239,38 @@ describe('CheckoutService', () => {
     expect(quotes.get(customerId, 'Q-1')).toBe(quote);
   });
 
+  it('rejects a quote owned by another customer before requesting a benefit', async () => {
+    const otherCustomerId = '99999999-9999-4999-8999-999999999999';
+    const foreignQuote = { ...quote, quoteId: 'Q-FOREIGN' };
+    quotes.replace(otherCustomerId, foreignQuote);
+
+    await expect(service.applyBenefit(customerId, {
+      quoteId: 'Q-FOREIGN',
+      couponCode: 'SAVE20',
+    })).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+
+    expect(gateway.applyBenefit).not.toHaveBeenCalled();
+    expect(quotes.get(otherCustomerId, 'Q-FOREIGN')).toBe(foreignQuote);
+  });
+
+  it('rejects an expired quote before requesting a benefit', async () => {
+    const expiredQuote = { ...quote, expiresAt: new Date(Date.now() - 1_000).toISOString() };
+    quotes.replace(customerId, expiredQuote);
+
+    await expect(service.applyBenefit(customerId, {
+      quoteId: 'Q-1',
+      couponCode: 'SAVE20',
+    })).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+
+    expect(gateway.applyBenefit).not.toHaveBeenCalled();
+  });
+
   it('removes a benefit by requesting a fresh base quote without consuming a coupon', async () => {
     const baseQuote = { ...quote, quoteId: 'Q-BASE' };
     const discountedQuote = {
@@ -348,6 +380,36 @@ describe('CheckoutService', () => {
     });
 
     expect(quotes.get(customerId, 'Q-MISMATCH')).toBeUndefined();
+  });
+
+  it('rejects preparation without explicit simulation consent before database or provider work', async () => {
+    await expect(service.prepare(
+      customerId,
+      { quoteId: 'Q-1', cartVersion: 8, simulationConfirmed: false },
+      '33333333-3333-4333-8333-333333333333',
+    )).rejects.toMatchObject({
+      status: 400,
+      response: { error: { code: 'SIMULATION_NOT_CONFIRMED' } },
+    });
+
+    expect(prisma.checkoutOperation.findUnique).not.toHaveBeenCalled();
+    expect(prisma.checkoutOperation.create).not.toHaveBeenCalled();
+    expect(gateway.revalidate).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, 'not-an-idempotency-key'])('rejects an invalid preparation key before database or provider work', async key => {
+    await expect(service.prepare(
+      customerId,
+      { quoteId: 'Q-1', cartVersion: 8, simulationConfirmed: true },
+      key,
+    )).rejects.toMatchObject({
+      status: 400,
+      response: { error: { code: 'IDEMPOTENCY_KEY_REQUIRED' } },
+    });
+
+    expect(prisma.checkoutOperation.findUnique).not.toHaveBeenCalled();
+    expect(prisma.checkoutOperation.create).not.toHaveBeenCalled();
+    expect(gateway.revalidate).not.toHaveBeenCalled();
   });
 
   it('records a PREPARED operation only after quantity revalidation', async () => {
