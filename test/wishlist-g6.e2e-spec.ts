@@ -40,7 +40,7 @@ describe('Wishlist G6 adapter -> local HTTP contract fixture (not external REAL 
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Port');
     const config: Record<string, unknown> = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true',
       WISHLIST_G6_REVISION: WISHLIST_G6_REVISION, PRODUCTOS_BASE_URL: `http://127.0.0.1:${address.port}`,
-      PRODUCTOS_SERVICE_TOKEN: 'fixture-technical-token', PRODUCTOS_TIMEOUT_MS: 100,
+      PRODUCTOS_AUTH_MODE: 'service-token', PRODUCTOS_SERVICE_TOKEN: 'fixture-technical-token', PRODUCTOS_TIMEOUT_MS: 100,
       WISHLIST_G6_QUANTITY_APPROVED: 'true', WISHLIST_FULFILLMENT_REF: 'approved-channel-reference' };
     catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => config[key] ?? fallback } as ConfigService);
   });

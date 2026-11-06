@@ -14,7 +14,8 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
   beforeEach(() => {
     config = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_REVISION: WISHLIST_G6_REVISION,
       WISHLIST_G6_QUANTITY_APPROVED: 'true', WISHLIST_FULFILLMENT_REF: 'channel-reference',
-      PRODUCTOS_BASE_URL: 'http://127.0.0.1:4050', PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' };
+      PRODUCTOS_BASE_URL: 'http://127.0.0.1:4050', PRODUCTOS_AUTH_MODE: 'service-token',
+      PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' };
     catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => config[key] ?? fallback } as ConfigService);
     reply = jest.fn(async (url: URL) => {
       if (url.pathname.includes('/productos/')) return json(product);
@@ -75,6 +76,34 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     expect(reply).not.toHaveBeenCalled();
     config.WISHLIST_G6_QUANTITY_APPROVED = 'false';
     await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('uses only public product GETs without Authorization and blocks commerce locally', async () => {
+    const publicId = '2ee6399e-2333-5916-847b-f6d2a0f03527';
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/')
+      ? json({ ...product, product_id: publicId }) : json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] }));
+    await expect(catalog.isActive(publicId)).resolves.toBe(true);
+    await expect(catalog.resolveSku(publicId)).resolves.toBe('SKU1');
+    for (const [, options] of reply.mock.calls) {
+      expect(options).toMatchObject({ method: 'GET', redirect: 'error', cache: 'no-store', credentials: 'omit' });
+      expect(options.headers).not.toHaveProperty('Authorization');
+    }
+    expect(reply).toHaveBeenCalledTimes(2);
+
+    await expect(catalog.project(publicId)).rejects.toMatchObject({ status: 503 });
+    // Product detail is public; Inventory is rejected by the allowlist before a second fetch.
+    expect(reply).toHaveBeenCalledTimes(3);
+    await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(3);
+  });
+
+  it('maps a public product 404 to inactive and rejects non-UUID public detail routes', async () => {
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    reply.mockResolvedValueOnce(json({ code: 'PRODUCTO_NO_ENCONTRADO' }, 404));
+    await expect(catalog.isActive('00000000-0000-0000-0000-000000000000')).resolves.toBe(false);
+    await expect(catalog.isActive('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
   });
 
   it.each(['.', '..', 'SKU\u0000INVALID'])('rejects unsafe SKU %p before making quantity or price requests', async sku => {

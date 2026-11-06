@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
 import { CommerceQuote, ProductProjection, WishlistCatalog } from './wishlist-catalog';
+import { assertPublicCatalogRead } from './public-read-only';
 
 // G6 docs master, 2026-10-28. Separate approval from the older catalog adapter.
 export const WISHLIST_G6_REVISION = '599c34f4e677c8792532e2cc31ac372473a10710';
@@ -25,16 +26,27 @@ export class RealWishlistCatalog extends WishlistCatalog {
       if (this.config.get('WISHLIST_G6_APPROVED') !== 'true'
         || this.config.get('WISHLIST_G6_REVISION') !== WISHLIST_G6_REVISION) throw unavailable();
       const base = new URL(this.config.get<string>('PRODUCTOS_BASE_URL', ''));
+      const authMode = this.config.get<string>('PRODUCTOS_AUTH_MODE', 'service-token');
       const token = this.config.get<string>('PRODUCTOS_SERVICE_TOKEN');
       const timeout = Number(this.config.get('PRODUCTOS_TIMEOUT_MS', 3000));
       if (base.username || base.password || base.search || base.hash || base.pathname !== '/'
         || (base.protocol !== 'https:' && !(this.config.get('NODE_ENV') !== 'production'
           && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname)))
-        || !token || /\s/.test(token) || !Number.isInteger(timeout) || timeout < 100 || timeout > 5000) throw unavailable();
+        || !['service-token', 'public-read-only'].includes(authMode)
+        || (authMode === 'service-token' && (!token || /\s/.test(token)))
+        || !Number.isInteger(timeout) || timeout < 100 || timeout > 5000) throw unavailable();
+      const method = body === undefined ? 'GET' : 'POST';
+      const upstreamPath = `/api/v1${path}`;
+      // The public G6 window authorizes catalog reads only. Commerce and mutations fail locally.
+      if (authMode === 'public-read-only') assertPublicCatalogRead(method, upstreamPath);
+      const headers: Record<string, string> = {
+        Accept: 'application/json', 'X-Correlation-Id': randomUUID(),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      };
+      if (authMode === 'service-token') headers.Authorization = `Bearer ${token}`;
       const response = await fetch(new URL(`/api/v1${path}`, base), {
-        method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.timeout(timeout),
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'X-Correlation-Id': randomUUID(),
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        method, redirect: 'error', cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(timeout),
+        headers,
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       if (response.status === 404 && body === undefined && path.startsWith('/productos/')) return null;
