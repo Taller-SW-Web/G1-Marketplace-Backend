@@ -1,3 +1,5 @@
+> Ampliación propuesta F-011: [detalle REAL por slug](CATALOGO-PUBLIC-READ-ONLY.md). Los párrafos siguientes describen el corte original de #273, limitado a sus consumidores existentes. La ampliación exige `BFF_MODE=real` y no usa fixtures ante fallos.
+
 # Catálogo G6: modo explícito `public-read-only` para H4
 
 Cuando G6 publique lecturas sin JWT, el BFF podrá consumirlas también en producción seleccionando explícitamente `PRODUCTOS_AUTH_MODE=public-read-only`. La disponibilidad anunciada por G6 todavía requiere prueba conjunta; este cambio no certifica su despliegue ni activa configuración de producción.
