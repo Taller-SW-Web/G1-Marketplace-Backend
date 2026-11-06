@@ -1,0 +1,384 @@
+{
+  "startedAt": "2026-11-06T05:53:34.985Z",
+  "base": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com",
+  "method": "GET",
+  "authorizationSent": false,
+  "cookiesSent": false,
+  "redirectsAllowed": false,
+  "tlsVerification": true,
+  "cases": [
+    {
+      "name": "gateway-health",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/health",
+      "expectedStatus": 200,
+      "correlationSent": "f5d2d27d-a552-4742-921b-bdeff722e559",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": null,
+      "verdict": "PASS",
+      "durationMs": 513
+    },
+    {
+      "name": "categories",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/categorias",
+      "expectedStatus": 200,
+      "correlationSent": "f113ad67-42f8-40aa-90aa-3d274138d13e",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "f113ad67-42f8-40aa-90aa-3d274138d13e",
+      "count": 8,
+      "verdict": "PASS",
+      "durationMs": 159
+    },
+    {
+      "name": "brands",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/marcas",
+      "expectedStatus": 200,
+      "correlationSent": "54c4f03b-c935-4c1d-91fe-becec469f64b",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "54c4f03b-c935-4c1d-91fe-becec469f64b",
+      "count": 6,
+      "verdict": "PASS",
+      "durationMs": 90
+    },
+    {
+      "name": "marketplace-default",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "20de0f8e-a852-4cea-99ad-485a4fabdbaa",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "20de0f8e-a852-4cea-99ad-485a4fabdbaa",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 399
+    },
+    {
+      "name": "name-ascending",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "6f02d27b-9401-4115-8365-155fc699efc0",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "6f02d27b-9401-4115-8365-155fc699efc0",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 409
+    },
+    {
+      "name": "name-descending",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&orden=NOMBRE_DESC",
+      "expectedStatus": 200,
+      "correlationSent": "d7ad5655-e996-4590-956f-b6b3c90bf9bd",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "d7ad5655-e996-4590-956f-b6b3c90bf9bd",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 364
+    },
+    {
+      "name": "page-one",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "ec18fe52-2b90-4e1d-b77c-43581a15c2e3",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "ec18fe52-2b90-4e1d-b77c-43581a15c2e3",
+      "total": 20,
+      "count": 4,
+      "verdict": "PASS",
+      "durationMs": 363
+    },
+    {
+      "name": "page-two",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=2&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "ea8e073a-77c3-4846-8141-5f552d306e1f",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "ea8e073a-77c3-4846-8141-5f552d306e1f",
+      "count": 4,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 363
+    },
+    {
+      "name": "page-last",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=5&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "d2bed4be-48df-4e41-90e0-2f3bbafb56db",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "d2bed4be-48df-4e41-90e0-2f3bbafb56db",
+      "count": 4,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 365
+    },
+    {
+      "name": "page-outside",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=6&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "8ee612fb-a20c-40f9-82d7-f5344e85b6ed",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "8ee612fb-a20c-40f9-82d7-f5344e85b6ed",
+      "count": 0,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 254
+    },
+    {
+      "name": "search-nike",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&q=Nike&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "c5b20409-c99e-4309-8fd3-eba702172a28",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "c5b20409-c99e-4309-8fd3-eba702172a28",
+      "count": 7,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 363
+    },
+    {
+      "name": "search-empty",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=g1-azure-no-product-c684c5a4-051a-4fa2-b44f-149297ce42ec",
+      "expectedStatus": 200,
+      "correlationSent": "d44165d3-3a2a-4f87-93bf-b6dd0175d9f5",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "d44165d3-3a2a-4f87-93bf-b6dd0175d9f5",
+      "verdict": "PASS",
+      "durationMs": 253
+    },
+    {
+      "name": "category-balones",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "e60f718b-4074-48a9-a380-f67b9aa494fe",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "e60f718b-4074-48a9-a380-f67b9aa494fe",
+      "total": 4,
+      "count": 4,
+      "verdict": "PASS",
+      "durationMs": 421
+    },
+    {
+      "name": "category-search-nike",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC&q=Nike",
+      "expectedStatus": 200,
+      "correlationSent": "e9b8f9b8-10e3-4cbe-8557-6c8ac47b3bf8",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "e9b8f9b8-10e3-4cbe-8557-6c8ac47b3bf8",
+      "total": 2,
+      "count": 2,
+      "verdict": "PASS",
+      "durationMs": 418
+    },
+    {
+      "name": "category-price-0-100",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC&q=Nike&precioMin=0&precioMax=100",
+      "expectedStatus": 200,
+      "correlationSent": "2aa516b8-c1bf-4d70-b9b6-c1f9337d4afc",
+      "status": 503,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "2aa516b8-c1bf-4d70-b9b6-c1f9337d4afc",
+      "verdict": "FAIL",
+      "failure": "unexpected HTTP status",
+      "durationMs": 309
+    },
+    {
+      "name": "brand-nike",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&marcaId=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "expectedStatus": 200,
+      "correlationSent": "7cbd11e7-f418-4f88-993d-7ae1fef919b6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "7cbd11e7-f418-4f88-993d-7ae1fef919b6",
+      "total": 7,
+      "count": 7,
+      "verdict": "PASS",
+      "durationMs": 417
+    },
+    {
+      "name": "price-0-100",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&precioMin=0&precioMax=100",
+      "expectedStatus": 200,
+      "correlationSent": "90ce1c2a-ca88-45fc-888c-aeecb77a30de",
+      "status": 503,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "90ce1c2a-ca88-45fc-888c-aeecb77a30de",
+      "verdict": "FAIL",
+      "failure": "unexpected HTTP status",
+      "durationMs": 258
+    },
+    {
+      "name": "detail-id",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos/2ee6399e-2333-5916-847b-f6d2a0f03527?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "c34cbf56-f2b4-400c-9162-30979afddf87",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "c34cbf56-f2b4-400c-9162-30979afddf87",
+      "productId": "2ee6399e-2333-5916-847b-f6d2a0f03527",
+      "slug": "nike-academy-hv4386-100",
+      "attributesWithoutReadableValue": 2,
+      "verdict": "PASS",
+      "durationMs": 362
+    },
+    {
+      "name": "detail-slug",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos/por-slug/nike-academy-hv4386-100?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "f3a9d2ce-5991-42f3-8216-059eae874186",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "f3a9d2ce-5991-42f3-8216-059eae874186",
+      "productId": "2ee6399e-2333-5916-847b-f6d2a0f03527",
+      "slug": "nike-academy-hv4386-100",
+      "attributesWithoutReadableValue": 2,
+      "verdict": "PASS",
+      "durationMs": 363
+    },
+    {
+      "name": "missing-id",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos/6586e930-e5b7-4fef-b046-993cd806280a?canal=MARKETPLACE",
+      "expectedStatus": 404,
+      "correlationSent": "a3cbf2cd-626b-48db-9a95-81c7ed6b77cb",
+      "status": 404,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "a3cbf2cd-626b-48db-9a95-81c7ed6b77cb",
+      "verdict": "PASS",
+      "durationMs": 199
+    },
+    {
+      "name": "missing-slug",
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos/por-slug/g1-azure-no-product-6586e930-e5b7-4fef-b046-993cd806280a?canal=MARKETPLACE",
+      "expectedStatus": 404,
+      "correlationSent": "ad96cce8-c42a-4ee9-b418-d23ae3f5265a",
+      "status": 404,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "ad96cce8-c42a-4ee9-b418-d23ae3f5265a",
+      "verdict": "PASS",
+      "durationMs": 198
+    },
+    {
+      "name": "consumer-home",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "categories": 8,
+      "featured": 0,
+      "verdict": "PASS",
+      "durationMs": 92
+    },
+    {
+      "name": "consumer-filters",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "categories": 8,
+      "brands": 6,
+      "verdict": "PASS",
+      "durationMs": 158
+    },
+    {
+      "name": "consumer-search",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 4,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 364
+    },
+    {
+      "name": "consumer-page-two",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 3,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 364
+    },
+    {
+      "name": "consumer-category",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 2,
+      "total": 2,
+      "verdict": "PASS",
+      "durationMs": 419
+    },
+    {
+      "name": "consumer-brand",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 4,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 422
+    }
+  ],
+  "consumerTransport": [
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/categorias",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "7862e4ff-1ad5-4504-8dc2-78245bf90bc2"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/categorias",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "1b9eba3a-c967-45c8-8ae1-85efcf57d751"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/marcas",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "889bd706-e0be-4043-9ffe-57f1f0fba7cc"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=Nike&orden=NOMBRE_ASC",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "62652fa8-f27d-4413-b5e7-2a0b8c53f168"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=2&tamanio=4&q=Nike&orden=NOMBRE_DESC",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "3139aebf-ec9d-447a-a5c8-ee30cd025079"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=Nike&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "c66214b1-96e4-4da9-b0e9-2b074755b471"
+    },
+    {
+      "url": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&marcaId=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "78fca6d4-692a-4254-b63b-77d66dd9ee83"
+    }
+  ],
+  "finishedAt": "2026-11-06T05:53:44.334Z",
+  "summary": {
+    "pass": 25,
+    "fail": 2
+  }
+}
