@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-11-06T15:47:12.264Z",
+  "artifacts": [
+    {
+      "file": "01-home-real.png",
+      "bytes": 188487,
+      "sha256": "93f13cfaf2030033c8dda4561233d929afc6635052c38fdb74a674402857f6f7"
+    },
+    {
+      "file": "02-filtro-marca-nike-real.png",
+      "bytes": 204802,
+      "sha256": "9360a6699edc32da802e5778affb8ef849ea5a8c5c89a457c83e79ca3526966d"
+    },
+    {
+      "file": "03-ficha-nike-academy-real.png",
+      "bytes": 430215,
+      "sha256": "b9f517da1f0a387b63663589af2eaf78e4c00d21f94c0003f1fd4b760c73f829"
+    },
+    {
+      "file": "04-ficha-galeria-ampliada-real.png",
+      "bytes": 383316,
+      "sha256": "f8a6b2ec215f26d15fbdf7dd7c07eeee2251db9a7633181f0707c13c7d752224"
+    },
+    {
+      "file": "browser-proof.json",
+      "bytes": 5351,
+      "sha256": "11dccf7cd20a996da509e6ff63534f4dd77ac3f64efdbb109e464e48a30496cb"
+    }
+  ],
+  "upstreamRequests": 8
+}

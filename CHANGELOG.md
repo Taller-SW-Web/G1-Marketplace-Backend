@@ -1,3 +1,9 @@
+## [1.8.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.7.0...v1.8.0) (2026-11-06)
+
+### Features
+
+* **f013:** mapear variantes reales desde detalle comercial G6 ([797344a](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/797344ae665507f6ea32b263ba446f76fe530d22))
+
 ## [1.7.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.6.0...v1.7.0) (2026-11-06)
 
 ### Features
