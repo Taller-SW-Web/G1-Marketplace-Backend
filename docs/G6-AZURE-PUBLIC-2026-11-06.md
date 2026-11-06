@@ -8,6 +8,8 @@ Ensayo: **06/11/2026, 00:53:34–00:53:44 Lima** (05:53:34–05:53:44 UTC). El p
 
 Origen: `https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com`. Sólo GET, HTTPS con TLS verificado, sin Authorization, cookies ni redirecciones. No se obtiene un JWT, no se carga `.env` y no se ejecutan operaciones de administración o escritura. No hay mocks ni sustitución de respuestas de G6.
 
+**Ampliación de evidencia a las 10:47 Lima:** [demo con frontend REAL: Home, marca Nike, ficha y galería](evidencias/H4/giuliano/2026-11-06/azure-browser/README.md). Se ejecutó el Backend develop v1.7.0 `3ec390c` y Frontend v1.3.0 `28f4bb0`, posteriores al corte HTTP descrito aquí. F011 respondió 200 REAL e imágenes decodificadas; variantes, precio y disponibilidad de la ficha siguieron mostrando sus 503 locales. La evidencia nueva no reemplaza ni reinterpreta este ensayo histórico de las 00:53.
+
 ## Resultados HTTP directos
 
 | Caso | HTTP | Comprobación |
