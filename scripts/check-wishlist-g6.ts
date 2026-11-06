@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { RealWishlistCatalog, WISHLIST_G6_REVISION } from '../src/catalog/real-wishlist-catalog';
+import { RealWishlistCatalog, WISHLIST_G6_REVISION, WISHLIST_G6_VERSION } from '../src/catalog/real-wishlist-catalog';
 
 function argument(name: string): string {
   const index = process.argv.indexOf(name);
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   }
   const values: Record<string, string> = {
     NODE_ENV: 'production', PRODUCTOS_BASE_URL: base.href, PRODUCTOS_AUTH_MODE: 'public-read-only',
-    PRODUCTOS_TIMEOUT_MS: '5000', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_REVISION,
+    PRODUCTOS_TIMEOUT_MS: '5000', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_VERSION, WISHLIST_G6_REVISION,
   };
   const catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => values[key] ?? fallback } as ConfigService);
   const active = await catalog.isActive(productId);

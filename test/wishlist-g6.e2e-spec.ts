@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { once } from 'node:events';
 import { createServer, Server } from 'node:http';
-import { RealWishlistCatalog, WISHLIST_G6_REVISION } from '../src/catalog/real-wishlist-catalog';
+import { RealWishlistCatalog, WISHLIST_G6_REVISION, WISHLIST_G6_VERSION } from '../src/catalog/real-wishlist-catalog';
 
 describe('Wishlist G6 adapter -> local HTTP contract fixture (not external REAL evidence)', () => {
   let server: Server;
@@ -39,9 +39,10 @@ describe('Wishlist G6 adapter -> local HTTP contract fixture (not external REAL 
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Port');
     const config: Record<string, unknown> = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true',
-      WISHLIST_G6_REVISION: WISHLIST_G6_REVISION, PRODUCTOS_BASE_URL: `http://127.0.0.1:${address.port}`,
-      PRODUCTOS_AUTH_MODE: 'service-token', PRODUCTOS_SERVICE_TOKEN: 'fixture-technical-token', PRODUCTOS_TIMEOUT_MS: 100,
-      WISHLIST_G6_QUANTITY_APPROVED: 'true', WISHLIST_FULFILLMENT_REF: 'approved-channel-reference' };
+      WISHLIST_G6_VERSION: WISHLIST_G6_VERSION, WISHLIST_G6_REVISION: WISHLIST_G6_REVISION,
+      PRODUCTOS_BASE_URL: `http://127.0.0.1:${address.port}`, PRODUCTOS_AUTH_MODE: 'service-token',
+      WISHLIST_COMMERCE_AUTH_MODE: 'service-token', PRODUCTOS_SERVICE_TOKEN: 'fixture-technical-token',
+      PRODUCTOS_TIMEOUT_MS: 100, WISHLIST_G6_QUANTITY_APPROVED: 'true' };
     catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => config[key] ?? fallback } as ConfigService);
   });
   beforeEach(() => { seen = []; missing = false; down = false; hang = false; stock = 'DISPONIBLE'; quantity = 'SUFICIENTE'; });
@@ -56,7 +57,7 @@ describe('Wishlist G6 adapter -> local HTTP contract fixture (not external REAL 
   it('sends total quantity with explicit fulfillment, never reserves or mutates inventory', async () => {
     await expect(catalog.quote('SKU1', 4)).resolves.toMatchObject({ amount: 120, version: 2 });
     expect(seen[0]).toMatchObject({ method: 'POST', url: '/api/v1/inventario/disponibilidad/comercial/verificar', body: {
-      channel_id: 'MARKETPLACE', fulfillment: { mode: 'ENVIO_DOMICILIO', fulfillment_ref: 'approved-channel-reference' },
+      channel_id: 'MARKETPLACE', fulfillment: { mode: 'ENVIO_DOMICILIO' },
       lines: [{ sku: 'SKU1', quantity: 4 }] } });
     quantity = 'INSUFICIENTE'; await expect(catalog.quote('SKU1', 4)).rejects.toMatchObject({ status: 409 });
     quantity = 'INDETERMINADO'; await expect(catalog.quote('SKU1', 4)).rejects.toMatchObject({ status: 503 });
@@ -64,7 +65,7 @@ describe('Wishlist G6 adapter -> local HTTP contract fixture (not external REAL 
   it('distinguishes removed, out of stock and unknown data from service failures', async () => {
     missing = true; await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'UNAVAILABLE' });
     missing = false; stock = 'AGOTADO'; await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'OUT_OF_STOCK' });
-    stock = 'INDETERMINADO'; await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
+    stock = 'INDETERMINADO'; await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'UNDETERMINED' });
     down = true; await expect(catalog.isActive('P1')).rejects.toMatchObject({ status: 503 });
   });
   it('bounds a provider timeout without retries or exposing response details', async () => {

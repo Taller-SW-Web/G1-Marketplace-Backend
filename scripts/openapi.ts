@@ -646,7 +646,7 @@ const document = {
               currency: { type: 'string', pattern: '^[A-Z]{3}$' },
             },
           },
-          availability: { type: 'string', enum: ['AVAILABLE', 'OUT_OF_STOCK', 'UNAVAILABLE'] },
+          availability: { type: 'string', enum: ['AVAILABLE', 'OUT_OF_STOCK', 'UNDETERMINED', 'UNAVAILABLE'] },
         },
       },
       AddFromWishlistResult: {

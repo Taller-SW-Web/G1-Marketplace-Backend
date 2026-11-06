@@ -1,5 +1,7 @@
 # Evidencia G6 pública para Wishlist — 2026-11-06
 
+> Evidencia histórica del sondeo público inicial. Fue superada el 06/11/2026 por la entrega del contrato de comercio `0.6.0-rc.3`; véase [G6-COMMERCE-CONTRACT-RC3-2026-11-06.md](G6-COMMERCE-CONTRACT-RC3-2026-11-06.md). Sus resultados HTTP originales se conservan sin reescribir.
+
 ## Corte observado
 
 - Fecha: `2026-11-06 10:33` (America/Lima), antes del apagado anunciado para las 13:00.

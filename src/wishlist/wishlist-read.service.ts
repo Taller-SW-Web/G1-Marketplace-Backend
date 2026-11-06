@@ -19,7 +19,7 @@ export class WishlistReadService {
         projection = await this.catalog.project(row.productId);
         const validSlug = projection.slug === null || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(projection.slug);
         const nonempty = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
-        if (!['AVAILABLE', 'OUT_OF_STOCK', 'UNAVAILABLE'].includes(projection.availability)
+        if (!['AVAILABLE', 'OUT_OF_STOCK', 'UNDETERMINED', 'UNAVAILABLE'].includes(projection.availability)
           || !validSlug || !(projection.name === null || nonempty(projection.name))
           || !(projection.brand === null || nonempty(projection.brand))
           || (projection.availability !== 'UNAVAILABLE' && (!nonempty(projection.name) || !projection.slug))

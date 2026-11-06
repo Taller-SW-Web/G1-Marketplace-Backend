@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { RealWishlistCatalog, WISHLIST_G6_REVISION } from './real-wishlist-catalog';
+import { RealWishlistCatalog, WISHLIST_G6_REVISION, WISHLIST_G6_VERSION } from './real-wishlist-catalog';
 
 describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => {
   const original = global.fetch;
@@ -12,10 +12,10 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     channel_id: 'MARKETPLACE', valid_from: '2026-01-01T00:00:00Z', valid_until: null, vigencia_id: 'v1', origen: 'PRODUCTO' };
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
   beforeEach(() => {
-    config = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_REVISION: WISHLIST_G6_REVISION,
-      WISHLIST_G6_QUANTITY_APPROVED: 'true', WISHLIST_FULFILLMENT_REF: 'channel-reference',
+    config = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_VERSION: WISHLIST_G6_VERSION,
+      WISHLIST_G6_REVISION: WISHLIST_G6_REVISION, WISHLIST_G6_QUANTITY_APPROVED: 'true',
       PRODUCTOS_BASE_URL: 'http://127.0.0.1:4050', PRODUCTOS_AUTH_MODE: 'service-token',
-      PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' };
+      WISHLIST_COMMERCE_AUTH_MODE: 'service-token', PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' };
     catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => config[key] ?? fallback } as ConfigService);
     reply = jest.fn(async (url: URL) => {
       if (url.pathname.includes('/productos/')) return json(product);
@@ -50,7 +50,7 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
   it('verifies accumulated quantity and fails closed on insufficient/indeterminate/mismatched data', async () => {
     await expect(catalog.quote('SKU1', 3)).resolves.toEqual({ amount: 80, currency: 'PEN', version: 4 });
     expect(JSON.parse(reply.mock.calls[0][1].body)).toEqual({ channel_id: 'MARKETPLACE',
-      fulfillment: { mode: 'ENVIO_DOMICILIO', fulfillment_ref: 'channel-reference' }, lines: [{ sku: 'SKU1', quantity: 3 }] });
+      fulfillment: { mode: 'ENVIO_DOMICILIO' }, lines: [{ sku: 'SKU1', quantity: 3 }] });
     for (const [result, status] of [['INSUFICIENTE', 409], ['INDETERMINADO', 503]]) {
       reply.mockResolvedValueOnce(json({ binding: false, evaluated_at: new Date().toISOString(),
         items: [{ sku: 'SKU1', requested_quantity: 3, result }] }));
@@ -69,7 +69,7 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
   });
   it('requires independent approvals, pin and service credential; no mock fallback', async () => {
-    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_REVISION', 'PRODUCTOS_SERVICE_TOKEN']) {
+    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_VERSION', 'WISHLIST_G6_REVISION', 'PRODUCTOS_SERVICE_TOKEN']) {
       const value = config[key]; config[key] = '';
       await expect(catalog.isActive('P1')).rejects.toMatchObject({ status: 503 }); config[key] = value;
     }
@@ -78,11 +78,13 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
   });
 
-  it('uses only public product GETs without Authorization and blocks commerce locally', async () => {
+  it('keeps public product GETs unauthenticated while authenticating commerce separately', async () => {
     const publicId = '2ee6399e-2333-5916-847b-f6d2a0f03527';
     config.PRODUCTOS_AUTH_MODE = 'public-read-only';
     reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/')
-      ? json({ ...product, product_id: publicId }) : json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] }));
+      ? json({ ...product, product_id: publicId })
+      : url.pathname.includes('/precios/') ? json(price)
+      : json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] }));
     await expect(catalog.isActive(publicId)).resolves.toBe(true);
     await expect(catalog.resolveSku(publicId)).resolves.toBe('SKU1');
     for (const [, options] of reply.mock.calls) {
@@ -91,11 +93,42 @@ describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => 
     }
     expect(reply).toHaveBeenCalledTimes(2);
 
-    await expect(catalog.project(publicId)).rejects.toMatchObject({ status: 503 });
-    // Product detail is public; Inventory is rejected by the allowlist before a second fetch.
-    expect(reply).toHaveBeenCalledTimes(3);
-    await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
-    expect(reply).toHaveBeenCalledTimes(3);
+    await expect(catalog.project(publicId)).resolves.toMatchObject({ availability: 'AVAILABLE' });
+    const productCalls = reply.mock.calls.filter(([url]: [URL]) => url.pathname.includes('/productos/'));
+    const commerceCalls = reply.mock.calls.filter(([url]: [URL]) => !url.pathname.includes('/productos/'));
+    for (const [, options] of productCalls) expect(options.headers).not.toHaveProperty('Authorization');
+    for (const [, options] of commerceCalls) expect(options.headers).toHaveProperty('Authorization', 'Bearer synthetic-service-token');
+  });
+
+  it('obtains one G7 token with both commerce scopes and never sends it to public Catalog', async () => {
+    const publicId = '2ee6399e-2333-5916-847b-f6d2a0f03527';
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    config.WISHLIST_COMMERCE_AUTH_MODE = 'client-credentials';
+    config.G7_TOKEN_URL = 'http://127.0.0.1/api/v1/auth/token';
+    config.PRODUCTOS_CLIENT_SECRET = 'synthetic-secret';
+    reply.mockImplementation(async (url: URL, options: RequestInit) => {
+      if (url.pathname === '/api/v1/auth/token') return json({ accessToken: 'issued-commerce-token', tokenType: 'Bearer',
+        expiresIn: 3600, scopes: ['precios:leer', 'inventario:disponibilidad:leer'] });
+      if (url.pathname.includes('/productos/')) return json({ ...product, product_id: publicId });
+      if (url.pathname.includes('/precios/')) return json(price);
+      expect(new Headers(options.headers).get('Authorization')).toBe('Bearer issued-commerce-token');
+      return json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] });
+    });
+
+    await expect(catalog.project(publicId)).resolves.toMatchObject({ availability: 'AVAILABLE' });
+    const tokenCalls = reply.mock.calls.filter(([url]: [URL]) => url.pathname === '/api/v1/auth/token');
+    expect(tokenCalls).toHaveLength(1);
+    expect(new URLSearchParams(String(tokenCalls[0][1].body)).get('scope'))
+      .toBe('precios:leer inventario:disponibilidad:leer');
+    const detailCall = reply.mock.calls.find(([url]: [URL]) => url.pathname.includes('/productos/'));
+    expect(detailCall?.[1].headers).not.toHaveProperty('Authorization');
+  });
+
+  it('preserves INDETERMINADO instead of treating it as stock or provider failure', async () => {
+    reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/') ? json(product)
+      : url.pathname.includes('/precios/') ? json(price)
+      : json({ items: [{ sku: 'SKU1', status: 'INDETERMINADO' }] }));
+    await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'UNDETERMINED' });
   });
 
   it('maps a public product 404 to inactive and rejects non-UUID public detail routes', async () => {

@@ -51,7 +51,7 @@ Fuente: issues remotas Backend y Frontend. OPEN/CLOSED son estados administrativ
 |---|---|---|
 | G-DB / #204 | Persistencia propia | Cadena completa aplicada y redeploy sin pendientes en PostgreSQL 16 temporal; esquema/historial de nube y revisión ajena pendientes. |
 | G-AUTH / #29 | Identidad del comprador | Guard G7 reutilizado. JWT sandbox sólo en pruebas. Evidencia directa de G7 no acredita BFF/FE desplegados. |
-| I-01 / #65 | Elegibilidad/proyección G6 | Adaptador preparado sobre docs SHA 599c34f; pruebas con respuestas simuladas y servidor HTTP local. Grants/versión efectiva y prueba REAL pendientes. |
-| G-QUANTITY / #86 | Agregar desde favorito | #86 cerrado administrativamente; verificar proveedor/casos REAL. Nueva consulta de cantidades requiere aprobación y fulfillment_ref del canal. |
+| I-01 / #65 | Elegibilidad/proyección G6 | Adaptador actualizado a OpenAPI 0.6.0-rc.3, Docs SHA a7778ec; Catálogo público y comercio JWT separados. Grants efectivos G7 y prueba REAL pendientes. |
+| G-QUANTITY / #86 | Agregar desde favorito | Verificación POST implementada con cantidad total y ENVIO_DOMICILIO. El contrato no exige fulfillment_ref; faltan grants/credencial G7 y homologación REAL. |
 | I-02/I-03/I-05/I-06 | Ventas, pedidos, eventos y despacho | Registrar contrato, entorno, datos, grant y evidencia por operación con su responsable. No habilitar ni atribuir cierre por tener mocks. |
 | I-04/G-PROMPT | CSAT | POST publicado preparado; requiere prompt SHOWN autorizado. No hay endpoint show/dismiss inventado ni transición automática. |

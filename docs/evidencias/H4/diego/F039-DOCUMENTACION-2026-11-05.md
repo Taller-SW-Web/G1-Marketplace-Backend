@@ -39,7 +39,7 @@ Las pruebas usan PostgreSQL temporal y proveedores controlados. Son evidencia de
 
 ## Operación, configuración y límites
 
-La integración real de Catálogo se mantiene detrás de aprobación explícita. El adaptador requiere configuración y grant técnico aprobados; G1 no transmite identidad humana a G6. La adición F-039 necesita además aprobación de consulta de cantidad y `WISHLIST_FULFILLMENT_REF` válido para `ENVIO_DOMICILIO`, además de URL HTTPS, token privado, timeout y allowlist de medios descritos en [entregas H4](../../../DIEGO-H4-ENTREGAS.md). Sin precondiciones, se falla de forma cerrada; no se usa fixture como fallback en producción.
+La integración real de Catálogo se mantiene detrás de aprobación explícita. El adaptador fija OpenAPI G6 `0.6.0-rc.3` y SHA `a7778ec1a22811c1213a94ef096ab905911342cc`. Catálogo público omite `Authorization`; Pricing e Inventory obtienen JWT técnico G7 para `modulo-marketplace` con `precios:leer` e `inventario:disponibilidad:leer`. G1 no transmite identidad humana a G6. Para `ENVIO_DOMICILIO` el contrato no exige `fulfillment_ref`, por lo que G1 envía sólo el modo y no inventa almacenes o ubicaciones. Sin grants/credenciales efectivos, se falla de forma cerrada; no se usa fixture como fallback en producción.
 
 La respuesta `422` no autoriza una navegación externa: el slug se valida y la ruta se forma en el servidor. No hay reserva de stock, promesa de inventario ni selección de variante. Una llamada repetida sólo agrega otra unidad si fue otra acción explícita del usuario. Ante una carrera, el servidor puede recotizar una vez antes de escribir; no repite la petición HTTP del usuario ni reintenta una escritura de resultado incierto.
 

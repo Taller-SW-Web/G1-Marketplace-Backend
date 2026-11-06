@@ -5,9 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { ApiError } from '../http/api-error';
 import { CommerceQuote, ProductProjection, WishlistCatalog } from './wishlist-catalog';
 import { assertPublicCatalogRead } from './public-read-only';
+import { createG6Auth } from './g6-auth';
+import type { CatalogEnvironment } from './types';
 
-// G6 docs master, 2026-10-28. Separate approval from the older catalog adapter.
-export const WISHLIST_G6_REVISION = '599c34f4e677c8792532e2cc31ac372473a10710';
+// Immutable official G6 contract accepted for Wishlist/Cart commerce on 2026-11-05.
+export const WISHLIST_G6_VERSION = '0.6.0-rc.3';
+export const WISHLIST_G6_REVISION = 'a7778ec1a22811c1213a94ef096ab905911342cc';
+export const WISHLIST_COMMERCE_SCOPES = ['precios:leer', 'inventario:disponibilidad:leer'] as const;
 const unavailable = () => new ApiError(503, 'CATALOG_UNAVAILABLE', 'Catálogo no disponible');
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
@@ -19,31 +23,56 @@ interface Product { name: string; slug: string; brand: string; hasVariants: bool
 
 @Injectable()
 export class RealWishlistCatalog extends WishlistCatalog {
+  private commerceAuth?: ReturnType<typeof createG6Auth>;
   constructor(private readonly config: ConfigService) { super(); }
 
-  private async request(path: string, body?: unknown): Promise<unknown> {
+  private environment(authMode: string): CatalogEnvironment {
+    const keys = ['NODE_ENV', 'PRODUCTOS_SERVICE_TOKEN', 'G7_TOKEN_URL', 'PRODUCTOS_CLIENT_SECRET'] as const;
+    return Object.fromEntries([
+      ['PRODUCTOS_AUTH_MODE', authMode],
+      ...keys.map(key => [key, this.config.get<string>(key)]),
+    ]);
+  }
+
+  private async request(path: string, body?: unknown, commerce = false): Promise<unknown> {
     try {
       if (this.config.get('WISHLIST_G6_APPROVED') !== 'true'
+        || this.config.get('WISHLIST_G6_VERSION') !== WISHLIST_G6_VERSION
         || this.config.get('WISHLIST_G6_REVISION') !== WISHLIST_G6_REVISION) throw unavailable();
       const base = new URL(this.config.get<string>('PRODUCTOS_BASE_URL', ''));
-      const authMode = this.config.get<string>('PRODUCTOS_AUTH_MODE', 'service-token');
-      const token = this.config.get<string>('PRODUCTOS_SERVICE_TOKEN');
+      const catalogAuthMode = this.config.get<string>('PRODUCTOS_AUTH_MODE', 'service-token');
+      const commerceAuthMode = this.config.get<string>('WISHLIST_COMMERCE_AUTH_MODE', 'service-token');
       const timeout = Number(this.config.get('PRODUCTOS_TIMEOUT_MS', 3000));
       if (base.username || base.password || base.search || base.hash || base.pathname !== '/'
         || (base.protocol !== 'https:' && !(this.config.get('NODE_ENV') !== 'production'
           && base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname)))
-        || !['service-token', 'public-read-only'].includes(authMode)
-        || (authMode === 'service-token' && (!token || /\s/.test(token)))
+        || !['service-token', 'public-read-only'].includes(catalogAuthMode)
+        || !['service-token', 'client-credentials'].includes(commerceAuthMode)
         || !Number.isInteger(timeout) || timeout < 100 || timeout > 5000) throw unavailable();
       const method = body === undefined ? 'GET' : 'POST';
       const upstreamPath = `/api/v1${path}`;
-      // The public G6 window authorizes catalog reads only. Commerce and mutations fail locally.
-      if (authMode === 'public-read-only') assertPublicCatalogRead(method, upstreamPath);
+      if (!commerce && catalogAuthMode === 'public-read-only') assertPublicCatalogRead(method, upstreamPath);
+      if (commerce) {
+        const allowed = (method === 'GET' && (path.startsWith('/precios/skus/')
+          || path.startsWith('/inventario/disponibilidad/comercial?')))
+          || (method === 'POST' && path === '/inventario/disponibilidad/comercial/verificar');
+        if (!allowed) throw unavailable();
+      }
       const headers: Record<string, string> = {
         Accept: 'application/json', 'X-Correlation-Id': randomUUID(),
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       };
-      if (authMode === 'service-token') headers.Authorization = `Bearer ${token}`;
+      if (commerce) {
+        this.commerceAuth ??= createG6Auth(this.environment(commerceAuthMode),
+          (url, options) => fetch(url, options), timeout, WISHLIST_COMMERCE_SCOPES);
+        const authorization = await this.commerceAuth.getAuthorization();
+        if (!authorization) throw unavailable();
+        headers.Authorization = authorization;
+      } else if (catalogAuthMode === 'service-token') {
+        const token = this.config.get<string>('PRODUCTOS_SERVICE_TOKEN');
+        if (!token || /\s/.test(token)) throw unavailable();
+        headers.Authorization = `Bearer ${token}`;
+      }
       const response = await fetch(new URL(`/api/v1${path}`, base), {
         method, redirect: 'error', cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(timeout),
         headers,
@@ -89,7 +118,7 @@ export class RealWishlistCatalog extends WishlistCatalog {
 
   private async price(sku: string): Promise<CommerceQuote> {
     if (!skuIdentity(sku)) throw unavailable();
-    const price = await this.request(`/precios/skus/${encodeURIComponent(sku)}?canal=MARKETPLACE`);
+    const price = await this.request(`/precios/skus/${encodeURIComponent(sku)}?canal=MARKETPLACE`, undefined, true);
     if (!object(price) || price.sku !== sku || price.currency !== 'PEN'
       || !finite(price.precio_regular) || price.precio_regular <= 0
       || (price.precio_oferta != null && (!finite(price.precio_oferta) || price.precio_oferta <= 0
@@ -108,11 +137,12 @@ export class RealWishlistCatalog extends WishlistCatalog {
     if (!product) return retired();
     const skus = product.skus;
     if (!skus.length || skus.length > 100 || skus.some(sku => !text(sku) || sku.includes(','))) throw unavailable();
-    const stock = await this.request(`/inventario/disponibilidad/comercial?${new URLSearchParams({ skus: skus.join(','), canal: 'MARKETPLACE' })}`);
+    const stock = await this.request(`/inventario/disponibilidad/comercial?${new URLSearchParams({ skus: skus.join(','), canal: 'MARKETPLACE' })}`, undefined, true);
     if (!object(stock) || !Array.isArray(stock.items) || stock.items.length !== skus.length) throw unavailable();
     const items = stock.items;
     if (skus.some(sku => items.filter((item: unknown) => object(item) && item.sku === sku
-      && (item.status === 'DISPONIBLE' || item.status === 'STOCK_BAJO' || item.status === 'AGOTADO')).length !== 1)) throw unavailable();
+      && (item.status === 'DISPONIBLE' || item.status === 'STOCK_BAJO' || item.status === 'AGOTADO'
+        || item.status === 'INDETERMINADO')).length !== 1)) throw unavailable();
     const prices = await mapInBatches(skus, sku => this.price(sku));
     let image: ProductProjection['image'] = null;
     if (product.images.length) {
@@ -124,23 +154,26 @@ export class RealWishlistCatalog extends WishlistCatalog {
     }
     return { name: product.name, slug: product.slug, brand: product.brand, image,
       price: { amount: Math.min(...prices.map(price => price.amount)), currency: 'PEN' },
-      availability: items.some((item: unknown) => object(item) && item.status !== 'AGOTADO') ? 'AVAILABLE' : 'OUT_OF_STOCK' };
+      availability: items.some((item: unknown) => object(item) && (item.status === 'DISPONIBLE' || item.status === 'STOCK_BAJO'))
+        ? 'AVAILABLE'
+        : items.some((item: unknown) => object(item) && item.status === 'INDETERMINADO')
+          ? 'UNDETERMINED' : 'OUT_OF_STOCK' };
   }
 
   async quote(sku: string, quantity: number): Promise<CommerceQuote> {
     if (this.config.get('WISHLIST_G6_QUANTITY_APPROVED') !== 'true') throw unavailable();
-    const reference = this.config.get<string>('WISHLIST_FULFILLMENT_REF');
-    // Server-owned reference must be approved for this channel; never invent a warehouse/location.
-    if (!skuIdentity(sku) || !reference?.trim() || reference.length > 100
-      || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw unavailable();
+    if (!skuIdentity(sku) || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw unavailable();
     const result = await this.request('/inventario/disponibilidad/comercial/verificar', {
-      channel_id: 'MARKETPLACE', fulfillment: { mode: 'ENVIO_DOMICILIO', fulfillment_ref: reference },
+      channel_id: 'MARKETPLACE', fulfillment: { mode: 'ENVIO_DOMICILIO' },
       lines: [{ sku, quantity }],
-    });
+    }, true);
     if (!object(result) || result.binding !== false || !text(result.evaluated_at) || !Number.isFinite(Date.parse(result.evaluated_at))
       || !Array.isArray(result.items) || result.items.length !== 1
       || !object(result.items[0]) || result.items[0].sku !== sku || result.items[0].requested_quantity !== quantity) throw unavailable();
     if (result.items[0].result === 'INSUFICIENTE') throw new ApiError(409, 'STOCK_LIMIT_REACHED', 'Existencias insuficientes');
+    if (result.items[0].result === 'INDETERMINADO') {
+      throw new ApiError(503, 'COMMERCE_DATA_UNAVAILABLE', 'Condiciones comerciales no disponibles');
+    }
     if (result.items[0].result !== 'SUFICIENTE') throw unavailable();
     return this.price(sku);
   }
