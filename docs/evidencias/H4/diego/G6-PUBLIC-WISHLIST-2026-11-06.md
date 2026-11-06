@@ -58,3 +58,9 @@ La salida contiene únicamente estado, ID, SKU público, modo y alcance. No impr
 - La suite E2E completa no inició todas sus suites porque el entorno local no tenía `DATABASE_URL`; falló durante la validación de configuración, no en una aserción de Wishlist. No se usa ese intento como evidencia aprobada.
 
 Las pruebas locales de Pricing/Inventory utilizan proveedores controlados y no se presentan como homologación real. La ventana pública sólo acredita Catálogo.
+
+## Segundo corte y capturas de cierre
+
+Se repitió el sondeo a las `2026-11-06T11:28:52-05:00`, antes del límite de las 13:00 de Perú. Health y detalle respondieron HTTP 200; el adaptador volvió a devolver `PASS` sin `Authorization`.
+
+Resultados y capturas: [azure-2026-11-06/RESULTADOS.md](azure-2026-11-06/RESULTADOS.md).
