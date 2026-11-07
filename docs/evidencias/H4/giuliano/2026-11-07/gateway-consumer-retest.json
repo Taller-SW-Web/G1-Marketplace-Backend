@@ -1,0 +1,384 @@
+{
+  "startedAt": "2026-11-07T05:17:31.582Z",
+  "base": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io",
+  "method": "GET",
+  "authorizationSent": false,
+  "cookiesSent": false,
+  "redirectsAllowed": false,
+  "tlsVerification": true,
+  "cases": [
+    {
+      "name": "gateway-health",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/health",
+      "expectedStatus": 200,
+      "correlationSent": "8449bea2-4707-4abf-930c-03756aefc8e9",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": null,
+      "verdict": "PASS",
+      "durationMs": 272
+    },
+    {
+      "name": "categories",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/categorias",
+      "expectedStatus": 200,
+      "correlationSent": "bb7363f9-1efd-4672-a428-23bc24bdfb90",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "bb7363f9-1efd-4672-a428-23bc24bdfb90",
+      "count": 8,
+      "verdict": "PASS",
+      "durationMs": 224
+    },
+    {
+      "name": "brands",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/marcas",
+      "expectedStatus": 200,
+      "correlationSent": "f19b00e3-d153-4cad-9ede-bcac12a5811a",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "f19b00e3-d153-4cad-9ede-bcac12a5811a",
+      "count": 6,
+      "verdict": "PASS",
+      "durationMs": 136
+    },
+    {
+      "name": "marketplace-default",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "b34e8d15-d709-4d48-9209-c12b91dd679b",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "b34e8d15-d709-4d48-9209-c12b91dd679b",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 745
+    },
+    {
+      "name": "name-ascending",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "874ece9a-7a44-4f5d-ad53-071edf91bd44",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "874ece9a-7a44-4f5d-ad53-071edf91bd44",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 452
+    },
+    {
+      "name": "name-descending",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&orden=NOMBRE_DESC",
+      "expectedStatus": 200,
+      "correlationSent": "bae5d4e9-92b0-4c96-acee-af23be9b96e6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "bae5d4e9-92b0-4c96-acee-af23be9b96e6",
+      "count": 20,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 460
+    },
+    {
+      "name": "page-one",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "f6907069-7d22-4a5e-8a87-c41b36ce7e93",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "f6907069-7d22-4a5e-8a87-c41b36ce7e93",
+      "total": 20,
+      "count": 4,
+      "verdict": "PASS",
+      "durationMs": 374
+    },
+    {
+      "name": "page-two",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=2&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "fd56a7cb-90be-40ac-9e96-61cacb0e60f6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "fd56a7cb-90be-40ac-9e96-61cacb0e60f6",
+      "count": 4,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 369
+    },
+    {
+      "name": "page-last",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=5&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "1269669e-dff3-4796-a7d7-a44d31872611",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "1269669e-dff3-4796-a7d7-a44d31872611",
+      "count": 4,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 425
+    },
+    {
+      "name": "page-outside",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=6&tamanio=4&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "1a3f7d12-1c91-4281-ac0d-9c16195e7da6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "1a3f7d12-1c91-4281-ac0d-9c16195e7da6",
+      "count": 0,
+      "total": 20,
+      "verdict": "PASS",
+      "durationMs": 272
+    },
+    {
+      "name": "search-nike",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&q=Nike&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "2f5556fd-2a8d-4703-ad01-6884ff425bf0",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "2f5556fd-2a8d-4703-ad01-6884ff425bf0",
+      "count": 7,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 375
+    },
+    {
+      "name": "search-empty",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=g1-azure-no-product-8f415683-5bb5-4876-9a9f-ba0f565b50c4",
+      "expectedStatus": 200,
+      "correlationSent": "06aeb869-52a1-4f79-8161-8487d9632f65",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "06aeb869-52a1-4f79-8161-8487d9632f65",
+      "verdict": "PASS",
+      "durationMs": 270
+    },
+    {
+      "name": "category-balones",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC",
+      "expectedStatus": 200,
+      "correlationSent": "896b71bf-3f7e-4127-a029-5d9405a6aadf",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "896b71bf-3f7e-4127-a029-5d9405a6aadf",
+      "total": 4,
+      "count": 4,
+      "verdict": "PASS",
+      "durationMs": 453
+    },
+    {
+      "name": "category-search-nike",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC&q=Nike",
+      "expectedStatus": 200,
+      "correlationSent": "5dafc151-4057-4052-9017-7a4b16f1e6b6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "5dafc151-4057-4052-9017-7a4b16f1e6b6",
+      "total": 2,
+      "count": 2,
+      "verdict": "PASS",
+      "durationMs": 428
+    },
+    {
+      "name": "category-price-0-100",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6&orden=NOMBRE_ASC&q=Nike&precioMin=0&precioMax=100",
+      "expectedStatus": 200,
+      "correlationSent": "3b1a8048-9bbf-450c-a778-581bdad2a96b",
+      "status": 503,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "3b1a8048-9bbf-450c-a778-581bdad2a96b",
+      "verdict": "FAIL",
+      "failure": "unexpected HTTP status",
+      "durationMs": 334
+    },
+    {
+      "name": "brand-nike",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&marcaId=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "expectedStatus": 200,
+      "correlationSent": "bd7a5740-1676-4b93-b8d0-56f542372f50",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "bd7a5740-1676-4b93-b8d0-56f542372f50",
+      "total": 7,
+      "count": 7,
+      "verdict": "PASS",
+      "durationMs": 428
+    },
+    {
+      "name": "price-0-100",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=48&precioMin=0&precioMax=100",
+      "expectedStatus": 200,
+      "correlationSent": "059ab43a-8870-4ec7-8c6d-781c13c443b2",
+      "status": 503,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "059ab43a-8870-4ec7-8c6d-781c13c443b2",
+      "verdict": "FAIL",
+      "failure": "unexpected HTTP status",
+      "durationMs": 267
+    },
+    {
+      "name": "detail-id",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos/2ee6399e-2333-5916-847b-f6d2a0f03527?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "cc66dbca-29da-445d-b585-f4fb39cdb77c",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "cc66dbca-29da-445d-b585-f4fb39cdb77c",
+      "productId": "2ee6399e-2333-5916-847b-f6d2a0f03527",
+      "slug": "nike-academy-hv4386-100",
+      "attributesWithoutReadableValue": 2,
+      "verdict": "PASS",
+      "durationMs": 376
+    },
+    {
+      "name": "detail-slug",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos/por-slug/nike-academy-hv4386-100?canal=MARKETPLACE",
+      "expectedStatus": 200,
+      "correlationSent": "fe4e7bcd-da6a-4728-aa5b-36f5f06e9ae6",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "correlationReceived": "fe4e7bcd-da6a-4728-aa5b-36f5f06e9ae6",
+      "productId": "2ee6399e-2333-5916-847b-f6d2a0f03527",
+      "slug": "nike-academy-hv4386-100",
+      "attributesWithoutReadableValue": 2,
+      "verdict": "PASS",
+      "durationMs": 375
+    },
+    {
+      "name": "missing-id",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos/f3997ee6-801a-4edf-a402-934734af4120?canal=MARKETPLACE",
+      "expectedStatus": 404,
+      "correlationSent": "3b7a5213-b01e-432f-ad47-0c645ec9dde0",
+      "status": 404,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "3b7a5213-b01e-432f-ad47-0c645ec9dde0",
+      "verdict": "PASS",
+      "durationMs": 206
+    },
+    {
+      "name": "missing-slug",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos/por-slug/g1-azure-no-product-f3997ee6-801a-4edf-a402-934734af4120?canal=MARKETPLACE",
+      "expectedStatus": 404,
+      "correlationSent": "69675c8f-4022-452a-90e5-e135ad725b0f",
+      "status": 404,
+      "contentType": "application/problem+json; charset=utf-8",
+      "correlationReceived": "69675c8f-4022-452a-90e5-e135ad725b0f",
+      "verdict": "PASS",
+      "durationMs": 205
+    },
+    {
+      "name": "consumer-home",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "categories": 8,
+      "featured": 0,
+      "verdict": "PASS",
+      "durationMs": 105
+    },
+    {
+      "name": "consumer-filters",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "categories": 8,
+      "brands": 6,
+      "verdict": "PASS",
+      "durationMs": 213
+    },
+    {
+      "name": "consumer-search",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 4,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 374
+    },
+    {
+      "name": "consumer-page-two",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 3,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 378
+    },
+    {
+      "name": "consumer-category",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 2,
+      "total": 2,
+      "verdict": "PASS",
+      "durationMs": 432
+    },
+    {
+      "name": "consumer-brand",
+      "layer": "G1-real-provider",
+      "source": "REAL",
+      "count": 4,
+      "total": 7,
+      "verdict": "PASS",
+      "durationMs": 443
+    }
+  ],
+  "consumerTransport": [
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/categorias",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "54895770-89ff-4e9c-8883-f2b1c387dca5"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/categorias",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "8ed96fca-f9a0-4210-93cf-0face7576836"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/marcas",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "9b593501-00e4-4d4b-9cd3-9f803065b9fd"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=Nike&orden=NOMBRE_ASC",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "d98a7cde-0d43-4519-8ea2-ef07a3833c7a"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=2&tamanio=4&q=Nike&orden=NOMBRE_DESC",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "8a6910cc-bec2-4fcb-845f-73e622b28ba7"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&q=Nike&categoriaId=fcb3cac1-b14a-b935-fc1a-c147b878a5c6",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "6021c18a-d3bb-434d-a5b1-e0d0077ff16a"
+    },
+    {
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=4&marcaId=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "method": "GET",
+      "status": 200,
+      "authorizationSent": false,
+      "correlation": "fa87a5ad-5b83-4a3b-83eb-b5d62484c3ac"
+    }
+  ],
+  "finishedAt": "2026-11-07T05:17:41.698Z",
+  "summary": {
+    "pass": 25,
+    "fail": 2
+  }
+}

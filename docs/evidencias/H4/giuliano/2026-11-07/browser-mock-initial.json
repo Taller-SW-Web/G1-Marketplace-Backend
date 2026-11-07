@@ -1,0 +1,1660 @@
+{
+  "config": {
+    "argv": [
+      "/home/giuliano/Work/h4-validation-20261107/tools/node_modules/node/bin/node",
+      "/home/giuliano/Work/h4-validation-20261107/frontend/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.audit.config.ts",
+      "tests/catalog.spec.ts",
+      "tests/catalog-h4.spec.ts",
+      "tests/catalog-visual-h4.spec.ts",
+      "tests/issues",
+      "tests/product-detail.e2e.spec.ts",
+      "tests/product-commerce.e2e.spec.ts"
+    ],
+    "configFile": "/home/giuliano/Work/h4-validation-20261107/frontend/playwright.audit.config.ts",
+    "rootDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "testIgnore": [
+          "**/wishlist/**",
+          "**/auth/**",
+          "**/featured/**"
+        ],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "snapshotDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "testIgnore": [
+          "**/wishlist/**",
+          "**/auth/**",
+          "**/featured/**"
+        ],
+        "testMatch": "**/*.spec.ts",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://127.0.0.1:3100",
+          "browserName": "chromium",
+          "trace": "retain-on-failure",
+          "launchOptions": {
+            "executablePath": "/usr/bin/chromium",
+            "args": [
+              "--no-sandbox"
+            ]
+          }
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../evidence/browser-mock.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "../evidence/playwright-report"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "catalog-h4.spec.ts",
+      "file": "catalog-h4.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "H4 reviewer contract exposes delegated sort and keeps one category and one brand",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8018,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:16:52.065Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-47ab942a3cbee7a3eeb4",
+          "file": "catalog-h4.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "H4 timeout is a recoverable error with distinct safe copy and preserved criteria",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2055,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:02.463Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-06c8b7963652134e63e9",
+          "file": "catalog-h4.spec.ts",
+          "line": 17,
+          "column": 5
+        },
+        {
+          "title": "H4 unavailable brands do not block category and price, then retry restores brands",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2916,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:04.587Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-b4a8755dd7f4034f6dca",
+          "file": "catalog-h4.spec.ts",
+          "line": 32,
+          "column": 5
+        },
+        {
+          "title": "H4 mobile can apply price without either master and restores applied draft after cancel",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2194,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:07.546Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-2de14b486597bfb5ec96",
+          "file": "catalog-h4.spec.ts",
+          "line": 63,
+          "column": 5
+        },
+        {
+          "title": "H4 filters apply combined criteria through Next and BFF, preserve URL and clear only filters",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10726,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:09.778Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-1cc35304a7bdf2b5e3ea",
+          "file": "catalog-h4.spec.ts",
+          "line": 86,
+          "column": 5
+        },
+        {
+          "title": "H4 ordering is global across pages and page recovery keeps criteria",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3702,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 2\u001b[39m\n\u001b[31m+ Received  + 2\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[31m+   \"Zapatillas de running 01\",\u001b[39m\n\u001b[2m    \"Short de running 04\",\u001b[22m\n\u001b[31m+   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m    \"Short de running 08\",\u001b[22m\n\u001b[2m    \"Short de running 20\",\u001b[22m\n\u001b[2m    \"Short de running 24\",\u001b[22m\n\u001b[2m    \"Short de running 28\",\u001b[22m\n\u001b[2m    \"Short de running 32\",\u001b[22m\n\u001b[32m-   \"Zapatillas de running 01\",\u001b[39m\n\u001b[32m-   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m  ]\u001b[22m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 2\u001b[39m\n\u001b[31m+ Received  + 2\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[31m+   \"Zapatillas de running 01\",\u001b[39m\n\u001b[2m    \"Short de running 04\",\u001b[22m\n\u001b[31m+   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m    \"Short de running 08\",\u001b[22m\n\u001b[2m    \"Short de running 20\",\u001b[22m\n\u001b[2m    \"Short de running 24\",\u001b[22m\n\u001b[2m    \"Short de running 28\",\u001b[22m\n\u001b[2m    \"Short de running 32\",\u001b[22m\n\u001b[32m-   \"Zapatillas de running 01\",\u001b[39m\n\u001b[32m-   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n    at /home/giuliano/Work/h4-validation-20261107/frontend/tests/catalog-h4.spec.ts:117:33",
+                    "location": {
+                      "file": "/home/giuliano/Work/h4-validation-20261107/frontend/tests/catalog-h4.spec.ts",
+                      "column": 33,
+                      "line": 117
+                    },
+                    "snippet": "  115 |   await expect(page).toHaveURL(/page=1/);\n  116 |   const second = await page.locator('.product-card h2').allTextContents();\n> 117 |   expect([...first, ...second]).toEqual([...first, ...second].sort((a, b) => a.localeCompare(b, 'es')));\n      |                                 ^\n  118 |   await page.getByLabel('Ordenar por').selectOption('NAME_DESC');\n  119 |   await expect(page).toHaveURL(url => url.searchParams.get('sort') === 'NAME_DESC' && !url.searchParams.has('page'));\n  120 | });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/home/giuliano/Work/h4-validation-20261107/frontend/tests/catalog-h4.spec.ts",
+                        "column": 33,
+                        "line": 117
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 2\u001b[39m\n\u001b[31m+ Received  + 2\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[31m+   \"Zapatillas de running 01\",\u001b[39m\n\u001b[2m    \"Short de running 04\",\u001b[22m\n\u001b[31m+   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m    \"Short de running 08\",\u001b[22m\n\u001b[2m    \"Short de running 20\",\u001b[22m\n\u001b[2m    \"Short de running 24\",\u001b[22m\n\u001b[2m    \"Short de running 28\",\u001b[22m\n\u001b[2m    \"Short de running 32\",\u001b[22m\n\u001b[32m-   \"Zapatillas de running 01\",\u001b[39m\n\u001b[32m-   \"Zapatillas de running 05\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n\n  115 |   await expect(page).toHaveURL(/page=1/);\n  116 |   const second = await page.locator('.product-card h2').allTextContents();\n> 117 |   expect([...first, ...second]).toEqual([...first, ...second].sort((a, b) => a.localeCompare(b, 'es')));\n      |                                 ^\n  118 |   await page.getByLabel('Ordenar por').selectOption('NAME_DESC');\n  119 |   await expect(page).toHaveURL(url => url.searchParams.get('sort') === 'NAME_DESC' && !url.searchParams.has('page'));\n  120 | });\n    at /home/giuliano/Work/h4-validation-20261107/frontend/tests/catalog-h4.spec.ts:117:33"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:20.544Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results/catalog-h4-H4-ordering-is--90635-age-recovery-keeps-criteria/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results/catalog-h4-H4-ordering-is--90635-age-recovery-keeps-criteria/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/home/giuliano/Work/h4-validation-20261107/frontend/tests/catalog-h4.spec.ts",
+                    "column": 33,
+                    "line": 117
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-7fd5245bdaa8210a0ff2",
+          "file": "catalog-h4.spec.ts",
+          "line": 107,
+          "column": 5
+        },
+        {
+          "title": "H4 mobile modal traps focus, cancels its draft and applies only explicitly",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4080,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:26.057Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-ad592f7b0308a4c54dc9",
+          "file": "catalog-h4.spec.ts",
+          "line": 122,
+          "column": 5
+        },
+        {
+          "title": "H4 invalid ranges never call products, while failed masters allow sorting and retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2840,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:31.772Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cacce2a732b59c491434-6a858f93a316812721f8",
+          "file": "catalog-h4.spec.ts",
+          "line": 152,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "catalog-visual-h4.spec.ts",
+      "file": "catalog-visual-h4.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "H4 removing the search chip leaves focus on the results heading",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1988,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:34.686Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "74a638de64e82ec9265c-81f020ae173640287697",
+          "file": "catalog-visual-h4.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "H4 mobile unchanged apply restores results focus and shows applied filter count",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1364,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:36.716Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "74a638de64e82ec9265c-a088e588ee442594684d",
+          "file": "catalog-visual-h4.spec.ts",
+          "line": 12,
+          "column": 5
+        },
+        {
+          "title": "H4 visual surfaces keep desktop hierarchy and usable mobile toolbar",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3727,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:38.113Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "74a638de64e82ec9265c-b16bdcd56bfc97173bac",
+          "file": "catalog-visual-h4.spec.ts",
+          "line": 28,
+          "column": 5
+        },
+        {
+          "title": "H4 home and catalog error or empty states preserve public navigation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1678,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:41.874Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "74a638de64e82ec9265c-3f54e5239e51fae111f4",
+          "file": "catalog-visual-h4.spec.ts",
+          "line": 68,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "catalog.spec.ts",
+      "file": "catalog.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "home loads mock categories through Next → BFF and keeps featured omitted",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1955,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:43.605Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-15cec207dffe707dbf61",
+          "file": "catalog.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "search normalizes query, preserves URL and has working clear",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2292,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:45.599Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-a97926b66bef1804b947",
+          "file": "catalog.spec.ts",
+          "line": 27,
+          "column": 5
+        },
+        {
+          "title": "query 1/121 characters never requests products",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1650,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:47.939Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-0c3e0858bbdedbcd22a6",
+          "file": "catalog.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "search returns real fixture matches and does not invent prices or stock",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1305,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:49.640Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-064daac0b3b05bef5832",
+          "file": "catalog.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "pagination retains criteria, updates focus and respects first/last",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2103,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:50.979Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-5a7144e0b684cd9fe564",
+          "file": "catalog.spec.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "recoverable provider error stays an error, preserves q and retries",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1756,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:53.117Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-6a9a7ccf071e69f30c67",
+          "file": "catalog.spec.ts",
+          "line": 101,
+          "column": 5
+        },
+        {
+          "title": "out-of-range page offers recovery without retry loop",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1503,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:54.921Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-38cf625d3fc6ea77621f",
+          "file": "catalog.spec.ts",
+          "line": 127,
+          "column": 5
+        },
+        {
+          "title": "unapproved URL criteria rejected and upstream details not exposed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 943,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:56.475Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-1f11685a993425c12f10",
+          "file": "catalog.spec.ts",
+          "line": 143,
+          "column": 5
+        },
+        {
+          "title": "slow old response cannot overwrite new query",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1589,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:57.457Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-9932e3db04b800eb2d50",
+          "file": "catalog.spec.ts",
+          "line": 153,
+          "column": 5
+        },
+        {
+          "title": "mobile fits viewport, uses visible labels and exposes keyboard focus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1458,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:17:59.087Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-22701776eb3e11299587",
+          "file": "catalog.spec.ts",
+          "line": 170,
+          "column": 5
+        },
+        {
+          "title": "query text is escaped and long query has no horizontal overflow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1631,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:00.589Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-994925b3064d7a33c344",
+          "file": "catalog.spec.ts",
+          "line": 190,
+          "column": 5
+        },
+        {
+          "title": "empty home omits category/featured headings and preserves navigation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1244,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:02.250Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-1741880a9a2e1bf3b3a7",
+          "file": "catalog.spec.ts",
+          "line": 210,
+          "column": 5
+        },
+        {
+          "title": "invalid public payload is a recoverable error, never an empty catalog",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1220,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:03.536Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30aa42b97d8966d0c2dc-59dfdabd60cb00f1731d",
+          "file": "catalog.spec.ts",
+          "line": 234,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "issues/issue-28.spec.ts",
+      "file": "issues/issue-28.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F006 rejects duplicate home links while leaving global search usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2142,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:04.805Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9e3e6fb191d7326be54c-e2e83277096c4ba43f97",
+          "file": "issues/issue-28.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "issues/issue-30.spec.ts",
+      "file": "issues/issue-30.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1521,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:06.990Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "726172741d985479780b-6dafac1c60b52fc7f8f8",
+          "file": "issues/issue-30.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "issues/issue-32.spec.ts",
+      "file": "issues/issue-32.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1310,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:08.562Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "461554ad2d332f531afe-57d9999dd68450cbee08",
+          "file": "issues/issue-32.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "issues/issue-34.spec.ts",
+      "file": "issues/issue-34.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F009 announces changed ordering and history restores sort, filter and page",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1925,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:09.912Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7c9b402b133c847f989d-e744773a2d13c975af1e",
+          "file": "issues/issue-34.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "issues/issue-36.spec.ts",
+      "file": "issues/issue-36.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1384,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:11.895Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ec1b649e0a41424a3d08-08264d4b3c3de7ab120f",
+          "file": "issues/issue-36.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "product-commerce.e2e.spec.ts",
+      "file": "product-commerce.e2e.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F-014: indeterminado con reintento no se convierte en agotado ni permite compra",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2682,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:18:23.869Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a76710ea0f1afca231db-b8a345ab416ed007f189",
+          "file": "product-commerce.e2e.spec.ts",
+          "line": 122,
+          "column": 5
+        }
+      ],
+      "suites": [
+        {
+          "title": "ficha comercial MOCK · F-012…F-015",
+          "file": "product-commerce.e2e.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "F-013/F-012/F-014: la selección resuelve SKU, precio, stock y CTA",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2594,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:13.346Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a76710ea0f1afca231db-dbda266a77fdec20309a",
+              "file": "product-commerce.e2e.spec.ts",
+              "line": 14,
+              "column": 7
+            },
+            {
+              "title": "F-012: sin oferta no se inventa descuento y demo 4 sí la publica",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3492,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:15.987Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a76710ea0f1afca231db-ead82d5ee4932c741499",
+              "file": "product-commerce.e2e.spec.ts",
+              "line": 64,
+              "column": 7
+            },
+            {
+              "title": "F-014: los tres estados comerciales no exponen cantidades",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2794,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:19.525Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a76710ea0f1afca231db-14453e87a6c079aa1ad3",
+              "file": "product-commerce.e2e.spec.ts",
+              "line": 81,
+              "column": 7
+            },
+            {
+              "title": "F-015: tarjetas completas con enlace a la ficha",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1472,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:22.356Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a76710ea0f1afca231db-e2f4d8042e559e8cac15",
+              "file": "product-commerce.e2e.spec.ts",
+              "line": 103,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "product-detail.e2e.spec.ts",
+      "file": "product-detail.e2e.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "F-011 · Frontend → BFF MOCK",
+          "file": "product-detail.e2e.spec.ts",
+          "line": 35,
+          "column": 6,
+          "specs": [
+            {
+              "title": "la tarjeta abre la ficha del producto correspondiente y conserva returnTo",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2676,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:26.598Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-06e6751241f24dd7ae1b",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "Ficha MOCK muestra la región comercial F-012…F-015",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2853,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:29.357Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-1d82225a13a4481211b3",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "producto inexistente responde HTTP 404 con estado neutral",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1936,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:32.252Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-f5c3400d9aecc806b68d",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 91,
+              "column": 7
+            },
+            {
+              "title": "slug especial 404 también responde HTTP 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1669,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:34.258Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-6ad94d5be6e930b3ba90",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 105,
+              "column": 7
+            },
+            {
+              "title": "503 acordado → estado de error recuperable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1914,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:35.994Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-400d03f3b823a83caa24",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 113,
+              "column": 7
+            },
+            {
+              "title": "504 acordado → estado de error recuperable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1798,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-07T05:18:37.950Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "282bda9fb23162cf36f6-02c39be5d22c51bafee4",
+              "file": "product-detail.e2e.spec.ts",
+              "line": 125,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-07T05:16:32.709Z",
+    "duration": 127521.199,
+    "expected": 40,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

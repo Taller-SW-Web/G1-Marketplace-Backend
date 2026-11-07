@@ -1,0 +1,175 @@
+{
+  "base": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io",
+  "authorizationSent": false,
+  "tlsVerified": true,
+  "maxConcurrency": 3,
+  "cases": [
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/precios?skus=ADI-ENT22-AZU-M&canal=MARKETPLACE",
+      "requestId": "05a04ee7-4847-4899-898d-65e5f043707a",
+      "startedAt": "2026-11-07T05:20:49Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 265,
+      "correlation": "05a04ee7-4847-4899-898d-65e5f043707a",
+      "jsonValid": true,
+      "keys": [
+        "items"
+      ],
+      "durationSeconds": 2.047,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/precios/skus/ADI-ENT22-AZU-M?canal=MARKETPLACE",
+      "requestId": "07643ad2-e94b-44a4-9c84-d811f6ae6899",
+      "startedAt": "2026-11-07T05:20:49Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 253,
+      "correlation": "07643ad2-e94b-44a4-9c84-d811f6ae6899",
+      "jsonValid": true,
+      "keys": [
+        "sku",
+        "precio_regular",
+        "precio_oferta",
+        "currency",
+        "channel_id",
+        "valid_from",
+        "valid_until",
+        "price_version",
+        "vigencia_id",
+        "origen"
+      ],
+      "durationSeconds": 1.362,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/precios/productos/32a4172c-81b2-b643-1d0f-ae66f627f2ef",
+      "requestId": "bcc68eb7-179b-4ccd-ad41-ea5c9f3dd38e",
+      "startedAt": "2026-11-07T05:20:49Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 208,
+      "correlation": "bcc68eb7-179b-4ccd-ad41-ea5c9f3dd38e",
+      "jsonValid": true,
+      "keys": [
+        "product_id",
+        "precio_regular",
+        "precio_oferta",
+        "currency",
+        "channel_id",
+        "valid_from",
+        "valid_until",
+        "price_version"
+      ],
+      "durationSeconds": 1.044,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/combos",
+      "requestId": "1aa5a998-0bbc-4ef9-87a4-8aafee461e00",
+      "startedAt": "2026-11-07T05:20:50Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 1425,
+      "correlation": "1aa5a998-0bbc-4ef9-87a4-8aafee461e00",
+      "jsonValid": true,
+      "keys": [
+        "items",
+        "meta"
+      ],
+      "durationSeconds": 1.005,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/combos/447daba6-1bd8-5c0c-bd70-ff4fec7de249",
+      "requestId": "330328d3-7bb1-4b2b-aadd-7389f8c72e11",
+      "startedAt": "2026-11-07T05:20:50Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 465,
+      "correlation": "330328d3-7bb1-4b2b-aadd-7389f8c72e11",
+      "jsonValid": true,
+      "keys": [
+        "combo_id",
+        "status",
+        "price",
+        "components",
+        "informative_availability",
+        "calculated_at",
+        "freshness",
+        "name",
+        "description",
+        "version"
+      ],
+      "durationSeconds": 0.777,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/combos/447daba6-1bd8-5c0c-bd70-ff4fec7de249/disponibilidad",
+      "requestId": "6a525bc2-35b0-4a98-968b-7a511a81a5ca",
+      "startedAt": "2026-11-07T05:20:51Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 175,
+      "correlation": "6a525bc2-35b0-4a98-968b-7a511a81a5ca",
+      "jsonValid": true,
+      "keys": [
+        "comboId",
+        "verificable",
+        "cantidadInformativa",
+        "calculated_at",
+        "estadoActualizacion"
+      ],
+      "durationSeconds": 0.922,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/auditoria-precios?canal=MARKETPLACE",
+      "requestId": "f8e964e4-7af2-4b98-aaf5-cb3d228ae4ca",
+      "startedAt": "2026-11-07T05:20:51Z",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 72,
+      "correlation": "f8e964e4-7af2-4b98-aaf5-cb3d228ae4ca",
+      "jsonValid": true,
+      "keys": [
+        "items",
+        "meta"
+      ],
+      "durationSeconds": 1.39,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/carga-masiva/productos/plantilla?formato=CSV",
+      "requestId": "690e78e7-a108-427d-b72b-238c8f36e381",
+      "startedAt": "2026-11-07T05:20:51Z",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 213,
+      "correlation": "690e78e7-a108-427d-b72b-238c8f36e381",
+      "durationSeconds": 0.675,
+      "http200": true
+    },
+    {
+      "method": "GET",
+      "url": "https://api-gateway.calmgrass-aec0b33c.chilecentral.azurecontainerapps.io/api/v1/carga-masiva/productos/plantilla?formato=XLSX",
+      "requestId": "8c73627e-1b6d-492b-96e6-b6c29faa8ecf",
+      "startedAt": "2026-11-07T05:20:52Z",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 3113,
+      "correlation": "8c73627e-1b6d-492b-96e6-b6c29faa8ecf",
+      "durationSeconds": 0.186,
+      "http200": true
+    }
+  ]
+}

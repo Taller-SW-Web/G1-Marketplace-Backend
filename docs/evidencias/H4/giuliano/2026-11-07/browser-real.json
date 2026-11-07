@@ -1,0 +1,26 @@
+[
+  {
+    "name": "01-home-real",
+    "url": "http://127.0.0.1:3540/",
+    "cards": 0,
+    "categories": 8,
+    "text": "Saltar al contenido\nBuscar productos\nBuscar\nIniciar sesión\nFavoritos\nCarrito\nTodo el catálogo\nBalones\nCalzado\nEntrenamiento\nEquipamiento y Accesorios\nFútbol\nMedias deportivas\nRopa\nRunning\n\nENCUENTRA TU PRÓXIMA META\n\nEL MOVIMIENTO\nEMPIEZA CONTIGO.\n\nRopa, calzado y accesorios para acompañarte en cada entrenamiento.\n\nExplorar catálogo\nENCUENTRA LO TUYO\nBalones\nCalzado\nEntrenamiento\nEquipamiento y Accesorios\nFútbol\nMedias deportivas\nRopa\nRunning\nINKA ATHLETICS\nAyuda y contacto\nEnvíos y devoluciones\nTérminos\nPrivacidad\n\n© Inka Athletics · Deporte a tu ritmo.",
+    "pageErrors": []
+  },
+  {
+    "name": "02-nike-real",
+    "url": "http://127.0.0.1:3540/catalogo?q=Nike&pageSize=4&sort=NAME_ASC",
+    "cards": 4,
+    "categories": 0,
+    "text": "Saltar al contenido\nBuscar productos\nBuscar\nIniciar sesión\nFavoritos\nCarrito\nTodo el catálogo\nBalones\nCalzado\nEntrenamiento\nEquipamiento y Accesorios\nFútbol\nMedias deportivas\nRopa\nRunning\nInicio\n/\nCatálogo\nRESULTADOS PARA “Nike”\n\nExplora los productos que coinciden con tu búsqueda.\n\nBúsqueda: Nike\n×\nFILTROS\nFiltrar productos\nCategoría\nTodas las categorías\nBalones\nCalzado\nEntrenamiento\nEquipamiento y Accesorios\nFútbol\nMedias deportivas\nRopa\nRunning\nMarca\nTodas las marcas\nadidas\nMarathon Sports\nNike\nPuma\nUnder Armour\nWalon\nPrecio en soles (S/)\nPrecio mínimo\nPrecio máximo\nLimpiar\nAplicar filtros\n\n7 productos · Nombre: A a Z\n\nOrdenar por\nOrden del catálogo\nNombre: A a Z\nNombre: Z a A\n\nCATÁLOGO\n\nNike Academy\nVer producto\n↗\n\nCATÁLOGO\n\nNike Everyday Plus Cushioned\nVer producto\n↗\n\nCATÁLOGO\n\nNike Park III Hombre\nVer producto\n↗\n\nCATÁLOGO\n\nNike Park III Mujer\nVer producto\n↗\n\nMostrando 1–4 de 7 productos\n\n← Anterior\nPágina 1 de 2\nSiguiente →\nINKA ATHLETICS\nAyuda y contacto\nEnvíos y devoluciones\nTérminos\nPrivacidad\n\n© Inka Athletics · Deporte a tu ritmo.",
+    "pageErrors": []
+  },
+  {
+    "name": "03-precio-real-error",
+    "url": "http://127.0.0.1:3540/catalogo?minPrice=0&maxPrice=100&pageSize=4",
+    "cards": 0,
+    "categories": 0,
+    "text": "Saltar al contenido\nBuscar productos\nBuscar\nCatálogo\nBalones\nCalzado\nEntrenamiento\nEquipamiento y Accesorios\nFútbol\nMedias deportivas\nRopa\nRunning\nInicio\n/\nCatálogo\nCATÁLOGO\n\nTodo para moverte a tu ritmo.\n\nDesde S/ 0\n×\nHasta S/ 100\n×\nLimpiar filtros\nFiltros2\n\nOrdenar por\nOrden del catálogo\nNombre: A a Z\nNombre: Z a A\nEL CATÁLOGO NO ESTÁ DISPONIBLE\n\nNo pudimos cargar el catálogo. Inténtalo nuevamente.\n\nReintentar\nVolver al catálogo\nINKA ATHLETICS\nAyuda y contacto\nEnvíos y devoluciones\nTérminos\nPrivacidad\n\n© Inka Athletics · Deporte a tu ritmo.",
+    "pageErrors": []
+  }
+]

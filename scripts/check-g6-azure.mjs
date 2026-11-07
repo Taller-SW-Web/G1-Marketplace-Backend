@@ -5,9 +5,11 @@ import { writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { createRequire } from 'node:module';
 
-const { values } = parseArgs({ options: { output: { type: 'string' }, consumer: { type: 'boolean' } }, allowPositionals: false });
+const { values } = parseArgs({ options: { output: { type: 'string' }, consumer: { type: 'boolean' }, 'base-url': { type: 'string' } }, allowPositionals: false });
 if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') throw new Error('TLS_VERIFICATION_REQUIRED');
-const base = 'https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com';
+const base = values['base-url'] ?? 'https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com';
+const origin = new URL(base);
+assert(origin.protocol === 'https:' && !origin.username && !origin.password && origin.pathname === '/' && !origin.search && !origin.hash && origin.origin === base, 'base-url must be an HTTPS origin');
 const report = {
   startedAt: new Date().toISOString(), base, method: 'GET', authorizationSent: false,
   cookiesSent: false, redirectsAllowed: false, tlsVerification: true, cases: [],
