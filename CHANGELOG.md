@@ -1,3 +1,9 @@
+## [1.8.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.1...v1.8.2) (2026-11-07)
+
+### Bug Fixes
+
+* **catalog:** impedir que fixtures se publiquen como REAL ([bad6a0d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bad6a0de54d7f6da4ce2b055c264fa5ab97f5429))
+
 ## [1.8.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.0...v1.8.1) (2026-11-07)
 
 ### Bug Fixes
