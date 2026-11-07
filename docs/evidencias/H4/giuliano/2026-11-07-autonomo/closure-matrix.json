@@ -2124,6 +2124,14 @@
       "critical": 0,
       "total": 0
     },
-    "compatibilityChecks": "Resultados finales en frontend-checks.json cuando complete la batería; CI H4 enlazado en las PR."
+    "compatibilityChecks": {
+      "results": "frontend-checks.json",
+      "components": 392,
+      "server": 81,
+      "runner": 12,
+      "lint": "PASS",
+      "build": "PASS",
+      "typecheck": "PASS"
+    }
   }
 }

@@ -1,6 +1,7 @@
 {
-  "closure-matrix.json": "328a3b88804ae75fbf8e68ef7b99e287956ed694c25af3df929c3104692d032e",
+  "closure-matrix.json": "bd93c0c32fb0d91031a26ed9be6a0d2451b45d6d7e384b68c95a0e42411e2309",
   "dynamic-security-browser.json": "d0bdd8d27d865a6cd5f8808ba8417fd8c492df069bf109fbdd57460613584430",
   "frontend-security.json": "65ba00c5bb2d985e39530442df9e2a39bb695770b2162a57a02119916583ccc0",
-  "frontend-audit.json": "cf6806aed9b246705646996336dd817fb6ffa2ca2fcbd53bbbe02f6f2ba4e1ef"
+  "frontend-audit.json": "cf6806aed9b246705646996336dd817fb6ffa2ca2fcbd53bbbe02f6f2ba4e1ef",
+  "frontend-checks.json": "b0855dab0a5e00af6343a813be01bc6493a50a700e36b7bb98743214248a973b"
 }
