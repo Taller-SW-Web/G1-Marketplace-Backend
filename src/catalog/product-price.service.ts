@@ -14,6 +14,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { BffCatalogException } from './bff-catalog.exception';
+import { isRealCatalogSource } from './catalog-mode';
 import { mockSkusForProduct } from './mock-sku';
 import {
   applyPriceWindow,
@@ -68,8 +69,7 @@ export class ProductPriceService {
     slug: string,
     sku?: string,
   ): Promise<ProductPriceResponseDTO> {
-    const bffMode = process.env.BFF_MODE ?? 'mock';
-    if (bffMode !== 'mock') {
+    if (isRealCatalogSource()) {
       // El adaptador real no se activa hasta homologar I-01 / OPEN-03.
       throw new BffCatalogException(
         503,
