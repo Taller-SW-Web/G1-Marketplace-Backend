@@ -26,6 +26,7 @@ export interface ClientCredentialsTokenOptions {
   clientSecret: string;
   timeoutMs: number;
   fetchImpl: CatalogFetch;
+  scopes?: readonly string[];
   now?: () => number;
 }
 
@@ -37,7 +38,7 @@ function unavailable(diagnostic: string): CatalogError {
   return new CatalogError('CATALOG_UNAVAILABLE', 503, diagnostic);
 }
 
-function parseTokenResponse(value: unknown): TokenResponse {
+function parseTokenResponse(value: unknown, requiredScopes: readonly string[]): TokenResponse {
   if (!isRecord(value)) throw unavailable('G7_TOKEN_INVALID_RESPONSE');
 
   const { accessToken, tokenType, expiresIn, scopes } = value;
@@ -46,7 +47,7 @@ function parseTokenResponse(value: unknown): TokenResponse {
     !/^[\x21-\x7e]+$/.test(accessToken) || tokenType !== 'Bearer' ||
     typeof expiresIn !== 'number' || !Number.isSafeInteger(expiresIn) || expiresIn <= 0 ||
     !Array.isArray(scopes) || !scopes.every((scope) => typeof scope === 'string') ||
-    !scopes.includes(SERVICE_SCOPE)
+    !requiredScopes.every((scope) => scopes.includes(scope))
   ) throw unavailable('G7_TOKEN_INVALID_RESPONSE');
 
   return { accessToken, tokenType, expiresIn, scopes };
@@ -58,6 +59,11 @@ function parseTokenResponse(value: unknown): TokenResponse {
  */
 export function createClientCredentialsTokenProvider(options: ClientCredentialsTokenOptions) {
   const now = options.now ?? Date.now;
+  const requiredScopes = [...(options.scopes ?? [SERVICE_SCOPE])];
+  if (!requiredScopes.length || new Set(requiredScopes).size !== requiredScopes.length ||
+      requiredScopes.some((scope) => !/^[a-z][a-z0-9:_-]{0,99}$/.test(scope))) {
+    throw unavailable('G7_SCOPE_CONFIGURATION_INVALID');
+  }
   let cached: CachedToken | undefined;
   let refreshInFlight: Promise<string> | undefined;
   let retryRefreshAt = 0;
@@ -69,7 +75,7 @@ export function createClientCredentialsTokenProvider(options: ClientCredentialsT
         grant_type: 'client_credentials',
         client_id: SERVICE_CLIENT_ID,
         client_secret: options.clientSecret,
-        scope: SERVICE_SCOPE,
+        scope: requiredScopes.join(' '),
       });
       response = await options.fetchImpl(options.tokenUrl, {
         method: 'POST',
@@ -91,7 +97,7 @@ export function createClientCredentialsTokenProvider(options: ClientCredentialsT
 
     let tokenResponse: TokenResponse;
     try {
-      tokenResponse = parseTokenResponse(await response.json());
+      tokenResponse = parseTokenResponse(await response.json(), requiredScopes);
     } catch (error) {
       if (error instanceof CatalogError) throw error;
       throw unavailable('G7_TOKEN_INVALID_RESPONSE');

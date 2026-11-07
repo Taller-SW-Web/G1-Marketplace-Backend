@@ -148,9 +148,12 @@ describe('Wishlist read and add-to-cart PostgreSQL integration (sandbox provider
   });
 
   it('restores an active favorite through POST and rejects restoration of a retired product', async () => {
-    await seed();
+    const original = await seed('PRD-1', A, new Date('2026-01-01'));
     await request(app.getHttpServer()).delete(`${base}/items/PRD-1`).auth(token(), { type: 'bearer' }).expect(204);
     await request(app.getHttpServer()).post(`${base}/items`).auth(token(), { type: 'bearer' }).send({ productId: 'PRD-1' }).expect(201);
+    const restored = await prisma.wishlistItem.findFirstOrThrow({ where: { customerId: A, productId: 'PRD-1' } });
+    expect(restored.id).not.toBe(original.id);
+    expect(restored.createdAt.getTime()).toBeGreaterThan(original.createdAt.getTime());
     await request(app.getHttpServer()).post(`${base}/items`).auth(token(), { type: 'bearer' }).send({ productId: 'PRD-RETIRED' }).expect(404);
   });
 });

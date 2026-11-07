@@ -71,6 +71,46 @@ describe('Wishlist PostgreSQL 16 integration (MOCK identity/catalog)', () => {
     expect(await prisma.wishlistItem.count()).toBe(1);
   });
 
+  it('enforces the composite customer/product uniqueness constraint in PostgreSQL', async () => {
+    await prisma.wishlistItem.create({
+      data: { customerId: SANDBOX_CUSTOMERS.A, productId: 'PRD-UNIQUE' },
+    });
+
+    await expect(prisma.wishlistItem.create({
+      data: { customerId: SANDBOX_CUSTOMERS.A, productId: 'PRD-UNIQUE' },
+    })).rejects.toMatchObject({ code: 'P2002' });
+
+    // The same product remains valid for a different customer: uniqueness is
+    // scoped to the owner/product pair, not to productId globally.
+    await expect(prisma.wishlistItem.create({
+      data: { customerId: SANDBOX_CUSTOMERS.B, productId: 'PRD-UNIQUE' },
+    })).resolves.toMatchObject({ customerId: SANDBOX_CUSTOMERS.B, productId: 'PRD-UNIQUE' });
+    expect(await prisma.wishlistItem.count({ where: { productId: 'PRD-UNIQUE' } })).toBe(2);
+  });
+
+  it('rejects blank product ids at the database constraint', async () => {
+    await expect(prisma.wishlistItem.create({
+      data: { customerId: SANDBOX_CUSTOMERS.A, productId: '   ' },
+    })).rejects.toThrow(/wishlist_items_product_id_chk/);
+    expect(await prisma.wishlistItem.count()).toBe(0);
+  });
+
+  it('rolls back all wishlist writes when a transaction fails', async () => {
+    await expect(prisma.$transaction(async (tx) => {
+      await tx.wishlistItem.create({
+        data: { customerId: SANDBOX_CUSTOMERS.A, productId: 'PRD-ROLLBACK-A' },
+      });
+      await tx.wishlistItem.create({
+        data: { customerId: SANDBOX_CUSTOMERS.B, productId: 'PRD-ROLLBACK-B' },
+      });
+      throw new Error('rollback-fixture');
+    })).rejects.toThrow('rollback-fixture');
+
+    expect(await prisma.wishlistItem.count({
+      where: { productId: { in: ['PRD-ROLLBACK-A', 'PRD-ROLLBACK-B'] } },
+    })).toBe(0);
+  });
+
   it('isolates A and B and does not delete another customer data', async () => {
     await request(app.getHttpServer()).post(path).set('Authorization', auth()).send({ productId: 'PRD-1' }).expect(201);
     await request(app.getHttpServer()).delete(`${path}/PRD-1`).set('Authorization', auth(SANDBOX_CUSTOMERS.B)).expect(204);

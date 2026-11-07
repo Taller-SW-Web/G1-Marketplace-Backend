@@ -1,5 +1,7 @@
 # 🛒 Canal Marketplace Multicanal
 
+> **Corte Diego H4 — 28/10/2026:** [implementación, entregas y revisión](docs/DIEGO-H4-ENTREGAS.md). Favoritos conserva el producto al agregar al carrito; CSAT y G6 nuevos permanecen sujetos a aprobación y pruebas REAL. Pruebas de BD únicamente en PostgreSQL 16 desechable mediante `npm run test:diego:isolated`; esto amplía la restricción histórica de BD sólo para ese entorno aislado. No acredita despliegue ni cierre automático de issues.
+
 > **Entorno actual solicitado: Docker local.** Render queda como referencia futura. Consultar [Docker H3](docs/DOCKER-H3.md) para levantar los tres servicios. No se ha desplegado en Render.
 
 > **Resolución vigente del PR #15:** [conflictos, decisiones y registro para auditoría](docs/evidencias/h3/resolucion-conflictos-pr15.md).

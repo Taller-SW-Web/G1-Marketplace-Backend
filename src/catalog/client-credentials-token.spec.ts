@@ -15,13 +15,14 @@ const tokenResponse = (accessToken: string, expiresIn = 3600) => Response.json({
   scopes: [SERVICE_SCOPE],
 });
 
-function makeTokenProvider(fetchImpl: CatalogFetch, now?: () => number) {
+function makeTokenProvider(fetchImpl: CatalogFetch, now?: () => number, scopes?: readonly string[]) {
   return createClientCredentialsTokenProvider({
     tokenUrl,
     clientSecret: 'synthetic-test-secret',
     timeoutMs: 1000,
     fetchImpl,
     now,
+    scopes,
   });
 }
 
@@ -47,6 +48,23 @@ test('requests a service token from the fake G7 using form encoding and no audie
     scope: SERVICE_SCOPE,
   });
   expect(form.has('aud')).toBe(false);
+});
+
+test('requests and verifies every configured commerce scope', async () => {
+  const scopes = ['precios:leer', 'inventario:disponibilidad:leer'];
+  let form: URLSearchParams | undefined;
+  const provider = makeTokenProvider(async (_url, options) => {
+    form = new URLSearchParams(String(options.body));
+    return Response.json({ accessToken: 'commerce-token', tokenType: 'Bearer', expiresIn: 3600, scopes });
+  }, undefined, scopes);
+
+  await expect(provider.getAccessToken()).resolves.toBe('commerce-token');
+  expect(form?.get('scope')).toBe('precios:leer inventario:disponibilidad:leer');
+
+  const incomplete = makeTokenProvider(async () => Response.json({
+    accessToken: 'incomplete-token', tokenType: 'Bearer', expiresIn: 3600, scopes: ['precios:leer'],
+  }), undefined, scopes);
+  await expect(incomplete.getAccessToken()).rejects.toMatchObject({ diagnostic: 'G7_TOKEN_INVALID_RESPONSE' });
 });
 
 test('uses one in-flight token request for concurrent callers', async () => {

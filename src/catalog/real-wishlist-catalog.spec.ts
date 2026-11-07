@@ -1,0 +1,171 @@
+import { ConfigService } from '@nestjs/config';
+import { RealWishlistCatalog, WISHLIST_G6_REVISION, WISHLIST_G6_VERSION } from './real-wishlist-catalog';
+
+describe('G6 wishlist projection and quantity contract (simulated HTTP)', () => {
+  const original = global.fetch;
+  let reply: jest.Mock;
+  let config: Record<string, unknown>;
+  let catalog: RealWishlistCatalog;
+  const product = { product_id: 'P1', name: 'Producto', slug: 'producto', tiene_variantes: false,
+    sku_base: 'SKU1', marca: { name: 'Marca' }, variants: [], images: [] };
+  const price = { sku: 'SKU1', precio_regular: 100, precio_oferta: 80, currency: 'PEN', price_version: 4,
+    channel_id: 'MARKETPLACE', valid_from: '2026-01-01T00:00:00Z', valid_until: null, vigencia_id: 'v1', origen: 'PRODUCTO' };
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  beforeEach(() => {
+    config = { NODE_ENV: 'test', WISHLIST_G6_APPROVED: 'true', WISHLIST_G6_VERSION: WISHLIST_G6_VERSION,
+      WISHLIST_G6_REVISION: WISHLIST_G6_REVISION, WISHLIST_G6_QUANTITY_APPROVED: 'true',
+      PRODUCTOS_BASE_URL: 'http://127.0.0.1:4050', PRODUCTOS_AUTH_MODE: 'service-token',
+      WISHLIST_COMMERCE_AUTH_MODE: 'service-token', PRODUCTOS_SERVICE_TOKEN: 'synthetic-service-token' };
+    catalog = new RealWishlistCatalog({ get: (key: string, fallback?: unknown) => config[key] ?? fallback } as ConfigService);
+    reply = jest.fn(async (url: URL) => {
+      if (url.pathname.includes('/productos/')) return json(product);
+      if (url.pathname.includes('/precios/')) return json(price);
+      if (url.pathname.endsWith('/verificar')) return json({ binding: false, evaluated_at: new Date().toISOString(),
+        items: [{ sku: 'SKU1', requested_quantity: 3, result: 'SUFICIENTE' }] });
+      return json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] });
+    });
+    global.fetch = reply;
+  });
+  afterEach(() => { global.fetch = original; });
+  it('projects authoritative price and brand, transports only the technical credential', async () => {
+    await expect(catalog.project('P1')).resolves.toEqual({ name: 'Producto', slug: 'producto', brand: 'Marca',
+      image: null, price: { amount: 80, currency: 'PEN' }, availability: 'AVAILABLE' });
+    for (const [, options] of reply.mock.calls) expect(options).toMatchObject({ redirect: 'error',
+      headers: { Authorization: 'Bearer synthetic-service-token' } });
+  });
+  it('keeps removed products distinct from provider failures', async () => {
+    reply.mockResolvedValueOnce(json({}, 404));
+    await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'UNAVAILABLE', name: null });
+    reply.mockResolvedValueOnce(json({}, 503));
+    await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
+    reply.mockRejectedValueOnce(new Error('upstream secret'));
+    await expect(catalog.project('P1')).rejects.toMatchObject({ response: { code: 'CATALOG_UNAVAILABLE' } });
+  });
+  it('does not select a variant and rejects malicious redirect slugs', async () => {
+    reply.mockResolvedValueOnce(json({ ...product, tiene_variantes: true }));
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 422, response: { redirectUrl: '/productos/producto' } });
+    reply.mockResolvedValueOnce(json({ ...product, slug: '//evil.test' }));
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 503 });
+  });
+  it('verifies accumulated quantity and fails closed on insufficient/indeterminate/mismatched data', async () => {
+    await expect(catalog.quote('SKU1', 3)).resolves.toEqual({ amount: 80, currency: 'PEN', version: 4 });
+    expect(JSON.parse(reply.mock.calls[0][1].body)).toEqual({ channel_id: 'MARKETPLACE',
+      fulfillment: { mode: 'ENVIO_DOMICILIO' }, lines: [{ sku: 'SKU1', quantity: 3 }] });
+    for (const [result, status] of [['INSUFICIENTE', 409], ['INDETERMINADO', 503]]) {
+      reply.mockResolvedValueOnce(json({ binding: false, evaluated_at: new Date().toISOString(),
+        items: [{ sku: 'SKU1', requested_quantity: 3, result }] }));
+      await expect(catalog.quote('SKU1', 3)).rejects.toMatchObject({ status });
+    }
+    reply.mockResolvedValueOnce(json({ binding: false, evaluated_at: new Date().toISOString(),
+      items: [{ sku: 'OTHER', requested_quantity: 3, result: 'SUFICIENTE' }] }));
+    await expect(catalog.quote('SKU1', 3)).rejects.toMatchObject({ status: 503 });
+  });
+  it('rejects stale prices, unknown stock and disallowed media', async () => {
+    reply.mockImplementationOnce(async () => json({ ...product, images: ['https://evil.test/image.png'] }));
+    await expect(catalog.project('P1')).rejects.toBeDefined();
+    reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/') ? json(product)
+      : url.pathname.includes('/precios/') ? json({ ...price, valid_until: '2026-01-02T00:00:00Z' })
+      : json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] }));
+    await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
+  });
+  it('requires independent approvals, pin and service credential; no mock fallback', async () => {
+    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_VERSION', 'WISHLIST_G6_REVISION', 'PRODUCTOS_SERVICE_TOKEN']) {
+      const value = config[key]; config[key] = '';
+      await expect(catalog.isActive('P1')).rejects.toMatchObject({ status: 503 }); config[key] = value;
+    }
+    expect(reply).not.toHaveBeenCalled();
+    config.WISHLIST_G6_QUANTITY_APPROVED = 'false';
+    await expect(catalog.quote('SKU1', 1)).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('keeps public product GETs unauthenticated while authenticating commerce separately', async () => {
+    const publicId = '2ee6399e-2333-5916-847b-f6d2a0f03527';
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/')
+      ? json({ ...product, product_id: publicId })
+      : url.pathname.includes('/precios/') ? json(price)
+      : json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] }));
+    await expect(catalog.isActive(publicId)).resolves.toBe(true);
+    await expect(catalog.resolveSku(publicId)).resolves.toBe('SKU1');
+    for (const [, options] of reply.mock.calls) {
+      expect(options).toMatchObject({ method: 'GET', redirect: 'error', cache: 'no-store', credentials: 'omit' });
+      expect(options.headers).not.toHaveProperty('Authorization');
+    }
+    expect(reply).toHaveBeenCalledTimes(2);
+
+    await expect(catalog.project(publicId)).resolves.toMatchObject({ availability: 'AVAILABLE' });
+    const productCalls = reply.mock.calls.filter(([url]: [URL]) => url.pathname.includes('/productos/'));
+    const commerceCalls = reply.mock.calls.filter(([url]: [URL]) => !url.pathname.includes('/productos/'));
+    for (const [, options] of productCalls) expect(options.headers).not.toHaveProperty('Authorization');
+    for (const [, options] of commerceCalls) expect(options.headers).toHaveProperty('Authorization', 'Bearer synthetic-service-token');
+  });
+
+  it('obtains one G7 token with both commerce scopes and never sends it to public Catalog', async () => {
+    const publicId = '2ee6399e-2333-5916-847b-f6d2a0f03527';
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    config.WISHLIST_COMMERCE_AUTH_MODE = 'client-credentials';
+    config.G7_TOKEN_URL = 'http://127.0.0.1/api/v1/auth/token';
+    config.PRODUCTOS_CLIENT_SECRET = 'synthetic-secret';
+    reply.mockImplementation(async (url: URL, options: RequestInit) => {
+      if (url.pathname === '/api/v1/auth/token') return json({ accessToken: 'issued-commerce-token', tokenType: 'Bearer',
+        expiresIn: 3600, scopes: ['precios:leer', 'inventario:disponibilidad:leer'] });
+      if (url.pathname.includes('/productos/')) return json({ ...product, product_id: publicId });
+      if (url.pathname.includes('/precios/')) return json(price);
+      expect(new Headers(options.headers).get('Authorization')).toBe('Bearer issued-commerce-token');
+      return json({ items: [{ sku: 'SKU1', status: 'DISPONIBLE' }] });
+    });
+
+    await expect(catalog.project(publicId)).resolves.toMatchObject({ availability: 'AVAILABLE' });
+    const tokenCalls = reply.mock.calls.filter(([url]: [URL]) => url.pathname === '/api/v1/auth/token');
+    expect(tokenCalls).toHaveLength(1);
+    expect(new URLSearchParams(String(tokenCalls[0][1].body)).get('scope'))
+      .toBe('precios:leer inventario:disponibilidad:leer');
+    const detailCall = reply.mock.calls.find(([url]: [URL]) => url.pathname.includes('/productos/'));
+    expect(detailCall?.[1].headers).not.toHaveProperty('Authorization');
+  });
+
+  it('preserves INDETERMINADO instead of treating it as stock or provider failure', async () => {
+    reply.mockImplementation(async (url: URL) => url.pathname.includes('/productos/') ? json(product)
+      : url.pathname.includes('/precios/') ? json(price)
+      : json({ items: [{ sku: 'SKU1', status: 'INDETERMINADO' }] }));
+    await expect(catalog.project('P1')).resolves.toMatchObject({ availability: 'UNDETERMINED' });
+  });
+
+  it('maps a public product 404 to inactive and rejects non-UUID public detail routes', async () => {
+    config.PRODUCTOS_AUTH_MODE = 'public-read-only';
+    reply.mockResolvedValueOnce(json({ code: 'PRODUCTO_NO_ENCONTRADO' }, 404));
+    await expect(catalog.isActive('00000000-0000-0000-0000-000000000000')).resolves.toBe(false);
+    await expect(catalog.isActive('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['.', '..', 'SKU\u0000INVALID'])('rejects unsafe SKU %p before making quantity or price requests', async sku => {
+    await expect(catalog.quote(sku, 1)).rejects.toMatchObject({ status: 503 });
+    expect(reply).not.toHaveBeenCalled();
+    reply.mockResolvedValueOnce(json({ ...product, sku_base: sku }));
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects duplicate variant identities before querying stock or prices', async () => {
+    reply.mockResolvedValueOnce(json({ ...product, tiene_variantes: true, variants: [{ sku: 'SKU1' }, { sku: 'SKU1' }] }));
+    await expect(catalog.project('P1')).rejects.toMatchObject({ status: 503 });
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds variant price queries and projects the minimum without choosing a variant for the cart', async () => {
+    const variants = Array.from({ length: 9 }, (_, index) => ({ sku: `SKU${index}` }));
+    let active = 0; let peak = 0;
+    reply.mockImplementation(async (url: URL) => {
+      if (url.pathname.includes('/productos/')) return json({ ...product, tiene_variantes: true, variants });
+      if (url.pathname.includes('/inventario/')) return json({ items: variants.map(v => ({ sku: v.sku, status: 'DISPONIBLE' })) });
+      active++; peak = Math.max(peak, active);
+      await new Promise<void>(resolve => setImmediate(resolve)); active--;
+      const sku = decodeURIComponent(url.pathname.split('/').at(-1)!);
+      return json({ ...price, sku, precio_regular: 100 + Number(sku.slice(3)), precio_oferta: null });
+    });
+    await expect(catalog.project('P1')).resolves.toMatchObject({ price: { amount: 100, currency: 'PEN' } });
+    expect(peak).toBe(4);
+    await expect(catalog.resolveSku('P1')).rejects.toMatchObject({ status: 422 });
+  });
+});
