@@ -30,11 +30,12 @@ const PAGE = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Marketplace G1 — Documentación de la API</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
-  <style>body{margin:0}.topbar{display:none}</style>
+  <style>body{margin:0}</style>
 </head>
 <body>
   <div id="swagger-ui"></div>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-standalone-preset.js"></script>
   <script>
     fetch('/docs/specs')
       .then(function (r) { return r.json(); })
@@ -42,6 +43,8 @@ const PAGE = `<!doctype html>
         SwaggerUIBundle({
           dom_id: '#swagger-ui',
           urls: specs,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'StandaloneLayout',
           'urls.primaryName': specs.length ? specs[0].name : undefined,
           deepLinking: true,
           tryItOutEnabled: false
