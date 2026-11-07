@@ -33,7 +33,7 @@
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
     "test:g6:contract": "jest --config ./test/jest-e2e.json --runInBand test/catalog-g6-contract.e2e-spec.ts test/catalog-g6-demo.e2e-spec.ts",
-    "test:g6:probe": "node --test scripts/check-g6.test.mjs",
+    "test:g6:probe": "node --test scripts/check-g6.test.mjs scripts/check-g6-azure.test.mjs",
     "check:g6": "node scripts/check-g6.mjs",
     "check:g6:azure": "node scripts/check-g6-azure.mjs",
     "check:catalog:h4": "node scripts/catalog-h4/check.mjs",

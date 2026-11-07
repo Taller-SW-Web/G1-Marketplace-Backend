@@ -1,0 +1,64 @@
+[
+  {
+    "check": "components",
+    "command": [
+      "npm",
+      "run",
+      "test:components",
+      "--",
+      "--maxWorkers=2"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 66.53
+  },
+  {
+    "check": "server",
+    "command": [
+      "npm",
+      "run",
+      "test:server"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 5.12
+  },
+  {
+    "check": "lint",
+    "command": [
+      "npm",
+      "run",
+      "lint"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 30.58
+  },
+  {
+    "check": "build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 86.34
+  },
+  {
+    "check": "typecheck",
+    "command": [
+      "npm",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 15.28
+  },
+  {
+    "check": "demo",
+    "command": [
+      "npm",
+      "run",
+      "test:demo:catalogo:real"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 0.42
+  }
+]

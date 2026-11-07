@@ -1,0 +1,10 @@
+test_exact_private_generated_key_is_classified_without_exporting_it (test_next_artifact_policy.NextArtifactPolicyTests.test_exact_private_generated_key_is_classified_without_exporting_it) ... ok
+test_framework_version_or_metadata_shape_changes_fail_closed (test_next_artifact_policy.NextArtifactPolicyTests.test_framework_version_or_metadata_shape_changes_fail_closed) ... ok
+test_generated_key_in_public_assets_is_reported (test_next_artifact_policy.NextArtifactPolicyTests.test_generated_key_in_public_assets_is_reported) ... ok
+test_same_key_in_public_bundle_is_rejected (test_next_artifact_policy.NextArtifactPolicyTests.test_same_key_in_public_bundle_is_rejected) ... ok
+test_unrelated_secret_in_classified_file_is_rejected (test_next_artifact_policy.NextArtifactPolicyTests.test_unrelated_secret_in_classified_file_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.728s
+
+OK
