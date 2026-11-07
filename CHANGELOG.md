@@ -1,3 +1,9 @@
+## [1.8.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.0...v1.8.1) (2026-11-07)
+
+### Bug Fixes
+
+* **docs:** cargar las definiciones OpenAPI en Swagger UI con el preset standalone ([850bd90](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/850bd90b656776ef3658704064523c5c351bf955))
+
 ## [1.8.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.7.0...v1.8.0) (2026-11-06)
 
 ### Features
