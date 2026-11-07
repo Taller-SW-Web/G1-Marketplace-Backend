@@ -11,6 +11,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { isRealCatalogSource } from './catalog-mode';
 import { realProductDetail } from './product-detail.real';
 import { createG6Client, G6_CLIENT_CONFIG_KEYS } from './g6-client';
 import {
@@ -50,10 +51,7 @@ export class ProductDetailService {
    */
   async getBySlug(slug: string, requestId?: string): Promise<ProductDetailResponseDTO> {
     // REAL selection always wins over fixture defaults; misconfiguration fails closed.
-    const bffMode = process.env.BFF_MODE ?? 'mock';
-
-    if (process.env.CATALOG_SOURCE === 'real' ||
-        ['public-read-only', 'client-credentials'].includes(process.env.PRODUCTOS_AUTH_MODE ?? '') || bffMode !== 'mock')
+    if (isRealCatalogSource())
       return realProductDetail(slug, process.env, fetch, requestId, () => this.configuredClient());
 
     await simulateLatency();

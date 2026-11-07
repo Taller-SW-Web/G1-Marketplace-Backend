@@ -24,6 +24,9 @@ describe('DocsController (e2e)', () => {
     const response = await request(app.getHttpServer()).get('/docs').expect(200);
     expect(response.headers['content-type']).toContain('text/html');
     expect(response.text).toContain('SwaggerUIBundle');
+    // 'urls' solo se interpreta con el preset standalone y su barra superior; sin ellos Swagger muestra «No API definition provided».
+    expect(response.text).toContain('SwaggerUIStandalonePreset');
+    expect(response.text).toContain("layout: 'StandaloneLayout'");
   });
 
   it('lists the published contracts', async () => {

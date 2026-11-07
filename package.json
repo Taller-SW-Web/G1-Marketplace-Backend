@@ -1,6 +1,6 @@
 {
   "name": "g1-marketplace-backend",
-  "version": "1.8.0",
+  "version": "1.8.2",
   "description": "Backend Marketplace Multicanal - NestJS & Prisma ORM",
   "main": "dist/main.js",
   "scripts": {
