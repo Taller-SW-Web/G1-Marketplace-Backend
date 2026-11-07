@@ -11,6 +11,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { isRealCatalogSource } from './catalog-mode';
 import { createG6Client, G6_CLIENT_CONFIG_KEYS } from './g6-client';
 import { realProductVariants } from './product-variants.real';
 import { BffCatalogException } from './bff-catalog.exception';
@@ -73,9 +74,7 @@ export class ProductVariantsService {
    * @throws {BffCatalogException} 404, 502, 503 o 504 según contrato
    */
   async getBySlug(slug: string, requestId?: string): Promise<ProductVariantsResponseDTO> {
-    const bffMode = process.env.BFF_MODE ?? 'mock';
-    if (process.env.CATALOG_SOURCE === 'real' ||
-        ['public-read-only', 'client-credentials'].includes(process.env.PRODUCTOS_AUTH_MODE ?? '') || bffMode !== 'mock')
+    if (isRealCatalogSource())
       return realProductVariants(slug, process.env, fetch, requestId, () => this.configuredClient());
 
     await simulateLatency();
