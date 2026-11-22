@@ -1,3 +1,10 @@
+## [1.8.3](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.2...v1.8.3) (2026-11-22)
+
+### Bug Fixes
+
+* **dast:** ejecuta el análisis desde revisiones identificadas ([d5d1cd5](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/d5d1cd5a198df06e63d076e9e02765b6eff067e2))
+* **g7:** validar respuestas previas a OTP y el plazo de lectura ([4cdb2d6](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/4cdb2d60adcb8c9a66d9c0b501db52e40115ea4b))
+
 ## [1.8.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.1...v1.8.2) (2026-11-07)
 
 ### Bug Fixes
