@@ -51,8 +51,8 @@ export class SessionStore {
     }
   }
 
-  async locked<T>(opaque: string | undefined, operation: (session: StoredSession | null) => Promise<SessionChange<T>>): Promise<T> {
-    if (!opaque || !/^[A-Za-z0-9_-]{43}$/.test(opaque)) return (await operation(null)).result;
+  async locked<T>(opaque: string | undefined, operation: (session: StoredSession | null, rowExisted?: boolean) => Promise<SessionChange<T>>): Promise<T> {
+    if (!opaque || !/^[A-Za-z0-9_-]{43}$/.test(opaque)) return (await operation(null, false)).result;
     const id = sessionHash(opaque);
     // The DB lock serializes claims/updates across BFF instances. Never use a process Map.
     return this.prisma.$transaction(async (tx) => {
@@ -63,7 +63,8 @@ export class SessionStore {
         try { session = { id, expiresAt: row.expiresAt, data: this.decrypt(id, row.encrypted) }; }
         catch { /* A tampered row or changed key never grants a session. */ }
       }
-      const change = await operation(session);
+      // rowExisted lets callers tell an absent session from one that exists but cannot be read (expired, tampered, key changed).
+      const change = await operation(session, Boolean(row));
       if (row && (!session || change.remove)) await tx.authSession.delete({ where: { id } });
       else if (row && change.data) await tx.authSession.update({ where: { id }, data: { encrypted: this.encrypt(id, change.data) } });
       return change.result;
