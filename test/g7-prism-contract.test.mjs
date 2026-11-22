@@ -82,7 +82,8 @@ if (!realUrl) {
       noSession(data);
     }],
     ['verificación OTP', '/auth/otp/verificar', { body: otp, example: 'verificado' }, session],
-    ['refresh entrega una sesión renovada', '/auth/refresh', { body: refresh, example: 'renovada' }, session],
+    // Prism sirve el ejemplo. La suite auth-g7.e2e-spec.ts comprueba la rotación con estado.
+    ['refresh valida la forma del ejemplo de sesión', '/auth/refresh', { body: refresh, example: 'renovada' }, session],
     ['logout sin contenido', '/auth/logout', { body: refresh, status: 204, bearer: true }],
     ['registro pendiente sin sesión', '/auth/registro', { body: registro, status: 201, example: 'creada' }, data => {
       assert.equal(data.estado, 'PENDIENTE_VERIFICACION');
