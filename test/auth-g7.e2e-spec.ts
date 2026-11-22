@@ -306,7 +306,7 @@ suite('F-002/F-003 G7 contract fixture + real PostgreSQL sessions', () => {
     expect(closed.body.remoteRevocationPending).toBe(false);
     expect(await prisma.authSession.count()).toBe(0); expect(logoutCalls).toBe(2);
   });
-  it('F-003 logout never reports a clean revocation for a stored session it cannot read (tampered, key change or expired)', async () => {
+  it('F-003 logout never reports a clean revocation for a stored session it cannot read (tampered or expired)', async () => {
     const value = cookie(await login().expect(200));
     await prisma.authSession.updateMany({ data: { encrypted: randomBytes(60).toString('base64') } });
     const closed = await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', value).set('Origin', origin).send({}).expect(200);
