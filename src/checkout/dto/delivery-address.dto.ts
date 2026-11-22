@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class CreateDeliveryAddressDto {
   @IsOptional()
@@ -7,22 +7,22 @@ export class CreateDeliveryAddressDto {
   label?: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/)
   @MaxLength(180)
   street!: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/)
   @MaxLength(100)
   district!: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/)
   @MaxLength(100)
   province!: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/)
   @MaxLength(100)
   department!: string;
 
@@ -32,7 +32,7 @@ export class CreateDeliveryAddressDto {
   reference?: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/)
   @MaxLength(40)
   phone!: string;
 }
