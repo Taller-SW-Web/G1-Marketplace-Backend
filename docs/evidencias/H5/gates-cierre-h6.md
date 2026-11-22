@@ -10,7 +10,10 @@ Borrador para Diego Espinoza. Alcance verificable al corte: CI/CD de backend con
 | Andrés · traslado de ítem a favoritos | [BE #260](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/260) · `9b2a065` |
 | Leonidas · seguridad local checkout | [BE #270](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/270) · `34e3e4c` |
 
-Inventario parcial. Incorporar evidencia Git revisable de Fernando y Diego y los cambios H5 integrados antes del freeze. Vincular para cada aporte autor, PR, SHA, CI o caso y revisión. Un merge acredita incorporación al repositorio. La integración externa exige su propia evidencia.
+| Fernando · E2E de la demo H4 | [FE #129](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/129) · `61f20be` |
+| Diego · listado y paso de favoritos a carrito | [BE #15](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/15) · `f29c6bd` |
+
+Incorporar los cambios de H5 integrados antes del freeze. Vincular para cada aporte autor, PR, SHA, CI o caso y revisión. Un merge acredita incorporación al repositorio. La integración externa exige su propia evidencia.
 
 | Riesgo para el candidato | Decisión para el freeze |
 |---|---|
