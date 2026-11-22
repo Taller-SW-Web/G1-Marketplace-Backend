@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
+import { pathToFileURL } from 'node:url';
 
 const contract = 'G7 OpenAPI 1.0.0 @ 1b8f2e35448075a6c396b70fdd4ec1d5b1aa9201';
 const issues = [25, 29, 33, 37, 41, 115];
@@ -93,6 +94,19 @@ function session(body, role = 'CLIENTE') {
     Array.isArray(body.usuario.roles) && body.usuario.roles.includes(role);
 }
 
+function noSession(body) {
+  return !Object.hasOwn(body, 'accessToken') && !Object.hasOwn(body, 'refreshToken');
+}
+
+export function mfaChallenge(body) {
+  return body?.mfaRequerido === true && typeof body.challengeToken === 'string' &&
+    body.challengeToken.length > 0 && noSession(body);
+}
+
+export function otpRequested(body) {
+  return body?.canal === 'EMAIL' && noSession(body);
+}
+
 function pendingRegistration(body) {
   return body?.estado === 'PENDIENTE_VERIFICACION' && uuid.test(body.id ?? '') &&
     !('accessToken' in body) && !('refreshToken' in body);
@@ -135,10 +149,12 @@ async function run(config) {
       const raw = await response.text();
       data = raw === '' ? undefined : JSON.parse(raw);
       evidence.response = data === undefined ? 'empty' : 'json';
-      evidence.result = !shortDeadline && response.status === status && verify(data) ? 'PASS' : 'FAIL';
-    } catch {
-      evidence.response = signal.aborted ? 'CLIENT_TIMEOUT' : 'TRANSPORT_OR_RESPONSE_ERROR';
-      evidence.result = signal.aborted && shortDeadline ? 'PASS' : 'FAIL';
+      if (response.status !== status || !verify(data)) evidence.result = 'FAIL';
+      else evidence.result = shortDeadline ? 'INCONCLUSIVE' : 'PASS';
+    } catch (error) {
+      const timedOut = signal.aborted && (error === signal.reason || error?.name === 'AbortError');
+      evidence.response = timedOut ? 'CLIENT_TIMEOUT' : 'TRANSPORT_OR_RESPONSE_ERROR';
+      evidence.result = timedOut && shortDeadline ? 'PASS' : 'FAIL';
     } finally {
       evidence.ms = Math.round(performance.now() - start);
       rows.push(evidence);
@@ -170,22 +186,24 @@ async function run(config) {
   if (c.MFA_EMAIL) {
     const challenge = await check(29, 'Login requiere desafío MFA sin sesión', '/auth/login', {
       body: { correo: c.MFA_EMAIL, contrasena: c.MFA_PASSWORD }, status: 200, example: 'conMfa',
-      verify: (data) => data?.mfaRequerido === true && typeof data.challengeToken === 'string' && !data?.accessToken,
+      verify: mfaChallenge,
     });
     if (challenge) {
-      await check(29, 'Solicitar OTP', '/auth/otp/solicitar', {
+      const requested = await check(29, 'Solicitar OTP', '/auth/otp/solicitar', {
         body: { challengeToken: challenge.challengeToken }, status: 202, example: 'enviado',
-        verify: (data) => data?.canal === 'EMAIL' && !data?.accessToken,
+        verify: otpRequested,
       });
-      const mfa = await check(29, 'Verificar OTP de fixture', '/auth/otp/verificar', {
-        body: { challengeToken: challenge.challengeToken, codigo: c.MFA_OTP },
-        status: 200, example: 'verificado',
-        // El ejemplo fijo de OTP de Prism pertenece a VENDEDOR. En REAL se exige CLIENTE.
-        verify: (data) => session(data, mock ? 'VENDEDOR' : 'CLIENTE'),
-      });
-      if (mfa) await check(29, 'Cerrar sesión MFA de prueba', '/auth/logout', {
-        body: { refreshToken: mfa.refreshToken }, token: mfa.accessToken, status: 204, verify: empty,
-      });
+      if (requested) {
+        const mfa = await check(29, 'Verificar OTP de fixture', '/auth/otp/verificar', {
+          body: { challengeToken: challenge.challengeToken, codigo: c.MFA_OTP },
+          status: 200, example: 'verificado',
+          // El ejemplo fijo de OTP de Prism pertenece a VENDEDOR. En REAL se exige CLIENTE.
+          verify: (data) => session(data, mock ? 'VENDEDOR' : 'CLIENTE'),
+        });
+        if (mfa) await check(29, 'Cerrar sesión MFA de prueba', '/auth/logout', {
+          body: { refreshToken: mfa.refreshToken }, token: mfa.accessToken, status: 204, verify: empty,
+        });
+      } else skip(29, 'Verificar OTP de fixture', 'La solicitud OTP no cumplió el contrato.');
     } else skip(29, 'Solicitar y verificar OTP', 'No se obtuvo un desafío válido.');
   } else skip(29, 'MFA por correo', 'G7 debe proveer una fixture de OTP determinista para automatizar este paso.');
 
@@ -272,12 +290,16 @@ async function main() {
   }, null, 2) + '\n', { flag: 'wx' });
   const failed = rows.filter((row) => row.result === 'FAIL').length;
   const skipped = rows.filter((row) => row.result === 'SKIP').length;
-  console.log(cfg.mode + ': ' + requests + ' solicitudes, ' + failed + ' fallos, ' + skipped + ' omitidos. ' + file);
+  const inconclusive = rows.filter((row) => row.result === 'INCONCLUSIVE').length;
+  console.log(cfg.mode + ': ' + requests + ' solicitudes, ' + failed + ' fallos, ' + skipped +
+    ' omitidos, ' + inconclusive + ' inconclusos. ' + file);
   if (failed) process.exitCode = 1;
-  else if (skipped) process.exitCode = 2;
+  else if (skipped || inconclusive) process.exitCode = 2;
 }
 
-main().catch((error) => {
-  console.error(error instanceof ConfigurationError ? error.message : 'El kit se detuvo por un error interno. No se imprimen detalles sensibles.');
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof ConfigurationError ? error.message : 'El kit se detuvo por un error interno. No se imprimen detalles sensibles.');
+    process.exitCode = 1;
+  });
+}

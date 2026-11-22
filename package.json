@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "test": "npm run test:unit && npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe && npm run test:g7:kit",
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
@@ -42,6 +42,7 @@
     "test:catalog:h4:timings": "node --test scripts/catalog-h4/timings.test.mjs",
     "check:catalog:config": "node scripts/catalog-h4/config.mjs",
     "test:catalog:h4:config": "node --test scripts/catalog-h4/config.test.mjs",
+    "test:g7:kit": "node --test test/g7-integration-real.test.mjs",
     "integracion:real": "node scripts/g7-integration-real.mjs"
   },
   "dependencies": {
