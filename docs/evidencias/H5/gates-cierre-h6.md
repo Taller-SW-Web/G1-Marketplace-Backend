@@ -9,7 +9,6 @@ Borrador para Diego Espinoza. Alcance verificable al corte: CI/CD de backend con
 | Sebastián · protección contra publicar fixtures como REAL | [BE #279](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/279) · `9f57987` |
 | Andrés · traslado de ítem a favoritos | [BE #260](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/260) · `9b2a065` |
 | Leonidas · seguridad local checkout | [BE #270](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/270) · `34e3e4c` |
-
 | Fernando · E2E de la demo H4 | [FE #129](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/129) · `61f20be` |
 | Diego · listado y paso de favoritos a carrito | [BE #15](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/15) · `f29c6bd` |
 
