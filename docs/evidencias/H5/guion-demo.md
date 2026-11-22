@@ -1,24 +1,22 @@
-# Guion de ensayo H5 · Borrador
+# Guion de ensayo H5 · 26/11/2026
 
-Ensayo previsto antes del congelamiento del 26/11. Presentación el 28/11. Jim conduce y Andrés verifica el recorrido. Preparar dos cuentas sintéticas, un SKU de prueba y una dirección ficticia. Definir entorno y SHAs para cada tramo. Mantener tokens y datos de sesión fuera de pantalla y del registro.
+Jim conduce, Andrés verifica y la presentación es el 28/11. Preparar dos cuentas sintéticas, un SKU de prueba y una dirección ficticia. Anotar al iniciar FE, BE y entorno de cada tramo. Mantener credenciales fuera de pantalla y del acta.
 
 | Tiempo | Acción | Resultado visible |
 |---|---|---|
-| 0–1 min | Presentar candidato, entorno y leyenda REAL/MOCK. | Los enlaces del paquete [#324](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/324) abren y corresponden al candidato. |
-| 1–3 min | Iniciar sesión, navegar al catálogo, abrir producto y añadir SKU a carrito. | Se ve la sesión y la línea del carrito. Registrar origen de datos de catálogo. |
-| 3–5 min | En el ambiente MOCK autorizado, listar y crear una dirección ficticia, seleccionarla y avanzar a cotización. Provocar una respuesta de indisponibilidad con fixture y verificar que se conserva el formulario. | Se distingue la lista propia y el estado recuperable. La cotización se presenta como MOCK. |
-| 5–8 min | Mostrar CI/CD y seguridad. Mostrar performance, gateway y evento solo si los responsables adjuntaron la evidencia del candidato. | Run, reporte o traza enlazados con su SHA. Para un flujo de compra, distinguir `CREADO` y `PAGADO` según la evidencia disponible. |
-| 8–9 min | Mostrar gates abiertos, responsables y próximos pasos. | Se identifica qué queda pendiente de H6 y dónde se sigue. |
+| 0–1 min | Presentar candidato y distinguir CI, MOCK y REAL. | Abren las referencias del paquete [#324](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/324) y se identifican sus SHAs. |
+| 1–3 min | Recorrer cuenta V-001 a V-004 con fixtures autorizados. Abrir catálogo, producto y carrito con datos de prueba. | Se ven estados de sesión, validación y la línea del carrito. Declarar el origen de catálogo y cuenta. |
+| 3–5 min | En V-010 listar, crear y seleccionar una dirección de prueba con etiqueta opcional. Verificar que la tarjeta sin teléfono sigue seleccionable. Mostrar indisponibilidad y luego cotización con fixtures. | La lista y el alta son **MOCK** en este ensayo. El error conserva el formulario. La cotización **MOCK** se presenta como tramo independiente. |
+| 5–8 min | Mostrar CI/CD, Prism y seguridad. Presentar performance, APIM y webhook solo con las evidencias efectivamente obtenidas. | Run y SHA por tramo. H-05 del 23/11 se muestra como acuerdo y prueba pendiente mientras no haya traza entre módulos. |
+| 8–9 min | Repasar gates y contingencia. | Cada pendiente tiene dueño y próxima prueba. Si falla un paso, mostrar evidencia identificada por fecha/SHA y anotarlo para retest. |
 
-Si un servicio falla, registrar el paso y mostrar la evidencia del último run identificada con su fecha. Marcar el tramo pendiente de retest.
+## Preparación y evidencia comprobada
 
-Para ensayar V-010 con fixtures de UI, usar [FE #158 en `182e4d3307c5a0adc8fa10415c22bbe8d054c957`](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/tree/182e4d3307c5a0adc8fa10415c22bbe8d054c957), con `CHECKOUT_MODE=local-fixtures` y `NEXT_PUBLIC_CHECKOUT_MODE=local-fixtures`. Abrir `/checkout/direccion`. La lista, el alta y la cotización de esa variante son **MOCK**.
+- V-010: usar el snapshot FE `e56a13e040ba9641b600fbc937dc3863b0ecc6e7` de `develop`, que incluye el merge [FE #158](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/158) `10a1356` y [FE #160](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/160) `685ccec`. Con `CHECKOUT_MODE=local-fixtures` y `NEXT_PUBLIC_CHECKOUT_MODE=local-fixtures`, abrir `/checkout/direccion`. El [check de #158](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45081960719) y el [E2E FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45087296873) prueban carrito/checkout en sus revisiones, por separado del ensayo completo.
+- Cuenta: [FE #159](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/159) `5bd2629` incorporó V-001–V-004. Consultar [capturas y reproducción **MOCK**](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/blob/5bd2629/docs/evidencias/H5/UX-010-cuenta-V001-V004/README.md). G-AUTH REAL permanece pendiente.
+- Retest BFF: FE sin teléfono ya está alineado con [BE #331](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/331) `a40429d`, documentado en [BE #333](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/333) `f11139f`. Repetir en modo `backend-mock` con el BE del candidato y base y sesión locales, según el [procedimiento FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/blob/e56a13e/src/features/checkout/README.md). Cuando haya acceso G7, homologar solo alta y listado REAL ([#115](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/115)). Usar fixtures para la cotización.
+- Exhibir [CI-CD BE](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45087270842), [CI-CD FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45087296978) y las [pruebas Prism **MOCK**](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/44975254262). Los runs no sustituyen el acta de ensayo.
 
-Tras alinear FE #158 con el contrato sin teléfono del BFF, repetir con las revisiones FE y BE del candidato y guardar sus SHAs en el acta. [G-ADDRESS #115](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/115) debe homologar en G7 **solo el alta y el listado de direcciones del titular**. La cotización sigue **MOCK** y se demuestra por separado en la variante con fixtures.
+## Acta para registrar al terminar
 
-## Acta del ensayo
-
-- Fecha, asistentes, entorno y SHAs FE/BE: pendiente.
-- Resultado por tramo y etiqueta REAL/MOCK: pendiente.
-- Enlaces a evidencia sanitizada, incidencias y retest: pendiente.
-- Revisión de Andrés: pendiente.
+Fecha/hora, asistentes, entorno, SHA FE/BE/SPECS, resultado por tramo con etiqueta MOCK o REAL, enlaces sanitizados, incidencias y retest. Andrés valida el acta de [#326](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/326). **Ensayo completo aún pendiente de registro**.
