@@ -1,3 +1,9 @@
+## [1.8.4](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.3...v1.8.4) (2026-11-22)
+
+### Bug Fixes
+
+* **auth:** logout no declara revocacion limpia si la sesion guardada es ilegible (F-003) ([6396265](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/63962658e1235e4cc855ec5f3afae6d1ffef3422))
+
 ## [1.8.3](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.2...v1.8.3) (2026-11-22)
 
 ### Bug Fixes
