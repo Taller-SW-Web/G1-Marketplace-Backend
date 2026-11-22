@@ -6,8 +6,6 @@ param(
     [string]$Output = (Join-Path $PSScriptRoot '../../docs/evidencias/H5/dast')
 )
 $ErrorActionPreference = 'Stop'
-$env:DAST_SOURCE = (Resolve-Path -LiteralPath $AppSource).Path
-if ($FrontendSource) { $env:DAST_FRONTEND = (Resolve-Path -LiteralPath $FrontendSource).Path }
 $env:DAST_CONTRACT = (Resolve-Path -LiteralPath $Contract).Path
 $normalized = [IO.File]::ReadAllText($env:DAST_CONTRACT).Replace("`r`n", "`n")
 $checksum = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($normalized)))
@@ -16,11 +14,28 @@ if ($checksum -ne '61BF8DEB1803B1EB332B55A28B5D73D917654C1229215B2B4EBB51B82796D
 }
 $env:DAST_DB_PASSWORD = [guid]::NewGuid().ToString('N')
 $env:DAST_SESSION_KEY = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
-$env:DAST_RAW = (New-Item -ItemType Directory (Join-Path ([IO.Path]::GetTempPath()) "marketplace-dast-$([guid]::NewGuid())")).FullName
+$tempParent = (Resolve-Path -LiteralPath ([IO.Path]::GetTempPath())).Path
+$tempRoot = (New-Item -ItemType Directory (Join-Path $tempParent "marketplace-dast-$([guid]::NewGuid())")).FullName
+$env:DAST_RAW = (New-Item -ItemType Directory (Join-Path $tempRoot 'raw')).FullName
 $compose = Join-Path $PSScriptRoot 'compose.yaml'
 $project = "marketplace-dast-$([guid]::NewGuid().ToString('N').Substring(0, 10))"
 
-function Invoke-Baseline($target, $service, $source, $reportName, $coverageName) {
+function New-SourceSnapshot($source, $service) {
+    $sourcePath = (Resolve-Path -LiteralPath $source).Path
+    $revision = git -C $sourcePath rev-parse --verify 'HEAD^{commit}'
+    if ($LASTEXITCODE -ne 0 -or !$revision) { throw "No se pudo fijar el commit de $service." }
+
+    $archive = Join-Path $tempRoot "$service.tar"
+    $context = (New-Item -ItemType Directory (Join-Path $tempRoot $service)).FullName
+    git -C $sourcePath archive --format=tar "--output=$archive" $revision
+    if ($LASTEXITCODE -ne 0) { throw "No se pudo exportar el commit de $service." }
+    tar -xf $archive -C $context
+    if ($LASTEXITCODE -ne 0) { throw "No se pudo extraer el contexto de $service." }
+
+    return @{ context = $context; revision = $revision }
+}
+
+function Invoke-Baseline($target, $service, $revision, $reportName, $coverageName) {
     docker compose -p $project -f $compose up --build --wait --wait-timeout 130 $service
     if ($LASTEXITCODE -ne 0) { throw "No arrancó $service en el entorno aislado." }
     $rawName = "$service.raw.json"
@@ -48,7 +63,7 @@ function Invoke-Baseline($target, $service, $source, $reportName, $coverageName)
         target = $target
         zapVersion = $raw.'@version'
         zapExit = $zapExit
-        appRevision = (git -C $source rev-parse HEAD)
+        appRevision = $revision
         seedRequests = $coverage
         alerts = $alerts
     }
@@ -70,15 +85,23 @@ function Invoke-Baseline($target, $service, $source, $reportName, $coverageName)
 }
 
 try {
-    Invoke-Baseline 'http://marketplace:10000' 'backend' $env:DAST_SOURCE 'baseline.json' 'coverage.json'
+    $backend = New-SourceSnapshot $AppSource 'backend'
+    $env:DAST_SOURCE = $backend.context
     if ($FrontendSource) {
-        Invoke-Baseline 'http://frontend:3000' 'frontend' $env:DAST_FRONTEND 'frontend-baseline.json' 'frontend-coverage.json'
+        $frontend = New-SourceSnapshot $FrontendSource 'frontend'
+        $env:DAST_FRONTEND = $frontend.context
+    }
+
+    $composeStarted = $true
+    Invoke-Baseline 'http://marketplace:10000' 'backend' $backend.revision 'baseline.json' 'coverage.json'
+    if ($FrontendSource) {
+        Invoke-Baseline 'http://frontend:3000' 'frontend' $frontend.revision 'frontend-baseline.json' 'frontend-coverage.json'
     }
 } finally {
-    docker compose -p $project -f $compose down --volumes --remove-orphans
-    foreach ($name in 'backend.raw.json','coverage.json','frontend.raw.json','frontend-coverage.json','frontend-alert-metadata.json') {
-        $file = Join-Path $env:DAST_RAW $name
-        if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file }
+    if ($composeStarted) { docker compose -p $project -f $compose down --volumes --remove-orphans }
+    $resolvedTemp = (Resolve-Path -LiteralPath $tempRoot).Path
+    if ($resolvedTemp -eq $tempRoot -and (Split-Path -Parent $resolvedTemp) -eq (Split-Path -Parent $tempRoot) -and
+        (Split-Path -Leaf $resolvedTemp) -match '^marketplace-dast-[0-9a-f-]{36}$') {
+        Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
     }
-    Remove-Item -LiteralPath $env:DAST_RAW -ErrorAction SilentlyContinue
 }

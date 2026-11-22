@@ -4,15 +4,20 @@ Entorno **MOCK / aislado**. Alcance: API de Marketplace para registro, login/MFA
 
 ## Reproducir el escaneo
 
-Desde la raíz del backend, con Docker Desktop y PowerShell 7, ejecuta:
+Desde la raíz del backend, con Docker Desktop y PowerShell 7, crea los worktrees de prueba desde las revisiones del reporte. Ejecuta desde la raíz del worktree DAST en la estructura de carpetas de G1:
 
 ```powershell
+git -C ../../repositories/G1-Marketplace-Backend fetch origin pull/331/head
+git -C ../../repositories/G1-Marketplace-Backend worktree add --detach ../../worktrees/be-dast-target a7733f7560449e1af9ce9f6ba28fef897414101e
+git -C ../../repositories/G1-Marketplace-Frontend fetch origin develop
+git -C ../../repositories/G1-Marketplace-Frontend worktree add --detach ../../worktrees/fe-dast-target 8420d42855c9894267d6f06f8474834955d9b61e
+
 pwsh -NoProfile -File tools/dast/run.ps1 -AppSource ../be-dast-target -FrontendSource ../fe-dast-target -Contract ../../repositories/Modulo-de-Seguridad/specs/openapi.yaml
 ```
 
 La evidencia de F-022 corresponde al worktree de la revisión `a7733f7560449e1af9ce9f6ba28fef897414101e` del [PR #331](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/331). El argumento `AppSource` por omisión escanea el checkout actual. Para repetir F-022 mientras el código siga en #331 se necesita esa revisión. `Contract` debe apuntar al [OpenAPI G7 1.0.0 fijado](https://github.com/Taller-SW-Web/Modulo-de-Seguridad/blob/1b8f2e35448075a6c396b70fdd4ec1d5b1aa9201/specs/openapi.yaml). El runner comprueba el SHA-256 del YAML normalizado.
 
-Compose construye el BFF original y Prism, levanta PostgreSQL desechable y usa una red interna sin puertos publicados. Las imágenes y dependencias se obtienen antes del escaneo. Prism comparte el espacio de red del BFF y escucha exclusivamente en loopback. El destino de ZAP es `http://marketplace:10000`, el puerto del BFF. El hook envía solicitudes sintéticas esperadas a través del proxy ZAP para que el análisis pasivo vea también los POST. La base se inicializa con `db push` únicamente para QA desechable. El runner elimina el entorno al terminar y conserva [baseline.json](baseline.json) y [frontend-baseline.json](frontend-baseline.json), con reglas, rutas, estados y revisiones. Omitir `-FrontendSource` ejecuta solo el backend. No conserva cuerpos, cabeceras, valores de evidencia ni parámetros de URL.
+El runner fija el SHA de cada fuente y usa `git archive` para extraer el contexto de Docker de ese commit. Las modificaciones locales y los archivos sin seguimiento quedan fuera del build. Se necesita `tar` para extraer las fuentes. Compose construye el BFF y Prism, levanta PostgreSQL desechable y usa una red interna sin puertos publicados. Las imágenes y dependencias se obtienen antes del escaneo. Prism comparte el espacio de red del BFF y escucha exclusivamente en loopback. El destino de ZAP es `http://marketplace:10000`, el puerto del BFF. El hook envía solicitudes sintéticas esperadas a través del proxy ZAP para que el análisis pasivo vea también los POST. La base se inicializa con `db push` únicamente para QA desechable. El runner elimina los contextos temporales y el entorno al terminar y conserva [baseline.json](baseline.json) y [frontend-baseline.json](frontend-baseline.json), con reglas, rutas, estados y revisiones. Omitir `-FrontendSource` ejecuta solo el backend. No conserva cuerpos, cabeceras, valores de evidencia ni parámetros de URL.
 
 ## Casos dirigidos
 
