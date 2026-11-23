@@ -1,3 +1,9 @@
+## [1.10.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.0...v1.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** corregir comillas en atributo condition de api-policy.xml ([140f678](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/140f67827fd608bc16686c3bed59afcbc613aa72))
+
 ## [1.10.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.9.0...v1.10.0) (2026-11-23)
 
 ### Features
