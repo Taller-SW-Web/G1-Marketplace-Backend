@@ -46,9 +46,9 @@
         <!-- 4. Validación de Token JWT (G7 Auth Service) en rutas protegidas -->
         <choose>
             <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger -->
-            <when condition='@(context.Request.Url.Path.Contains("/health") || 
-                               context.Request.Url.Path.Contains("/docs") || 
-                               context.Request.Url.Path.Contains("/catalog") || 
+            <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") || 
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/docs") || 
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/catalog") || 
                                context.Request.Method == "OPTIONS")'>
                 <!-- Ruta pública: permitir paso directo -->
             </when>
