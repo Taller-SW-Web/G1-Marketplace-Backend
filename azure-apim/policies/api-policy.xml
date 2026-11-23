@@ -3,7 +3,7 @@
   Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-006 (Issues #309 y #311)
   Controles:
   - CORS hacia el frontend de Vercel
-  - Rate Limiting por IP (60 peticiones/minuto -> HTTP 429)
+  - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429)
   - Validación de JWT RS256 contra JWKS de G7 (-> HTTP 401)
   - Propagación de trazabilidad distribuida (X-Correlation-Id)
 -->
@@ -46,10 +46,10 @@
         <!-- 4. Validación de Token JWT (G7 Auth Service) en rutas protegidas -->
         <choose>
             <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger -->
-            <when condition="@(context.Request.Url.Path.Contains("/health") || 
+            <when condition='@(context.Request.Url.Path.Contains("/health") || 
                                context.Request.Url.Path.Contains("/docs") || 
                                context.Request.Url.Path.Contains("/catalog") || 
-                               context.Request.Method == "OPTIONS")">
+                               context.Request.Method == "OPTIONS")'>
                 <!-- Ruta pública: permitir paso directo -->
             </when>
             <otherwise>
