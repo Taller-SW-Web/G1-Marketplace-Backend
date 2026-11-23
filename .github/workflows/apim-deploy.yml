@@ -1,0 +1,46 @@
+name: Deploy APIM Policies
+
+# Despliegue de políticas como código en Azure API Management (Plan Consumption)
+# Tarea: TASK-H5-APIM-006 (Issue #311)
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'azure-apim/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-policies:
+    name: Desplegar Políticas a Azure APIM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar sintaxis XML de políticas
+        run: |
+          sudo apt-get install -y libxml2-utils
+          xmllint --noout azure-apim/policies/api-policy.xml
+          echo "Sintaxis XML válida."
+
+      - name: Autenticación en Azure
+        uses: azure/login@v2
+        if: env.AZURE_CREDENTIALS != ''
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Desplegar política a Azure APIM
+        if: env.AZURE_CREDENTIALS != ''
+        run: |
+          az apim api policy create \
+            --resource-group rg-marketplace-g1 \
+            --service-name apim-g1-marketplace-20 \
+            --api-id marketplace-api \
+            --xml-file-path azure-apim/policies/api-policy.xml
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
