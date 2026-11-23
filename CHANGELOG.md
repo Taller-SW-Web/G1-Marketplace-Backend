@@ -1,3 +1,9 @@
+## [1.10.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.1...v1.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** usar OriginalUrl.Path para rutas publicas en api-policy.xml ([c910900](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c9109000942660e13b304f73e8b3dd94f2d2ed24))
+
 ## [1.10.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.0...v1.10.1) (2026-11-23)
 
 ### Bug Fixes
