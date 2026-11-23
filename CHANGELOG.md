@@ -1,3 +1,9 @@
+## [1.9.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.4...v1.9.0) (2026-11-23)
+
+### Features
+
+* **checkout:** adaptar direcciones del titular al contrato de Seguridad ([a7733f7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7733f7560449e1af9ce9f6ba28fef897414101e))
+
 ## [1.8.4](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.3...v1.8.4) (2026-11-22)
 
 ### Bug Fixes
