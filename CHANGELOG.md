@@ -1,3 +1,9 @@
+## [1.10.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.9.0...v1.10.0) (2026-11-23)
+
+### Features
+
+* **apim:** agregar politicas APIM como codigo y workflow de despliegue ([aa3e30d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/aa3e30db7d8d475c005d3778401fdc405989b74f))
+
 ## [1.9.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.4...v1.9.0) (2026-11-23)
 
 ### Features
