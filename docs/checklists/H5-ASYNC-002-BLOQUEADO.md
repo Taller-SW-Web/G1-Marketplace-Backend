@@ -38,3 +38,10 @@ Preparar sólo después de aceptar contrato y política; usar fixtures explícit
 ## Frontera de evidencia
 
 Hasta resolver los gates anteriores: no añadir dependencias RabbitMQ, variables/credenciales, infraestructura, consumidor, schema propio ni fixtures que aparenten representar tráfico real. No afirmar integración ni despliegue. Cuando se autorice la integración, reportar por separado pruebas unitarias con fixtures, integración REAL con proveedor/versión y mensaje sanitizado, y verificación del despliegue, de acuerdo con #314.
+
+## Revisión offline — 24/nov/2026
+
+- Se mantiene **BLOQUEADO**: el catálogo consultado está marcado borrador y Marketplace no figura como consumidor acordado; la topología descrita es sugerida, no una configuración aprobada.
+- La implementación del publicador/outbox de Seguridad no sustituye el acuerdo de consumo. Host/vhost, cola/binding, contrato ejecutable/versiones, ack/nack/redelivery, retry/backoff/DLQ, deduplicación durable, orden y sanitización siguen siendo decisiones de frontera.
+- No se conectó a RabbitMQ, no se probaron credenciales, no se añadieron dependencia/configuración/consumidor ni fixtures de tráfico. No se ejecutó una prueba de integración offline que pretenda fijar settlement antes de acordar la política.
+- La salida de este corte es documental solamente; no cambia el estado registrado de #313/#314/#315 ni acredita un evento recibido.
