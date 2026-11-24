@@ -8,12 +8,19 @@ This packet defines no service URLs, environment-variable names, request payload
 
 | Gate | Required before execution | Current packet status |
 | --- | --- | --- |
-| G1 adapters | The required G1 adapters must exist in the exact candidate build, be reviewed, and be configured for the approved provider path (not a mock/fixture). | **BLOCKED.** In this worktree `src/checkout/external/marketplace.gateway.ts` routes Sales and inventory through mock-only calls when mocks are enabled and rejects those calls when mocks are disabled. `src/catalog/product-availability.service.ts` explicitly keeps inventory availability fixture-backed while I-01 is open. This packet does not implement adapters. |
+| G1 adapters | The required G1 adapters must exist in the exact candidate build, be reviewed, and be configured for the approved provider path (not a mock/fixture). | **BLOCKED for a REAL run.** Separate local worktrees now contain a G5 M1 provider and G6 price/availability adapters with synthetic loopback tests. They are not connected to Checkout or the product services. Checkout still lacks the persisted line/address/price mapping required by G5; G6 remains approval- and operation-gated. This runbook does not activate them. |
 | Authorization, environment, and window | Use the canonical G5 environment/test instructions already recorded in G1 Backend #133 and G5 issue #65. This handoff is not authorization for a particular run: written authorization must still identify its scope, operator, and time window. Stop if the actual artifact or environment differs from the recorded instructions. | Historical instructions exist; authorization and a run window are not provided or verified by this preparation. |
 | Secure credential provisioning | An authorized owner must provision credentials through the approved secret-management channel. Never put credentials in this repository, report, command history, logs, or chat. | Not provided or verified by this preparation. |
 | G6 runtime JWT acceptance | Have authorized runtime acceptance evidence covering the G6 cases whose observed HTTP statuses are **200, 401, and 403**, with each case matched to its expected behavior by G6’s approved procedure. Do not infer status-to-case mapping here; local fixtures do not satisfy this gate. | Not provided or verified by this preparation. |
 | G7 grants | Grants are **confirmed**, per the task handoff. Treat this gate as satisfied; do not re-request grant confirmation. This does not provide credentials or authorize a test outside its approved scope. | **CONFIRMED per handoff.** |
 | G5 canonical procedure and pins | Use the canonical procedure and environment/test instructions already supplied in G1 Backend #133 and G5 issue #65. The canonical M1 v1.10.0 deployed OpenAPI is pinned to commit `95325de5b9b1db44fcfb92e945256b604f0a86f7`; M2 is pinned to v1.6.0. These records are the source of truth for requests, expected outcomes, and sequence. Do not ask G5 to reconfirm them. Stop if the actual artifact or environment differs from the recorded handoff. | **RECORDED; not a blocker.** |
+
+## Local preparations since the initial packet
+
+- G5 provider preparation uses the pinned M1 `1.10.0`/M2 `1.6.0` contracts and local HTTP doubles. Its tests do not send a request to G5. The Checkout provider path remains disconnected because the current persisted operation cannot produce the required order request and M1 has no lookup-by-idempotency-key operation.
+- G6 OpenAPI pin is now `0.7.0-rc.3` (commit `40524e96c6973f84d74160076781702fe2a3da19`). Price/availability adapter tests use a synthetic loopback server; provider activation is independently gated and does not prove G6 homologation, grants, or runtime JWT acceptance.
+- The shipment webhook has a local HTTP receiver, but its default sink returns 503 until a durable transactional store/outbox is available. Its local double does not prove durable deduplication or bilateral delivery.
+- These preparations do not change this packet's status: **PREPARED / NOT RUN**. The approved environment/window, secure credential provisioning, authorized G6 runtime acceptance and deployment-dependent reservation gate remain outstanding.
 
 **Inventory reservation constraint:** G5 reported that inventory reservation remains simulated until G6 is deployed. Until the authorized G6 deployment is confirmed, do not run or describe reservation as live/REAL. If a pinned procedure requires a live reservation, block that case until G6 is deployed. If the approved procedure explicitly permits a simulated reservation, label it **SIMULATED** and exclude it from REAL integration evidence.
 
@@ -49,9 +56,10 @@ The sanitized report may contain only these fields for each case:
 
 ## Remaining blockers at preparation time
 
-1. Implement/review the required G1 provider adapters; the current source is mock-only for G5 checkout/inventory and fixture-backed for I-01 availability.
+1. Complete and review the exact candidate adapter path. The local G5/G6 provider preparations are isolated; Checkout mapping/idempotent recovery remain unresolved and no provider is enabled by this packet.
 2. Obtain an authorized environment/window and secure credential provisioning for the specific run.
 3. Obtain G6 runtime JWT acceptance evidence for the approved 200/401/403 cases.
 4. Confirm G6 deployment before any inventory reservation is represented as live; otherwise keep that case blocked or simulated.
+5. For webhook evidence, separately resolve G2 Specs #42/#318 and implement an approved durable sink/outbox before claiming webhook acceptance or deduplication.
 
 G7 grants are already confirmed per handoff and are **not** a remaining blocker for this packet.
