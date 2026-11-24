@@ -1,0 +1,13 @@
+{
+  "repository": "Taller-SW-Web/G6-Productos-Ofertas-docs",
+  "commit": "c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b",
+  "repositoryPath": "contratos/http/openapi.yaml",
+  "gitBlob": "f64bfe9a097b2a0f74c2600988305443d92f640e",
+  "version": "0.6.0-rc.1",
+  "sourceUrl": "https://github.com/Taller-SW-Web/G6-Productos-Ofertas-docs/blob/c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b/contratos/http/openapi.yaml",
+  "purpose": "Offline validation of selected catalog, price, and commercial-availability OpenAPI surface only; it is not a compatibility, deployment, or REAL integration claim.",
+  "retrieval": "Public source read at the exact commit. No G6 business API, sandbox, credential, or deployment was contacted.",
+  "sanitization": "Curated extract preserving selected GET operation identifiers, scope/security metadata, parameters, response status keys, and selected response schemas. All server definitions and example/examples fields are omitted. The extract is not byte-identical to the upstream OpenAPI and is not a full copy.",
+  "snapshot": "marketplace-surface.json",
+  "snapshotSha256": "8F7947E09843BBD83BFEE3930B0419317CB917E4AD430D3A8C07E78DAD6C3C08"
+}
