@@ -32,18 +32,22 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
   it('returns only the current mock owner’s addresses and keeps new addresses in memory', async () => {
     const owner = '11111111-1111-4111-8111-111111111111';
     const token = tokenFor(owner);
-    const initial = await gateway.listAddresses(token);
+    const initial = await gateway.listAddresses(owner, token);
     expect(initial).toHaveLength(2);
 
-    await gateway.createAddress(token, {
+    const created = await gateway.createAddress(owner, token, {
       street: 'Av. Ficticia 10',
       district: 'Miraflores',
       province: 'Lima',
       department: 'Lima',
       phone: '900000000',
     });
-    expect(await gateway.listAddresses(token)).toHaveLength(3);
-    expect(await gateway.listAddresses(tokenFor('33333333-3333-4333-8333-333333333333'))).toEqual(
+    expect(created).toEqual({ addressId: expect.any(String), street: 'Av. Ficticia 10',
+      district: 'Miraflores', province: 'Lima', department: 'Lima' });
+    expect(await gateway.listAddresses(owner, token)).toContainEqual(created);
+    await expect(gateway.listAddresses('22222222-2222-4222-8222-222222222222', token))
+      .rejects.toMatchObject({ status: 403 });
+    expect(await gateway.listAddresses('33333333-3333-4333-8333-333333333333', tokenFor('33333333-3333-4333-8333-333333333333'))).toEqual(
       [],
     );
   });
@@ -174,11 +178,11 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
   it('returns an empty-address fixture and maps mocked timeouts to provider errors', async () => {
     values.MOCK_ADDRESS_SCENARIO = 'EMPTY';
     expect(
-      await gateway.listAddresses(tokenFor('11111111-1111-4111-8111-111111111111')),
+      await gateway.listAddresses('11111111-1111-4111-8111-111111111111', tokenFor('11111111-1111-4111-8111-111111111111')),
     ).toEqual([]);
     values.MOCK_ADDRESS_SCENARIO = 'TIMEOUT';
     await expect(
-      gateway.listAddresses(tokenFor('11111111-1111-4111-8111-111111111111')),
-    ).rejects.toMatchObject({ status: 504, code: 'ADDRESS_TIMEOUT' });
+      gateway.listAddresses('11111111-1111-4111-8111-111111111111', tokenFor('11111111-1111-4111-8111-111111111111')),
+    ).rejects.toMatchObject({ status: 504, code: 'ADDRESS_SERVICE_UNAVAILABLE' });
   });
 });

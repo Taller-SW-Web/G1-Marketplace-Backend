@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+/G1-Marketplace-Backend.env
 
 # Node
 node_modules/
@@ -19,3 +20,4 @@ postgres_data/
 
 # Local sanitized security reports and downloaded tools
 .local-security/
+docs/evidencias/H5/integracion-real/
