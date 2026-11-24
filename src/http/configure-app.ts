@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BaseExceptionFilter } from '@nestjs/core';
 import compression from 'compression';
 import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
+import { accessLogMiddleware } from './access-log.middleware';
 import { ApiErrorFilter } from './api-error.filter';
 import { corsOptions } from './cors-options';
 import { requestIdMiddleware } from './request-id.middleware';
@@ -19,6 +20,7 @@ export function isPublicCatalogRead(method: string, requestUrl: string | undefin
 
 export function configureApp(app: INestApplication): void {
   app.use(requestIdMiddleware);
+  app.use(accessLogMiddleware);
   app.use(compression({
     threshold: 1024,
     // Avoid compressing authenticated/session responses; only these public GETs are eligible.
