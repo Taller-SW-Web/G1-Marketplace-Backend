@@ -3,6 +3,15 @@ import { validateTestDatabase } from '../../scripts/test-database';
 
 describe('Environment boundaries', () => {
   const base = { DATABASE_URL: 'postgresql://localhost/development', NODE_ENV: 'test' };
+  it('rejects invalid integration flags and mixed real providers/sandbox identity', () => {
+    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
+      expect(() => validateEnvironment({ ...base, [key]: 'yes' })).toThrow();
+    }
+    expect(() => validateEnvironment({ ...base, WISHLIST_SOURCE: 'other' })).toThrow();
+    const sandbox = { ...base, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'synthetic-test-only-'.repeat(3) };
+    expect(() => validateEnvironment({ ...sandbox, WISHLIST_SOURCE: 'real' })).toThrow();
+    expect(() => validateEnvironment({ ...sandbox, CSAT_ENABLED: 'true' })).toThrow();
+  });
   it('keeps sandbox off by default and supports existing CORS variable', () => {
     expect(validateEnvironment({ ...base, CORS_ORIGINS: 'http://localhost:3000' }))
       .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'] });

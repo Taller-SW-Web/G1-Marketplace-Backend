@@ -1,0 +1,7 @@
+{
+  "scanner": "semgrep",
+  "findings": [],
+  "version": "1.181.0",
+  "exitCode": 0,
+  "errors": []
+}
