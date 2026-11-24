@@ -19,3 +19,4 @@ postgres_data/
 
 # Local sanitized security reports and downloaded tools
 .local-security/
+docs/evidencias/H5/integracion-real/

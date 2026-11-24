@@ -60,7 +60,7 @@ describe('CheckoutController (e2e)', () => {
       .expect(200);
 
     expect(response.body).toEqual({ data: [{ addressId: 'ADR-1', street: 'Av. Lima 123' }] });
-    expect(checkout.listAddresses).toHaveBeenCalledWith('e2e-token');
+    expect(checkout.listAddresses).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111', 'e2e-token');
   });
 
   it('creates an address for the principal and rejects client-supplied ownership fields', async () => {

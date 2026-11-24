@@ -11,7 +11,7 @@ export interface DeliveryAddress {
   province: string;
   department: string;
   reference?: string;
-  phone: string;
+  phone?: string;
 }
 
 export interface QuoteLine {
