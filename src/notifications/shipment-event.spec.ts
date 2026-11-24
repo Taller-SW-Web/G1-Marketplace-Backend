@@ -2,7 +2,7 @@ import { normalizeShipmentStatusWebhook } from './shipment-event';
 
 describe('normalizeShipmentStatusWebhook', () => {
   const fixture = {
-    eventId: 'evt_fixture_0001',
+    eventId: '8ad24563-c9da-4305-b650-1dd47a14fffb',
     eventType: 'ShipmentStatusUpdated',
     version: '1.0.0',
     timestamp: '2026-11-03T21:40:00Z',
@@ -18,7 +18,7 @@ describe('normalizeShipmentStatusWebhook', () => {
 
   it('maps only the public H-05 fields and preserves the textual order ID', () => {
     expect(normalizeShipmentStatusWebhook(fixture)).toEqual({
-      shipmentEventId: 'evt_fixture_0001',
+      shipmentEventId: '8ad24563-c9da-4305-b650-1dd47a14fffb',
       orderId: 'PED-2026-00981',
       publicStatus: 'DESPACHADO',
       trackingNumber: 'DESP-00412',
@@ -36,5 +36,10 @@ describe('normalizeShipmentStatusWebhook', () => {
   it('rejects a malformed order ID and non-calendar estimated date', () => {
     expect(() => normalizeShipmentStatusWebhook({ ...fixture, data: { ...fixture.data, orderId: '981' } })).toThrow(TypeError);
     expect(() => normalizeShipmentStatusWebhook({ ...fixture, data: { ...fixture.data, estimatedDeliveryDate: '2026-02-30' } })).toThrow(TypeError);
+  });
+
+  it('requires an actual ISO UTC timestamp ending in Z', () => {
+    expect(() => normalizeShipmentStatusWebhook({ ...fixture, timestamp: '2026-11-03T21:40:00+00:00' })).toThrow(TypeError);
+    expect(() => normalizeShipmentStatusWebhook({ ...fixture, timestamp: '2026-02-31T21:40:00Z' })).toThrow(TypeError);
   });
 });

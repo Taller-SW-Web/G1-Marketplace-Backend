@@ -21,7 +21,7 @@ describe('CartService - F-031 confirmed current commercial quote', () => {
     const service = new CartService({} as PrismaService);
     await service.addItemInTransaction(tx, {
       customerId: '11111111-1111-4111-8111-111111111111', sku: 'MOCK-AERO-42', quantity: 2,
-    }, undefined, { amount: 249.9, currency: 'PEN', version: 3 });
+    }, undefined, 2, { amount: 249.9, currency: 'PEN', version: 3 });
     expect(tx.cartItem.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         sku: 'MOCK-AERO-42', quantity: 2,
