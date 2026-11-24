@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../prisma/prisma.module';
 import { ShipmentWebhookController } from './shipment-webhook.controller';
 import { SHIPMENT_EVENT_SINK } from './shipment-event';
 import { ShipmentWebhookService } from './shipment-webhook.service';
-import { UnavailableShipmentEventSink } from './unavailable-shipment-event.sink';
+import { PrismaShipmentEventSink } from './prisma-shipment-event.sink';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [ShipmentWebhookController],
   providers: [
     ShipmentWebhookService,
-    UnavailableShipmentEventSink,
-    { provide: SHIPMENT_EVENT_SINK, useExisting: UnavailableShipmentEventSink },
+    PrismaShipmentEventSink,
+    { provide: SHIPMENT_EVENT_SINK, useExisting: PrismaShipmentEventSink },
   ],
 })
 export class ShipmentWebhookModule {}

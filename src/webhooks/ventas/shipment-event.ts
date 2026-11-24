@@ -14,7 +14,7 @@ export interface ShipmentStatusUpdatedEvent {
 
 export type ShipmentEventAcceptResult = 'accepted' | 'duplicate';
 
-/** Durable implementations must atomically deduplicate by eventId and enqueue the event. */
+/** Durable implementations persist the event and deduplicate atomically by eventId. */
 export interface ShipmentEventSink {
   accept(event: ShipmentStatusUpdatedEvent): Promise<ShipmentEventAcceptResult>;
 }
