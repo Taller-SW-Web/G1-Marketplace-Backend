@@ -17,9 +17,9 @@ This packet defines no service URLs, environment-variable names, request payload
 
 ## Local preparations since the initial packet
 
-- G5 provider preparation uses the pinned M1 `1.10.0`/M2 `1.6.0` contracts and local HTTP doubles. Its tests do not send a request to G5. The Checkout provider path remains disconnected because the current persisted operation cannot produce the required order request and M1 has no lookup-by-idempotency-key operation.
-- G6 OpenAPI pin is now `0.7.0-rc.3` (commit `40524e96c6973f84d74160076781702fe2a3da19`). Price/availability adapter tests use a synthetic loopback server; provider activation is independently gated and does not prove G6 homologation, grants, or runtime JWT acceptance.
-- The shipment webhook has a local HTTP receiver, but its default sink returns 503 until a durable transactional store/outbox is available. Its local double does not prove durable deduplication or bilateral delivery.
+- G5 provider preparation uses the pinned M1 `1.10.0`/M2 `1.6.0` contracts and local HTTP doubles (PR #344). Its tests do not send a request to G5. The Checkout provider path remains disconnected because the current persisted operation cannot produce the required order request and M1 has no lookup-by-idempotency-key operation.
+- G6 OpenAPI pin is now `0.7.0-rc.3` (commit `40524e96c6973f84d74160076781702fe2a3da19`). Price/availability adapter tests use a synthetic loopback server (PR #358); provider activation is independently gated and does not prove G6 homologation, grants, or runtime JWT acceptance.
+- The shipment webhook has a local HTTP receiver (PR #357), but its default sink returns 503 until a durable transactional store/outbox is available. Its local double does not prove durable deduplication or bilateral delivery.
 - These preparations do not change this packet's status: **PREPARED / NOT RUN**. The approved environment/window, secure credential provisioning, authorized G6 runtime acceptance and deployment-dependent reservation gate remain outstanding.
 
 **Inventory reservation constraint:** G5 reported that inventory reservation remains simulated until G6 is deployed. Until the authorized G6 deployment is confirmed, do not run or describe reservation as live/REAL. If a pinned procedure requires a live reservation, block that case until G6 is deployed. If the approved procedure explicitly permits a simulated reservation, label it **SIMULATED** and exclude it from REAL integration evidence.
