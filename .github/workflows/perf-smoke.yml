@@ -1,0 +1,51 @@
+name: Performance Smoke (CI Gate)
+
+# Smoke corto de performance en CI con umbrales bloqueantes
+# Tarea: TASK-H5-PERF-004 (Issue #303)
+# Solo apunta a servicios propios de G1 (/health y /docs/specs).
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      max_p95_ms:
+        description: 'Umbral máximo p95 en ms (bajar para probar bloqueo del gate)'
+        required: false
+        default: '1500'
+
+permissions:
+  contents: read
+
+jobs:
+  perf-smoke:
+    name: Smoke de Performance (p95 ≤ umbral)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PERF_TARGET_URL: ${{ vars.BACKEND_STAGING_URL || 'https://g1-marketplace-backend.onrender.com' }}
+      PERF_REQUESTS: '30'
+      PERF_CONCURRENCY: '5'
+      PERF_MAX_P95_MS: ${{ github.event.inputs.max_p95_ms || '1500' }}
+      PERF_MAX_ERROR_RATE: '0.01'
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ejecutar smoke de performance con umbrales bloqueantes
+        run: node scripts/perf-smoke.mjs
+
+      - name: Archivar reporte JSON de performance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-perf-smoke-report
+          path: perf-smoke-report.json
+          if-no-files-found: warn
+          retention-days: 30
