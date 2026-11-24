@@ -8,6 +8,12 @@
 - El provider exige `G5_SALES_INTEGRATION_APPROVED=true`, `USE_MOCKS=false`, `VENTAS_BASE_URL` y `VENTAS_SERVICE_TOKEN`. El token se lee de configuración en ejecución; no se guarda en el árbol ni en fixtures.
 - Las pruebas usan únicamente un servidor HTTP sintético ligado a `127.0.0.1`; no invocan APIs de Ventas ni G7.
 
+## Secret scan del fixture
+
+- Gitleaks 8.30.1 marcó como `generic-api-key` el UUIDv4 aleatorio usado como clave de idempotencia en el test offline. Se reemplazó por un UUIDv4 fijo, de baja entropía y exclusivamente sintético; el test sigue validando el formato requerido por M1.
+- El commit publicado `62bea9f` conserva el valor anterior en el historial. No se reescribió: `.gitleaksignore` exceptúa únicamente el fingerprint de ese commit, ruta, regla y línea. Las detecciones actuales de código e historial pasan; no se ignoran reglas ni rutas completas.
+- Esta excepción se limita al fixture descrito y no corresponde a una credencial operativa.
+
 ## Mapeo cubierto
 
 - `POST /api/v1/pedidos`, header `Idempotency-Key` UUID v4 y cuerpo de `CrearPedidoRequest` canal `MARKETPLACE`.

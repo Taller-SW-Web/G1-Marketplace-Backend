@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { G5SalesProvider, type G5CreateOrderRequest } from './g5-sales.provider';
 
 const syntheticToken = 'synthetic-test-only-service-token';
-const idempotencyKey = '4b89f2b0-94d5-4b7f-862e-3a7a89d04d20';
+const idempotencyKey = '00000000-0000-4000-8000-000000000001';
 const payload: G5CreateOrderRequest = {
   canal: 'MARKETPLACE',
   contacto: {
