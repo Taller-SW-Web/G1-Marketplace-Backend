@@ -1,0 +1,119 @@
+name: Security Gates (SAST, Secret Scan, SCA)
+
+# Gates de seguridad H5:
+# - TASK-H5-CICD-003 (Issue #283): SAST (Semgrep) + Secret Scan (Gitleaks sobre código e historial) con SARIF archivado
+# - TASK-H5-CICD-004 (Issue #284): SCA (npm audit + OSV-Scanner) y revisión de licencias
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  sast-semgrep:
+    name: SAST (Semgrep + SARIF)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Ejecutar Semgrep SAST (bloquea ante hallazgos ERROR)
+        id: semgrep
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
+            semgrep scan /src \
+            --config p/typescript \
+            --config p/nodejs \
+            --config p/security-audit \
+            --severity ERROR \
+            --exclude "node_modules" \
+            --exclude "dist" \
+            --exclude "coverage" \
+            --exclude "*.spec.ts" \
+            --sarif --output /src/semgrep.sarif \
+            --error
+
+      - name: Archivar reporte SARIF de Semgrep
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: warn
+          retention-days: 30
+
+  secret-scan-gitleaks:
+    name: Secret Scan (Gitleaks código + historial)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout con historial completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ejecutar Gitleaks sobre código e historial (SARIF)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo \
+            --report-format=sarif \
+            --report-path=/repo/gitleaks.sarif \
+            --redact \
+            --verbose
+
+      - name: Archivar reporte SARIF de Gitleaks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: warn
+          retention-days: 30
+
+  sca-and-licenses:
+    name: SCA (npm audit + OSV) y Licencias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generar reporte completo npm audit (JSON)
+        run: |
+          npm audit --json > npm-audit-report.json || true
+
+      - name: Gate SCA npm audit (bloquea altas/críticas en producción)
+        run: |
+          npm audit --omit=dev --audit-level=high
+
+      - name: Escaneo OSV-Scanner sobre package-lock.json (SARIF)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/google/osv-scanner:latest \
+            --lockfile=/repo/package-lock.json \
+            --format=sarif > osv-report.sarif || true
+
+      - name: Revisión de licencias en producción
+        run: |
+          node scripts/check-licenses.mjs
+
+      - name: Archivar reportes SCA y licencias
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sca-licenses-reports
+          path: |
+            npm-audit-report.json
+            osv-report.sarif
+            licenses-report.json
+          retention-days: 30
