@@ -1,6 +1,7 @@
 import {
   HttpException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   ServiceUnavailableException,
@@ -24,6 +25,7 @@ import { ProviderError } from './external/provider-error';
 import { QuotesService } from './quotes.service';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service';
 import { RecipientEmailCipher } from '../notifications/recipient-email-cipher';
+import { ShipmentEventConsumerService } from '../notifications/shipment-event-consumer.service';
 
 const IDEMPOTENCY_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,6 +48,7 @@ interface PreparedContext {
 
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
   private readonly customerContextLocks = new Map<string, Promise<void>>();
 
   constructor(
@@ -53,6 +56,7 @@ export class CheckoutService {
     private readonly gateway: MarketplaceGateway,
     private readonly quotes: QuotesService,
     @Optional() private readonly notificationOutbox?: NotificationOutboxService,
+    @Optional() private readonly shipmentEvents?: ShipmentEventConsumerService,
   ) {}
 
   async listAddresses(customerId: string, accessToken: string): Promise<DeliveryAddress[]> {
@@ -497,6 +501,7 @@ export class CheckoutService {
     if (
       operation.externalOrderId && operation.state === CheckoutOperationState.SUCCEEDED
     ) {
+      await this.reconcileShipmentNotifications(operation.externalOrderId);
       try {
         const order = await this.gateway.getOrder(operation.externalOrderId);
         return {
@@ -586,6 +591,7 @@ export class CheckoutService {
         }
         return saved;
       });
+      await this.reconcileShipmentNotifications(order.pedidoId);
       return {
         status: 200,
         data: {
@@ -853,6 +859,17 @@ export class CheckoutService {
     // Advancing one millisecond prevents a freshly-created row from receiving a
     // completed_at value that rounds below its persisted created_at value.
     return new Date(Math.max(Date.now() + 1, (createdAt?.getTime() ?? 0) + 1));
+  }
+
+  private async reconcileShipmentNotifications(orderId: string): Promise<void> {
+    if (!this.shipmentEvents) return;
+    try {
+      await this.shipmentEvents.reconcilePendingNotifications(orderId);
+    } catch {
+      // Payment is already confirmed; a notification reconciliation failure must not
+      // turn a successful checkout into an ambiguous response. Tracking reads retry it.
+      this.logger.warn('Pending shipment notification reconciliation failed after order confirmation');
+    }
   }
 
   private async withCustomerContextLock<T>(customerId: string, action: () => Promise<T>): Promise<T> {

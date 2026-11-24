@@ -91,7 +91,13 @@ export class ReorderService {
           if (!commercial || commercial.status !== 'AVAILABLE') {
             throw new ServiceUnavailableException({ error: { code: 'COMMERCE_DATA_UNAVAILABLE' } });
           }
-          await this.cart.addItemInTransaction(tx, { customerId, sku: item.sku, quantity: item.quantity }, undefined, commercial.quote);
+          await this.cart.addItemInTransaction(
+            tx,
+            { customerId, sku: item.sku, quantity: item.quantity },
+            undefined,
+            (cartQuantities.get(item.sku) ?? 0) + item.quantity,
+            commercial.quote,
+          );
         }
         const finalCart = await tx.cart.findUnique({ where: { id: cart.id } });
         if (!finalCart) throw new ConflictException({ error: { code: 'CART_CONFLICT' } });

@@ -9,14 +9,20 @@ export interface ShipmentStatusUpdate {
 
 type RecordValue = Record<string, unknown>;
 const isRecord = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
+const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/;
+
+function isIsoUtcTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 30 || !ISO_UTC_TIMESTAMP.test(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+}
 
 /** Validate and minimize the published G5 H-05 webhook. Authentication and delivery are separate gates. */
 export function normalizeShipmentStatusWebhook(value: unknown): ShipmentStatusUpdate {
   if (!isRecord(value) || value.eventType !== 'ShipmentStatusUpdated' || value.version !== '1.0.0'
     || value.emitter !== 'modulo-ventas' || typeof value.eventId !== 'string'
     || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.eventId)
-    || typeof value.timestamp !== 'string'
-    || Number.isNaN(Date.parse(value.timestamp)) || !isRecord(value.data)) {
+    || !isIsoUtcTimestamp(value.timestamp) || !isRecord(value.data)) {
     throw new TypeError('Shipment status event does not match G5 H-05 v1.0.0.');
   }
   const { orderId, publicStatus, trackingNumber, estimatedDeliveryDate } = value.data;

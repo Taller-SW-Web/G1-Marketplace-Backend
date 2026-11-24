@@ -19,4 +19,4 @@
 
 ## Alcance de la evidencia
 
-Implementación local en la rama `codex/h5-319-fernando`. `npm run build` pasó el 24/11/2026. No se ejecutaron pruebas. Este documento no afirma una URL de Render activa, configuración de secretos, recepción real desde G5 ni entrega real de email. Completar esos datos después del smoke coordinado con el responsable de Render y Ventas.
+Implementación en la rama `feat/h4-h5-fernando-backend`. El receptor valida el timestamp H-05 como ISO 8601 UTC terminado en `Z`; los eventos guardados antes de que exista el checkout pueden reintentarse al confirmarse una compra pagada o al consultar tracking. El build mencionado en el registro previo corresponde al código anterior a estos cambios; esta revisión aún no se ha compilado ni probado. No se afirma una URL de Render activa, configuración de secretos, recepción real desde G5 ni entrega real de email. Completar esos datos después del smoke coordinado con el responsable de Render y Ventas.
