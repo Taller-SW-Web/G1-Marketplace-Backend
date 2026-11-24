@@ -14,7 +14,7 @@ const confirmation = {
 } as const satisfies EmailSnapshot;
 
 const shipment = {
-  type: 'SHIPMENT_UPDATE', orderId: confirmation.orderId, state: 'EN_CAMINO',
+  type: 'SHIPMENT_UPDATE', orderId: confirmation.orderId, state: 'DESPACHADO',
   occurredAt: confirmation.occurredAt,
 } as const satisfies EmailSnapshot;
 
@@ -36,7 +36,9 @@ describe('plantilla comercial F-033', () => {
   });
 
   it('omite la fecha cuando es desconocida o el envío ya fue entregado', () => {
-    expect(renderTransactionalEmail(shipment, config).text).not.toContain('Entrega estimada');
+    const dispatched = renderTransactionalEmail(shipment, config);
+    expect(dispatched.subject).toContain('Despachado');
+    expect(dispatched.text).not.toContain('Entrega estimada');
     const delivered = renderTransactionalEmail({ ...shipment, state: 'ENTREGADO', estimatedDelivery: '2026-11-22' }, config);
     expect(delivered.html).toContain('Entregado');
     expect(delivered.text).not.toContain('Entrega estimada');

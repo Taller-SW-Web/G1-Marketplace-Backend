@@ -15,6 +15,7 @@ interface OrderConfirmation {
 
 const dispatchLabels = {
   ASIGNADO: 'Asignado',
+  DESPACHADO: 'Despachado',
   EN_CAMINO: 'En camino',
   REPROGRAMADO: 'Entrega reprogramada',
   INCIDENCIA: 'Incidencia en la entrega',
