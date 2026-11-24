@@ -2112,7 +2112,7 @@ components:
     Address:
       type: object
       additionalProperties: false
-      required: [addressId, street, district, province, department, phone]
+      required: [addressId, street, district, province, department]
       properties:
         addressId: { type: string, minLength: 1 }
         label: { type: string, maxLength: 80 }
@@ -2121,7 +2121,6 @@ components:
         province: { type: string, minLength: 1, maxLength: 100 }
         department: { type: string, minLength: 1, maxLength: 100 }
         reference: { type: string, maxLength: 180 }
-        phone: { type: string, minLength: 1, maxLength: 40 }
     AddressResult:
       type: object
       required: [data]

@@ -1,0 +1,20 @@
+<!--
+  Candidate only for API scope marketplace-api with public suffix /v1.
+  Requires a backend serviceUrl at the origin root (no existing /api path).
+  Not included in azure-apim/** and not validated against an APIM gateway.
+-->
+<policies>
+  <inbound>
+    <base />
+    <rewrite-uri template='@("/api" + context.Request.OriginalUrl.Path)' copy-unmatched-params="true" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

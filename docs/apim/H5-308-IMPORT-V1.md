@@ -26,13 +26,20 @@ El unico cambio de ruta es quitar `/api` del prefijo de las 33 operaciones docum
   - `POST /api/v1/carts/current/items/{sku}/move-to-wishlist`
 - El artefacto no incorpora alias no documentados, no define backend ni configura la traduccion APIM `/v1` -> BFF `/api/v1`.
 
+## Candidato offline de encaminamiento
+
+Se preparó [`v1-backend-rewrite.policy.xml`](./v1-backend-rewrite.policy.xml) como candidato para aplicar **sólo al API `marketplace-api` con sufijo público `/v1`**, y únicamente si su `serviceUrl` apunta al origen del backend sin un prefijo de path. La expresión toma la ruta pública original y añade `/api`, por lo que `/v1/catalog/products` se convierte en `/api/v1/catalog/products`; los parámetros de query no coincidentes se conservan.
+
+No se añadió a `azure-apim/policies/api-policy.xml` ni al workflow de despliegue: ese workflow publica cambios de `azure-apim/**` en `develop`, y este rewrite necesita confirmar el API/backend destino antes de ejecutarse. Si el `serviceUrl` ya incluye `/api`, no aplicar el candidato porque duplicaría el prefijo. La sintaxis de `rewrite-uri` y las expresiones está basada en la [referencia oficial de Microsoft](https://learn.microsoft.com/en-us/azure/api-management/rewrite-uri-policy), pero no se ejecutó ni validó en un gateway APIM.
+
 ## Generacion y validacion offline
 
 ```bash
 npm run build:apim:v1
 npm run check:apim:v1
+npm run check:apim:v1:rewrite
 ```
 
-La generacion usa solo Node.js y los cinco contratos locales. El checker valida estructura/rutas, que solo cambie el prefijo de las rutas publicadas, `$ref` locales resolubles, las cuatro rutas bloqueadas y la exclusion de `/health`. El 23/nov `npm run build:apim:v1` y `npm run check:apim:v1` pasaron; el checker encontro 32 paths, 33 operaciones y 303 `$ref` locales resolubles. Ademas, se parseo el YAML completo con `js-yaml` y `swagger-cli validate docs/apim/marketplace-bff-v1.subset.openapi.yaml` lo valido. Para estas dos comprobaciones se reutilizaron las dependencias ya instaladas en el worktree local #304; no se instalaron paquetes en esta rama. Ninguno de los comandos importa o despliega el API.
+La generacion y los checkers usan Node.js y los contratos/artefactos locales. El checker de superficie valida estructura/rutas, que solo cambie el prefijo de las rutas publicadas, `$ref` locales resolubles, las cuatro rutas bloqueadas y la exclusion de `/health`. El checker de rewrite inspecciona la policy candidata y comprueba el mapeo de ejemplo; no ejecuta expresiones C# de APIM. Tras integrar el `develop` actualizado, `npm run build:apim:v1` regeneró el artefacto; `npm run check:apim:v1` encontró 32 paths, 33 operaciones, 303 `$ref` locales resolubles y los cuatro bloqueos; `npm run check:apim:v1:rewrite` validó la propuesta estática para los 32 paths; y `swagger-cli validate docs/apim/marketplace-bff-v1.subset.openapi.yaml` validó el YAML regenerado. Para swagger-cli se reutilizaron dependencias ya instaladas localmente en el worktree #304; no se instalaron paquetes en esta rama. Ningún comando importa ni despliega el API.
 
-Antes de una importacion real aun debe coordinarse y probarse la politica de backend `/v1` -> `/api/v1` y definirse el backend en el entorno destino. Este archivo no certifica el encaminamiento ni que las rutas bloqueadas formen parte del contrato.
+Antes de una importacion real aun debe confirmarse el `serviceUrl`, revisar la policy candidata con el responsable de APIM, validarla en un entorno no productivo y probar request/response/query-string de las operaciones. Este archivo no certifica el encaminamiento ni que las rutas bloqueadas formen parte del contrato.

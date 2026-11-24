@@ -20,6 +20,7 @@
     "docs:validate": "node scripts/validate-contracts.mjs",
     "build:apim:v1": "node scripts/build-apim-v1-openapi.mjs",
     "check:apim:v1": "node scripts/check-apim-v1-surface.mjs",
+    "check:apim:v1:rewrite": "node scripts/check-apim-v1-rewrite.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:contract": "jest --config ./test/jest-e2e.json --runInBand test/openapi-contract.e2e-spec.ts",
