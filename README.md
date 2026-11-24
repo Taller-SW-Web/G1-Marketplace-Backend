@@ -127,9 +127,9 @@ Las pruebas Jest usan SWC para transformar TypeScript; el build de producción N
 
 ### F-028 — historial de pedidos (corte local H3)
 
-El endpoint `GET /api/v1/orders/me?page=0&pageSize=10` se puede ejecutar localmente con una fixture sintética. Para habilitarla, establece `ORDERS_SOURCE=mock` y selecciona un principal fijo del servidor con `ORDERS_MOCK_CUSTOMER_ID=customer-demo-001` (también existen `customer-demo-002` y `customer-demo-empty`). No se acepta identidad del cliente por header/query/body; en particular, `clienteId` no es un parámetro válido. Sin fuente/principal configurados, el endpoint responde no disponible; `mock` se rechaza en producción. Las respuestas llevan `X-Orders-Source` y `Cache-Control: no-store`.
+El endpoint `GET /api/v1/orders/me?page=0&pageSize=10` exige bearer JWT y usa el `sub` autenticado; no acepta identidad por header/query/body y `clienteId` no es un parámetro válido. En desarrollo/pruebas, `ORDERS_SOURCE=mock` sirve fixtures sólo a principals sintéticos conocidos; `mock` se rechaza en producción. Las respuestas llevan `X-Orders-Source` y `Cache-Control: no-store`.
 
-Este modo no valida JWT y no integra Ventas; el principal fijo sólo permite renderizar una cuenta sintética de demostración y no representa autenticación ni una prueba de autorización real. No se guardan pedidos en Prisma. La integración I-03 con `GET /api/v1/pedidos/me` queda pendiente de homologación y prueba autorizada.
+El modo `real` llama `GET /api/v1/pedidos/me` con el mismo token de usuario y traduce la paginación local (base 0) a G5 (base 1). Requiere `AUTH_ENABLED=true`, `USE_MOCKS=false`, `G5_SALES_INTEGRATION_APPROVED=true` y `VENTAS_BASE_URL` HTTPS; no guardar tokens en frontend ni en el repositorio. Esto describe el adaptador, no acredita despliegue ni homologación runtime con G5. El checkout de creación sigue desacoplado del provider G5 hasta resolver su mapeo de payload.
 
 ---
 
