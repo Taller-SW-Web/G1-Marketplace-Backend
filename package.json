@@ -47,6 +47,7 @@
     "perf:k6:stress": "k6 run scripts/performance/k6/stress.js",
     "perf:k6:spike": "k6 run scripts/performance/k6/spike.js",
     "perf:k6:soak": "k6 run scripts/performance/k6/authenticated-soak.js",
+    "perf:k6:order": "k6 run scripts/performance/k6/authenticated-order.js",
     "test:g7:kit": "node --test test/g7-integration-real.test.mjs",
     "integracion:real": "node scripts/g7-integration-real.mjs"
   },

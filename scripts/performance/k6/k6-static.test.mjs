@@ -18,7 +18,7 @@ test('H5 k6 profiles and shared modules parse without executing a load test', ()
 
 test('loopback guard accepts only local IP literals, explicit MOCK mode, and explicit run approval', async () => {
   const safetyModule = `data:text/javascript;base64,${Buffer.from(source('safety.js')).toString('base64')}`;
-  const { validateAuthenticatedRun, validateLoopbackOrigin, validateMockRun } = await import(safetyModule);
+  const { validateAuthenticatedRun, validateLoopbackOrigin, validateMockRun, validateOrderRun } = await import(safetyModule);
   assert.equal(validateLoopbackOrigin('http://127.0.0.1:10000'), 'http://127.0.0.1:10000');
   assert.equal(validateLoopbackOrigin('http://[::1]:8080'), 'http://[::1]:8080');
   for (const target of [
@@ -48,6 +48,29 @@ test('loopback guard accepts only local IP literals, explicit MOCK mode, and exp
     PERF_RUN_AUTHORIZED: '1',
     PERF_ACCESS_TOKEN: 'local-synthetic-token-001',
   }).origin, 'http://127.0.0.1:10000');
+  assert.throws(() => validateOrderRun({
+    PERF_MOCK_MODE: 'true',
+    PERF_RUN_AUTHORIZED: '1',
+    PERF_ACCESS_TOKEN: 'local-synthetic-token-001',
+  }), /PERF_CHECKOUT_ADDRESS_ID/);
+  assert.deepEqual(validateOrderRun({
+    PERF_MOCK_MODE: 'true',
+    PERF_RUN_AUTHORIZED: '1',
+    PERF_ACCESS_TOKEN: 'local-synthetic-token-001',
+    PERF_CHECKOUT_ADDRESS_ID: 'ADR-LOCAL-1',
+    PERF_CART_VERSION: '7',
+    PERF_CART_SESSION: 'local-cart-session-0001',
+    PERF_PREPARATION_IDEMPOTENCY_KEY: '11111111-1111-4111-8111-111111111111',
+    PERF_ORDER_IDEMPOTENCY_KEY: '22222222-2222-4222-8222-222222222222',
+  }), {
+    origin: 'http://127.0.0.1:10000',
+    token: 'local-synthetic-token-001',
+    addressId: 'ADR-LOCAL-1',
+    cartVersion: 7,
+    cartSession: 'local-cart-session-0001',
+    preparationKey: '11111111-1111-4111-8111-111111111111',
+    orderKey: '22222222-2222-4222-8222-222222222222',
+  });
 });
 
 test('read profiles cover catalog home, search, and detail with failing latency/error thresholds', () => {
@@ -77,4 +100,19 @@ test('authenticated soak is read-only, token-gated, loopback-only, and never pri
   assert.doesNotMatch(soak, /http\.(post|put|patch|del|batch)\(/);
   assert.match(soak, /discardResponseBodies: true/);
   assert.doesNotMatch(soak, /console\.(log|info|warn|error)/);
+});
+
+test('authenticated order profile verifies an idempotent replay against the local mock-backed checkout', () => {
+  const order = source('authenticated-order.js');
+  assert.match(order, /\/api\/v1\/checkout\/quotes/);
+  assert.match(order, /\/api\/v1\/checkout\/preparations/);
+  assert.match(order, /\/api\/v1\/checkout\/orders/);
+  assert.match(order, /'Idempotency-Key': orderKey/);
+  assert.match(order, /firstData\.orderId === replayData\?\.orderId/);
+  assert.match(order, /orderRun\(\)/);
+  assert.match(order, /rate>0\.99/);
+  assert.doesNotMatch(order, /console\.(log|info|warn|error)/);
+  assert.match(source('safety.js'), /PERF_MOCK_MODE/);
+  assert.match(source('safety.js'), /PERF_RUN_AUTHORIZED/);
+  assert.match(source('safety.js'), /PERF_ORDER_IDEMPOTENCY_KEY/);
 });
