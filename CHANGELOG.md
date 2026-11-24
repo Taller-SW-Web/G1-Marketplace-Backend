@@ -1,3 +1,16 @@
+## [1.12.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.11.0...v1.12.0) (2026-11-24)
+
+### Features
+
+* **ci:** agregar gates SAST/Gitleaks/SCA, Dependabot y keep-alive H5 ([f053bd2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/f053bd2fca2cc48e19ea1950e7ce97e6c49c9d5c))
+* **ci:** agregar quality gate de cobertura Jest para TASK-H5-CICD-007 ([e794f8f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/e794f8fb984b82eb78a6582a7945708b1a2be0a0))
+
+### Bug Fixes
+
+* **ci:** atender observaciones de review en OSV gate, licencias, cobertura y keep-alive ([0b33210](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0b332109e38022e568455b86b1364dc019e55471))
+* **ci:** auditar falsos positivos de prueba en .gitleaksignore y acotar Semgrep a src/ ([78ff7a7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/78ff7a766bbfb8ff731541452235517283be91fe))
+* **security:** especificar authTagLength de 16 bytes en AES-256-GCM en SessionStore ([2f9fd70](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/2f9fd70160f7503fbe116c58b267a1fd192d699f))
+
 ## [1.11.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.2...v1.11.0) (2026-11-24)
 
 ### Features
