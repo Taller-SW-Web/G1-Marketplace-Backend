@@ -97,3 +97,13 @@ mismatch, the catalog contract/runtime `no-store` state, and the absence of
 active cache behavior or a duplicate policy artifact. These offline checks do
 not call Azure, validate APIM's policy expression runtime, or authorize
 deployment.
+
+## 24 November offline review
+
+`npm run test:apim-policy`: **6/6 PASS**. The mismatch remains explicit: G1's
+public response/request contract uses `X-Request-Id`; APIM forwards
+`X-Correlation-Id`, which is also the backend's G1→G6 correlation header. A
+consumer/API owner must decide whether APIM should alias/propagate both or
+whether the public contract changes. Until that decision, do not change either
+header or claim end-to-end correlation alignment. This review made no Azure or
+APIM runtime calls and left catalog caching disabled (`no-store`, TTL 0).
