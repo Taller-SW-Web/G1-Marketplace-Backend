@@ -1,0 +1,120 @@
+name: DAST (OWASP ZAP Baseline)
+
+# Escaneo dinámico (DAST) H5 contra entorno propio de G1 con reporte archivado
+# Tarea: TASK-H5-CICD-006 (Issue #286)
+# Solo apunta a servicios propios de G1 (nunca a módulos de otros equipos).
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL base del entorno propio de G1 (staging/Render)'
+        required: false
+        default: 'https://g1-marketplace-backend.onrender.com'
+
+permissions:
+  contents: read
+
+jobs:
+  owasp-zap-baseline:
+    name: OWASP ZAP Baseline (Staging propio)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TARGET_URL: ${{ github.event.inputs.target_url || vars.BACKEND_STAGING_URL || 'https://g1-marketplace-backend.onrender.com' }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar que TARGET_URL pertenezca únicamente al entorno propio de G1
+        run: |
+          host=$(node -e "console.log(new URL(process.env.TARGET_URL).hostname)")
+          echo "Host objetivo DAST: $host"
+          case "$host" in
+            g1-marketplace-backend.onrender.com|g1-marketplace-backend-*.onrender.com|apim-g1-marketplace-20.azure-api.net|localhost|127.0.0.1)
+              echo "OK: entorno propio de G1 verificado."
+              ;;
+            *)
+              echo "::error::Host '$host' no autorizado. DAST solo puede ejecutarse contra entornos propios de G1."
+              exit 1
+              ;;
+          esac
+
+      - name: Precalentar /health del entorno propio (evitar cold start durante ZAP)
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "${TARGET_URL%/}/health" || echo "000")
+            echo "Warmup intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::El entorno propio ${TARGET_URL%/}/health no respondió 200."
+          exit 1
+
+      - name: Ejecutar OWASP ZAP Baseline y clasificar hallazgos
+        run: |
+          mkdir -p zap-wrk
+          cp .zap/rules.tsv zap-wrk/rules.tsv
+          chmod 777 zap-wrk
+          set +e
+          docker run --rm \
+            -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
+            -t ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t "${TARGET_URL%/}/docs" \
+              -c rules.tsv \
+              -r zap-report.html \
+              -J zap-report.json \
+              -w zap-report.md \
+              -m 3
+          rc=$?
+          set -e
+          echo "OWASP ZAP exit code: $rc (0=PASS, 2=WARN, 1=FAIL, 3=ERROR)"
+
+          if [ -f zap-wrk/zap-report.json ]; then
+            node -e '
+              const fs = require("fs");
+              const data = JSON.parse(fs.readFileSync("zap-wrk/zap-report.json", "utf8"));
+              const counts = { High: 0, Medium: 0, Low: 0, Informational: 0 };
+              const rows = [];
+              for (const site of data.site || []) {
+                for (const a of site.alerts || []) {
+                  const risk = (a.riskdesc || "").split(" ")[0] || "Informational";
+                  if (counts[risk] !== undefined) counts[risk]++;
+                  rows.push(`| ${a.pluginid} | ${risk} | ${a.name} | ${a.count} |`);
+                }
+              }
+              const summary = [
+                "### Resumen DAST — OWASP ZAP Baseline",
+                `- **Objetivo:** \`${process.env.TARGET_URL}\``,
+                `- **Conteo por riesgo:** High: **${counts.High}** · Medium: **${counts.Medium}** · Low: **${counts.Low}** · Informational: **${counts.Informational}**`,
+                "",
+                "| Plugin ID | Riesgo | Hallazgo | Ocurrencias |",
+                "| :--- | :---: | :--- | :---: |",
+                ...(rows.length ? rows : ["| - | - | Sin hallazgos | 0 |"])
+              ].join("\n");
+              console.log(summary);
+              if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + "\n");
+            '
+          fi
+
+          # 0 = sin alertas, 2 = solo WARN (clasificados). 1 = FAIL, 3+ = error de ejecución -> bloquean el job.
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then
+            echo "::error::OWASP ZAP falló con código $rc (alerta FAIL o error de ejecución)."
+            exit "$rc"
+          fi
+
+      - name: Archivar reportes OWASP ZAP (HTML, JSON, Markdown)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-owasp-zap-dast-report
+          path: |
+            zap-wrk/zap-report.html
+            zap-wrk/zap-report.json
+            zap-wrk/zap-report.md
+          if-no-files-found: warn
+          retention-days: 30
