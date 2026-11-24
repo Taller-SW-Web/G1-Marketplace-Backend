@@ -29,4 +29,4 @@ curl.exe -s -o NUL -w "HTTP %{http_code} | total=%{time_total}s | ttfb=%{time_st
 
 ## 4. Conclusión y limitaciones
 - Mantener la instancia activa mediante keep-alive reduce el tiempo de primera respuesta de **32.80 s** a **0.26–0.35 s** (promedio **0.31 s**), eliminando los timeouts iniciales en el catálogo y en el gateway Azure APIM.
-- *Limitación conocida de GitHub Actions:* los eventos `schedule` en GitHub pueden experimentar jitter de algunos minutos en horas pico; si se produjera un retraso mayor a 15 minutos, el paso de reintento absorbe el arranque y vuelve a dejar el servicio caliente.
+- *Limitación conocida de GitHub Actions:* los eventos `schedule` en GitHub se ejecutan **únicamente desde la rama por defecto del repositorio (`main`)** y pueden experimentar jitter de algunos minutos en horas pico. Por ello, para completar el cierre operativo de `#305` se requiere promover `.github/workflows/keep-alive.yml` a `main` y verificar una ejecución `schedule` real además de `workflow_dispatch`.

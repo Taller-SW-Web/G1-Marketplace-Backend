@@ -3,6 +3,8 @@ name: Keep-Alive Backend (Render)
 # Mitigación de arranque en frío (cold start) en Render
 # Tarea: TASK-H5-PERF-007 (Issue #305)
 # Solo consulta el servicio propio de G1 (/health) cada 10 minutos.
+# IMPORTANTE: GitHub Actions ejecuta eventos `schedule` únicamente desde la rama por defecto (`main`).
+# Tras integrar en `develop`, este workflow debe promoverse a `main` para activar las ejecuciones programadas.
 on:
   schedule:
     - cron: '*/10 * * * *'
