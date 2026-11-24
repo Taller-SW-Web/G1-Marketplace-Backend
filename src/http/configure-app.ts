@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
+import { accessLogMiddleware } from './access-log.middleware';
 import { ApiErrorFilter } from './api-error.filter';
 import { corsOptions } from './cors-options';
 import { requestIdMiddleware } from './request-id.middleware';
@@ -12,6 +13,7 @@ import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from '../checkout
 
 export function configureApp(app: INestApplication): void {
   app.use(requestIdMiddleware);
+  app.use(accessLogMiddleware);
   app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
     if (/^\/api\/v1\/(wishlist|auth|password)(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
     next();
