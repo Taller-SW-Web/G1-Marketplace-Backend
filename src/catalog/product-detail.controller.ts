@@ -28,6 +28,7 @@ import {
   Controller,
   Get,
   Param,
+  Req,
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
@@ -81,7 +82,7 @@ export class ProductDetailController {
   constructor(private readonly productDetail: ProductDetailService) {}
 
   @Get(':slug')
-  async getBySlug(@Param('slug') slug: string): Promise<ProductDetailResponseDTO> {
+  async getBySlug(@Param('slug') slug: string, @Req() request?: { requestId?: string }): Promise<ProductDetailResponseDTO> {
     // Validar slug ANTES de llamar al servicio
     const validation = validateSlug(slug);
     if (!validation.valid) {
@@ -89,7 +90,7 @@ export class ProductDetailController {
     }
 
     try {
-      return await this.productDetail.getBySlug(slug);
+      return await this.productDetail.getBySlug(slug, request?.requestId);
     } catch (error) {
       if (error instanceof CatalogException) throw error;
 

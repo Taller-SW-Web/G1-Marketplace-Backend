@@ -13,9 +13,10 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
+import { isRealCatalogSource } from './catalog-mode';
 
 export function catalogSource(): 'MOCK' | 'REAL' {
-  return (process.env.BFF_MODE ?? 'mock') === 'mock' ? 'MOCK' : 'REAL';
+  return isRealCatalogSource() ? 'REAL' : 'MOCK';
 }
 
 @Injectable()

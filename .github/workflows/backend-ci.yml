@@ -30,7 +30,7 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - name: Validate OpenAPI contracts
-        run: npm run contract:validate
+        run: npm run docs:validate
       - run: npm test
       - name: Verify generated OpenAPI
         run: |

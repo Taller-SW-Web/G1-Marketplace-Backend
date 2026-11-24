@@ -15,6 +15,7 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/docs/contratos ./docs/contratos
 USER node
 EXPOSE 10000
 CMD ["sh", "-c", "npm run prisma:deploy && npm run start:prod"]

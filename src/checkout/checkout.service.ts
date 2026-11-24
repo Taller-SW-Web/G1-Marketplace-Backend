@@ -55,9 +55,9 @@ export class CheckoutService {
     @Optional() private readonly notificationOutbox?: NotificationOutboxService,
   ) {}
 
-  async listAddresses(accessToken: string): Promise<DeliveryAddress[]> {
+  async listAddresses(customerId: string, accessToken: string): Promise<DeliveryAddress[]> {
     try {
-      return await this.gateway.listAddresses(accessToken);
+      return await this.gateway.listAddresses(customerId, accessToken);
     } catch (error) {
       this.throwProviderError(error, 'ADDRESS_SERVICE_UNAVAILABLE');
     }
@@ -69,7 +69,7 @@ export class CheckoutService {
     input: CreateDeliveryAddressDto,
   ): Promise<DeliveryAddress> {
     try {
-      const address = await this.gateway.createAddress(accessToken, input);
+      const address = await this.gateway.createAddress(customerId, accessToken, input);
       return await this.withCustomerContextLock(customerId, async () => {
         this.quotes.invalidate(customerId);
         await this.invalidatePreparedOperations(customerId);
@@ -93,7 +93,7 @@ export class CheckoutService {
 
     let addresses: DeliveryAddress[];
     try {
-      addresses = await this.gateway.listAddresses(accessToken);
+      addresses = await this.gateway.listAddresses(customerId, accessToken);
     } catch (error) {
       this.throwProviderError(error, 'ADDRESS_SERVICE_UNAVAILABLE');
     }
@@ -906,8 +906,9 @@ export class CheckoutService {
     if (fallbackCode === 'ORDER_CREATION_PENDING' && error.status >= 500) {
       this.fail(409, 'ORDER_CREATION_PENDING');
     }
-    if (fallbackCode === 'ADDRESS_SERVICE_UNAVAILABLE' && error.status >= 400 && error.status < 500) {
-      this.fail(400, 'ADDRESS_VALIDATION_ERROR');
+    if (fallbackCode === 'ADDRESS_SERVICE_UNAVAILABLE') {
+      if (error.status === 400) this.fail(400, 'ADDRESS_VALIDATION_ERROR');
+      if (error.status === 401) this.fail(401, 'UNAUTHENTICATED');
     }
     const maps: Record<string, { status: number; code: string }> = {
       ADDRESS_SERVICE_UNAVAILABLE: { status: 503, code: 'ADDRESS_SERVICE_UNAVAILABLE' },

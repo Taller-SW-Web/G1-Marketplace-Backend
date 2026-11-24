@@ -1,24 +1,15 @@
 /**
- * DTOs y guardia del contrato BFF F-014 — Disponibilidad comercial.
- *
- * Sólo se publican los tres estados homologados del contrato v1:
- * `AVAILABLE`, `STOCK_LOW` y `OUT_OF_STOCK`. No se exponen cantidades,
- * ubicaciones, `onHand` ni `reserved`.
- *
- * ⚠️ G-G6-COMPAT: el plan H4 registra que el OpenAPI G6 0.6.0-rc.1 incorpora
- * `INDETERMINADO`. Añadirlo aquí sin homologación bilateral cambiaría el
- * contrato publicado, violando API-CA-F014 y la regla de no inferir estados.
- * Se mantiene v1 hasta que Jim/G6 y Giuliano acuerden la actualización
- * coherente de funcional/UI/API/React y el adaptador.
- *
- * @see SPECS/contrato-api/F-014-consultar-disponibilidad-stock.md
- * @see SPECS/plan/DECISIONES-Y-BLOQUEOS.md — G-G6-COMPAT
+ * F-014: cuatro estados comerciales, conforme a M01 G1/G6 (20/10/2026).
+ * UNDETERMINED es un resultado comercial, no un error ni stock agotado.
+ * No expone cantidades, ubicación ni garantiza unidades o reserva.
+ * La integración REAL conserva su gate; esta proyección no la habilita.
  */
 
 export const COMMERCIAL_AVAILABILITY = [
   'AVAILABLE',
   'STOCK_LOW',
   'OUT_OF_STOCK',
+  'UNDETERMINED',
 ] as const;
 
 export type CommercialAvailability = (typeof COMMERCIAL_AVAILABILITY)[number];
@@ -49,8 +40,8 @@ const isCommercialAvailability = (
   (COMMERCIAL_AVAILABILITY as readonly string[]).includes(value);
 
 /**
- * Guardia del contrato F-014 v1. Un estado desconocido (por ejemplo
- * `INDETERMINADO`) no se publica como si fuera uno de los tres homologados.
+ * Guardia del contrato público F-014. Los estados de G6 se traducen antes
+ * de validar: `INDETERMINADO` no es el nombre público `UNDETERMINED`.
  */
 export function isProductAvailabilityResponse(
   value: unknown,
@@ -62,13 +53,8 @@ export function isProductAvailabilityResponse(
   if (!isNonEmptyString(data.sku)) return false;
   if (!isCommercialAvailability(data.availability)) return false;
   if (!isIsoDate(data.checkedAt)) return false;
-  if (
-    'quantity' in data ||
-    'onHand' in data ||
-    'reserved' in data ||
-    'locationId' in data
-  ) {
-    return false;
-  }
+  const keys = ['productId', 'sku', 'availability', 'checkedAt'];
+  if (Object.keys(data).length !== keys.length ||
+      !keys.every((key) => Object.prototype.hasOwnProperty.call(data, key))) return false;
   return true;
 }

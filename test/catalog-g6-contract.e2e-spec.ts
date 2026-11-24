@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import request from 'supertest';
 import { CatalogModule } from '../src/catalog/catalog.module';
 import { CONTRACT_SHA, CONTRACT_VERSION } from '../src/catalog/provider';
+import { requestIdMiddleware } from '../src/http/request-id.middleware';
 
 // Local HTTP contract rehearsal, NOT G6 authentication, business eligibility or deployment.
 // Source: G6 docs c36bd9a, OpenAPI 0.6.0-rc.1, blob f64bfe9a.
@@ -55,6 +56,7 @@ describe('CatalogModule -> real adapter -> local G6 contract HTTP server', () =>
       CatalogModule,
     ] }).compile();
     app = module.createNestApplication({ logger: false });
+    app.use(requestIdMiddleware);
     await app.listen(0, '127.0.0.1');
   });
 
@@ -71,6 +73,14 @@ describe('CatalogModule -> real adapter -> local G6 contract HTTP server', () =>
     await app?.close();
     upstream?.closeAllConnections();
     await new Promise<void>((resolve) => upstream.close(() => resolve()));
+  });
+
+  it('retains an opaque public G1 ID while sending a UUID accepted by G6', async () => {
+    reply = (_req, res) => json(res, { categories: [] });
+    const result = await request(app.getHttpServer()).get('/api/v1/catalog/home')
+      .set('X-Request-Id', 'fe-correlacion-01').expect(200);
+    expect(result.headers['x-request-id']).toBe('fe-correlacion-01');
+    expect(seen[0].headers['x-correlation-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 
   it('reads categories using the technical token and correlates BFF response with upstream', async () => {

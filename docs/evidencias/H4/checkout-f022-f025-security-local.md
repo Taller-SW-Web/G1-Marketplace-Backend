@@ -1,0 +1,10 @@
+# Evidencia de seguridad local — Checkout F-022–F-025 (Backend)
+
+- Base: `origin/develop` `3cc1d9a` (4-nov-2026). Alcance: pruebas automatizadas y esta evidencia; sin cambios de runtime, esquema, migraciones, versión ni `CHANGELOG`.
+- Los casos cubren autenticación en rutas Checkout, rechazo de totales/líneas manipulados y datos de tarjeta en el DTO, quote ajena o vencida, consentimiento de simulación falso y clave de idempotencia inválida. Checkout permanece en MOCK; estas pruebas no demuestran pago ni creación de una orden REAL.
+- Pruebas focalizadas: 40 unitarias (2 suites) y 27 E2E (2 suites), aprobadas. Validaciones de la rama: `npm test` aprobado; E2E completo, 15 suites aprobadas / 2 omitidas, 270 pruebas aprobadas / 22 omitidas; `npm run typecheck`, `npm run build`, `npm run lint`, `npm run prisma:validate` y `git diff --check` aprobados. Prisma se validó con una `DATABASE_URL` sintética no enrutable; no se conectó a una base.
+- Secret scan: Gitleaks 8.30.1; sin hallazgos en fuentes, artefacto `dist` ni historial de la rama frente a la base. Los controles positivos sintéticos para Gitleaks y Semgrep fueron detectados.
+- SAST: Semgrep 1.181.0, 121 archivos de `src` y `scripts`, cuatro reglas locales; sin hallazgos ni errores. El alcance no certifica análisis interarchivo ni taint.
+- SCA (`npm audit`): árbol completo con 21 hallazgos (17 moderados, 4 bajos; 0 altos/críticos); dependencias de runtime con 0. El gate local solo bloquea altos/críticos; los moderados/bajos requieren aceptación humana o remediación y no se declaran resueltos por esta PR.
+- Inventario de licencias: 663 paquetes, solo inventario; no equivale a aprobación legal. Los informes detallados quedan en `.local-security/` local, ignorado por Git; no se incluyen coincidencias ni secretos en esta evidencia.
+- No se ejecutó DAST en staging ni prueba contra proveedores externos: no hay entorno/credenciales ni autorización externa registrados. Evidencia MOCK/local no satisface gates REAL, revisión independiente ni DoD pendiente; no cerrar automáticamente #116, #120, #124 ni #129. #209 queda excluido.

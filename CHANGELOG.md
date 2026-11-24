@@ -1,3 +1,94 @@
+## [1.10.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.1...v1.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** usar OriginalUrl.Path para rutas publicas en api-policy.xml ([c910900](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c9109000942660e13b304f73e8b3dd94f2d2ed24))
+
+## [1.10.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.0...v1.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** corregir comillas en atributo condition de api-policy.xml ([140f678](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/140f67827fd608bc16686c3bed59afcbc613aa72))
+
+## [1.10.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.9.0...v1.10.0) (2026-11-23)
+
+### Features
+
+* **apim:** agregar politicas APIM como codigo y workflow de despliegue ([aa3e30d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/aa3e30db7d8d475c005d3778401fdc405989b74f))
+
+## [1.9.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.4...v1.9.0) (2026-11-23)
+
+### Features
+
+* **checkout:** adaptar direcciones del titular al contrato de Seguridad ([a7733f7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7733f7560449e1af9ce9f6ba28fef897414101e))
+
+## [1.8.4](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.3...v1.8.4) (2026-11-22)
+
+### Bug Fixes
+
+* **auth:** logout no declara revocacion limpia si la sesion guardada es ilegible (F-003) ([6396265](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/63962658e1235e4cc855ec5f3afae6d1ffef3422))
+
+## [1.8.3](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.2...v1.8.3) (2026-11-22)
+
+### Bug Fixes
+
+* **dast:** ejecuta el análisis desde revisiones identificadas ([d5d1cd5](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/d5d1cd5a198df06e63d076e9e02765b6eff067e2))
+* **g7:** validar respuestas previas a OTP y el plazo de lectura ([4cdb2d6](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/4cdb2d60adcb8c9a66d9c0b501db52e40115ea4b))
+
+## [1.8.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.1...v1.8.2) (2026-11-07)
+
+### Bug Fixes
+
+* **catalog:** impedir que fixtures se publiquen como REAL ([bad6a0d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bad6a0de54d7f6da4ce2b055c264fa5ab97f5429))
+
+## [1.8.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.0...v1.8.1) (2026-11-07)
+
+### Bug Fixes
+
+* **docs:** cargar las definiciones OpenAPI en Swagger UI con el preset standalone ([850bd90](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/850bd90b656776ef3658704064523c5c351bf955))
+
+## [1.8.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.7.0...v1.8.0) (2026-11-06)
+
+### Features
+
+* **f013:** mapear variantes reales desde detalle comercial G6 ([797344a](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/797344ae665507f6ea32b263ba446f76fe530d22))
+
+## [1.7.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.6.0...v1.7.0) (2026-11-06)
+
+### Features
+
+* **f011:** consumir detalle REAL con modo publico explicito ([0864d7a](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0864d7a612a535d6a4b1e797873eaadd596c1139)), closes [#64](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/64) [#65](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/65) [#273](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/273)
+
+## [1.6.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.5.0...v1.6.0) (2026-11-05)
+
+### Features
+
+* **catalog:** add explicit production public-read-only mode ([a7ec322](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7ec3227803e0824dfb034f0fac129627f8cac58)), closes [#45](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45)
+
+## [1.5.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.4.0...v1.5.0) (2026-11-05)
+
+### Features
+
+* **catalog:** habilitar client_credentials opt-in para G6 ([7554b08](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/7554b0831c012bdbb20220be49f4c07b6000744d))
+
+## [1.4.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.3.0...v1.4.0) (2026-11-05)
+
+### Features
+
+* **f014:** disponibilidad indeterminada y contrato OpenAPI coherente ([bc6fd4d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bc6fd4de27142d0ef59bf3dbabf804e69434c9e6))
+
+## [1.3.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.2.0...v1.3.0) (2026-11-05)
+
+### Features
+
+* **catalogo:** cerrar demo MOCK de filtros, orden y paginación H4 ([0246295](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/02462957b4149f95bdce9451ab05d26489e075d9))
+
+## [1.2.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.1.0...v1.2.0) (2026-11-05)
+
+### Features
+
+* **docs:** publicar Swagger UI con los contratos OpenAPI en /docs ([a979634](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a979634e02629be4f6953d4066060564e6ee4bd2))
+
 ## [1.1.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.0.1...v1.1.0) (2026-11-05)
 
 ### Features

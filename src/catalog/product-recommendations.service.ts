@@ -11,6 +11,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { isRealCatalogSource } from './catalog-mode';
 import {
   isRecommendationCard,
   isRecommendationsResponse,
@@ -38,8 +39,7 @@ export class ProductRecommendationsService {
    * @param slug - Slug ya validado por el controlador
    */
   async getRecommendations(slug: string): Promise<RecommendationsResponseDTO> {
-    const bffMode = process.env.BFF_MODE ?? 'mock';
-    if (bffMode !== 'mock') {
+    if (isRealCatalogSource()) {
       // Sin adaptador homologado (I-01) la región se omite, no se inventa.
       return empty('UNCONFIGURED');
     }

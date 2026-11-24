@@ -5,16 +5,6 @@ import AxiosMockAdapter from 'axios-mock-adapter';
 import { createHash, randomUUID } from 'node:crypto';
 import { CheckoutQuote, DeliveryAddress, Money, SalesOrder } from '../checkout.types';
 
-interface AddressInput {
-  label?: string;
-  street: string;
-  district: string;
-  province: string;
-  department: string;
-  reference?: string;
-  phone: string;
-}
-
 interface QuoteInput {
   address: DeliveryAddress;
   addressId: string;
@@ -49,7 +39,6 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
         province: 'Lima',
         department: 'Lima',
         reference: 'Dpto. 402',
-        phone: '999999999',
       },
       {
         addressId: 'ADR-MOCK-0002',
@@ -58,7 +47,6 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
         district: 'San Isidro',
         province: 'Lima',
         department: 'Lima',
-        phone: '988888888',
       },
     ]);
     this.addresses.set(EMPTY_OWNER, []);
@@ -73,7 +61,11 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
     this.adapter = new AxiosMockAdapter(this.http.axiosRef, {
       onNoMatch: 'throwException',
     });
-    this.installSecurityFixtures();
+    if (this.config.get('CHECKOUT_ADDRESS_SOURCE') === 'prism') {
+      this.adapter.onAny(/^http:\/\/localhost:4010\/usuarios\//).passThrough();
+    } else {
+      this.installSecurityFixtures();
+    }
     this.installQuoteFixtures();
     this.installBenefitFixtures();
     this.installInventoryFixtures();
@@ -86,19 +78,17 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
 
   private installSecurityFixtures(): void {
     const adapter = this.adapter!;
-    adapter.onGet(/security\.mock\/delivery-addresses$/).reply((config) => {
-      const scenario = this.config.get<string>('MOCK_ADDRESS_SCENARIO');
-      if (scenario === 'TIMEOUT') {
-        return [504, { error: { code: 'ADDRESS_TIMEOUT' } }];
-      }
-      if (scenario === 'UNAVAILABLE') {
-        return [503, { error: { code: 'ADDRESS_SERVICE_UNAVAILABLE' } }];
-      }
-      if (scenario === 'EMPTY') return [200, { data: [] }];
-      const owner = this.subjectFromAuthorization(config.headers?.Authorization);
-      return [200, { data: this.addresses.get(owner) ?? [] }];
+    const path = /^http:\/\/security\.mock\/usuarios\/([^/]+)\/direcciones$/;
+    const ownerFor = (url: string | undefined, token: unknown) => {
+      const subject = this.subjectFromAuthorization(token);
+      return subject && path.exec(url ?? '')?.[1] === subject ? subject : undefined;
+    };
+    const toWire = (address: DeliveryAddress) => ({
+      id: address.addressId, etiqueta: address.label, direccion: address.street,
+      distrito: address.district, provincia: address.province,
+      departamento: address.department, referencia: address.reference,
     });
-    adapter.onPost(/security\.mock\/delivery-addresses$/).reply((config) => {
+    adapter.onGet(path).reply((config) => {
       const scenario = this.config.get<string>('MOCK_ADDRESS_SCENARIO');
       if (scenario === 'TIMEOUT') {
         return [504, { error: { code: 'ADDRESS_TIMEOUT' } }];
@@ -106,16 +96,31 @@ export class MockHttpAdapter implements OnModuleInit, OnModuleDestroy {
       if (scenario === 'UNAVAILABLE') {
         return [503, { error: { code: 'ADDRESS_SERVICE_UNAVAILABLE' } }];
       }
-      const owner = this.subjectFromAuthorization(config.headers?.Authorization);
-      const body = JSON.parse(String(config.data ?? '{}')) as AddressInput;
+      const owner = ownerFor(config.url, config.headers?.Authorization);
+      if (!owner) return [403];
+      const addresses = scenario === 'EMPTY' ? [] : (this.addresses.get(owner) ?? []);
+      return [200, { direcciones: addresses.map(toWire) }];
+    });
+    adapter.onPost(path).reply((config) => {
+      const scenario = this.config.get<string>('MOCK_ADDRESS_SCENARIO');
+      if (scenario === 'TIMEOUT') {
+        return [504, { error: { code: 'ADDRESS_TIMEOUT' } }];
+      }
+      if (scenario === 'UNAVAILABLE') {
+        return [503, { error: { code: 'ADDRESS_SERVICE_UNAVAILABLE' } }];
+      }
+      const owner = ownerFor(config.url, config.headers?.Authorization);
+      if (!owner) return [403];
+      const body = JSON.parse(String(config.data ?? '{}')) as ReturnType<typeof toWire>;
       const address: DeliveryAddress = {
-        ...body,
+        street: body.direccion, district: body.distrito, province: body.provincia,
+        department: body.departamento, label: body.etiqueta, reference: body.referencia,
         addressId: `ADR-MOCK-${String(this.nextAddress++).padStart(4, '0')}`,
       };
       const ownerAddresses = this.addresses.get(owner) ?? [];
       ownerAddresses.push(address);
       this.addresses.set(owner, ownerAddresses);
-      return [201, { data: address }];
+      return [201, toWire(address)];
     });
   }
 

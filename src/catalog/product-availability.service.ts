@@ -16,6 +16,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { BffCatalogException } from './bff-catalog.exception';
+import { isRealCatalogSource } from './catalog-mode';
 import {
   isProductAvailabilityResponse,
   type ProductAvailabilityResponseDTO,
@@ -63,8 +64,7 @@ export class ProductAvailabilityService {
     slug: string,
     sku?: string,
   ): Promise<ProductAvailabilityResponseDTO> {
-    const bffMode = process.env.BFF_MODE ?? 'mock';
-    if (bffMode !== 'mock') {
+    if (isRealCatalogSource()) {
       throw new BffCatalogException(
         503,
         AVAILABILITY_ERROR_CODES.INVENTORY_UNAVAILABLE,

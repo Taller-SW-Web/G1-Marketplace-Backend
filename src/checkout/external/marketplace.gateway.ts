@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
 import {
   CheckoutContact,
@@ -15,7 +15,12 @@ import {
   QuoteLine,
   SalesOrder,
 } from '../checkout.types';
+import { CreateDeliveryAddressDto } from '../dto/delivery-address.dto';
+import { record } from '../../auth/g7.client';
 import { ProviderError } from './provider-error';
+
+const PRISM_ADDRESS_BASE = 'http://localhost:4010';
+const FIXTURE_ADDRESS_BASE = 'http://security.mock';
 
 interface Envelope<T> {
   data: T;
@@ -28,16 +33,75 @@ export class MarketplaceGateway {
     private readonly config: ConfigService,
   ) {}
 
-  listAddresses(accessToken: string): Promise<DeliveryAddress[]> {
-    return this.request('get', 'http://security.mock/delivery-addresses', undefined, {
-      Authorization: `Bearer ${accessToken}`,
-    });
+  async listAddresses(owner: string, accessToken: string): Promise<DeliveryAddress[]> {
+    const result = await this.requestAddresses(owner, accessToken);
+    if (!record(result) || !Array.isArray(result.direcciones)) {
+      throw new ProviderError(503, 'ADDRESS_SERVICE_UNAVAILABLE');
+    }
+    return result.direcciones.map((address: unknown) => this.mapAddress(address));
   }
 
-  createAddress(accessToken: string, address: Omit<DeliveryAddress, 'addressId'>): Promise<DeliveryAddress> {
-    return this.request('post', 'http://security.mock/delivery-addresses', address, {
-      Authorization: `Bearer ${accessToken}`,
+  async createAddress(owner: string, accessToken: string, address: CreateDeliveryAddressDto): Promise<DeliveryAddress> {
+    const result = await this.requestAddresses(owner, accessToken, {
+      id: randomUUID(),
+      etiqueta: address.label ?? undefined,
+      direccion: address.street,
+      distrito: address.district,
+      provincia: address.province,
+      departamento: address.department,
+      referencia: address.reference ?? undefined,
     });
+    return this.mapAddress(result);
+  }
+
+  private mapAddress(value: unknown): DeliveryAddress {
+    if (!record(value) || typeof value.id !== 'string' || !value.id.trim()
+      || typeof value.direccion !== 'string' || !value.direccion.trim()
+      || typeof value.distrito !== 'string' || !value.distrito.trim()
+      || typeof value.provincia !== 'string' || !value.provincia.trim()
+      || typeof value.departamento !== 'string' || !value.departamento.trim()) {
+      throw new ProviderError(503, 'ADDRESS_SERVICE_UNAVAILABLE');
+    }
+    return {
+      addressId: value.id,
+      street: value.direccion,
+      district: value.distrito,
+      province: value.provincia,
+      department: value.departamento,
+      ...(typeof value.etiqueta === 'string' ? { label: value.etiqueta } : {}),
+      ...(typeof value.referencia === 'string' ? { reference: value.referencia } : {}),
+    };
+  }
+
+  private async requestAddresses(owner: string, accessToken: string, body?: unknown): Promise<unknown> {
+    const source = this.config.get<string>('CHECKOUT_ADDRESS_SOURCE', 'fixture');
+    const mocks = this.config.get<boolean>('USE_MOCKS', false);
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    let base: string;
+    if (source === 'g7' && this.config.get<string>('AUTH_ENABLED') === 'true' && !mocks) {
+      base = this.config.getOrThrow<string>('G7_API_URL').replace(/\/$/, '');
+    } else if (!production && mocks && source === 'prism') {
+      base = PRISM_ADDRESS_BASE;
+    } else if (!production && mocks && source === 'fixture') {
+      base = FIXTURE_ADDRESS_BASE;
+    } else {
+      throw new ProviderError(503, 'ADDRESS_SERVICE_UNAVAILABLE');
+    }
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    const url = `${base}/usuarios/${encodeURIComponent(owner)}/direcciones`;
+    try {
+      const options = { headers, maxRedirects: 0, proxy: false as const };
+      const response = await firstValueFrom(body === undefined
+        ? this.http.get<unknown>(url, options)
+        : this.http.post<unknown>(url, body, options));
+      if (response.status !== (body === undefined ? 200 : 201)) {
+        throw new ProviderError(503, 'ADDRESS_SERVICE_UNAVAILABLE');
+      }
+      return response.data;
+    } catch (error) {
+      const status = (error as AxiosError).response?.status ?? 503;
+      throw new ProviderError(status, 'ADDRESS_SERVICE_UNAVAILABLE');
+    }
   }
 
   createQuote(input: {

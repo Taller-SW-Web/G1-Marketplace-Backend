@@ -434,6 +434,12 @@ describe('Respuestas reales del BFF contra el contrato F-011 a F-015', () => {
       status: 200,
     },
     {
+      name: '200 de F-014 indeterminado conserva el contrato publicado',
+      requestPath: '/api/v1/catalog/products/producto-demostracion-7/availability',
+      contractPath: '/api/v1/catalog/products/{slug}/availability',
+      status: 200,
+    },
+    {
       name: '200 de F-015 con recomendaciones',
       requestPath:
         '/api/v1/catalog/products/zapatillas-running-aero-x/recommendations',

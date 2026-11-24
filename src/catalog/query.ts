@@ -40,7 +40,7 @@ export function parseQuery(params: URLSearchParams): CatalogQuery {
   const maxPrice = money(params.get("maxPrice"));
   if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice)
     throw new CatalogError("INVALID_PRICE_RANGE", 400);
-  const sort = params.get("sort") || undefined;
+  const sort = params.get("sort") ?? undefined;
   if (sort !== undefined && sort !== "NAME_ASC" && sort !== "NAME_DESC")
     throw new CatalogError("INVALID_SORT", 400);
   return {

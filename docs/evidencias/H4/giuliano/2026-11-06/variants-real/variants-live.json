@@ -1,0 +1,391 @@
+{
+  "startedAt": "2026-11-06T17:21:46.653Z",
+  "origin": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com",
+  "local": "http://127.0.0.1:3861",
+  "authorizationSent": false,
+  "httpIntercepted": false,
+  "cases": [
+    {
+      "slug": "adidas-entrada-26-jersey",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "1015192a-607e-4a2e-ac6b-e54ee2dac1da",
+      "hasVariants": true,
+      "variants": 6,
+      "attributes": 2,
+      "skus": [
+        "ADI-ENT26-BLA-M",
+        "ADI-ENT26-AZU-M",
+        "ADI-ENT26-AZU-S",
+        "ADI-ENT26-BLA-L",
+        "ADI-ENT26-AZU-L",
+        "ADI-ENT26-BLA-S"
+      ]
+    },
+    {
+      "slug": "ent22-inka-athletics",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "b61ec8c7-9d9d-47ca-998c-fc8298c5551d",
+      "hasVariants": true,
+      "variants": 1,
+      "attributes": 2,
+      "skus": [
+        "ADI-ENT22-AZU-M"
+      ]
+    },
+    {
+      "slug": "adidas-entrada-22-shorts-h57505",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "4af69b04-58a6-4e7b-9495-14f61a213e2a",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "ADI-ENT22-SHORT-GRI-S",
+        "ADI-ENT22-SHORT-GRI-M",
+        "ADI-ENT22-SHORT-GRI-L"
+      ]
+    },
+    {
+      "slug": "adidas-messi-club-ji8291",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "72d658f9-1c7c-49de-a6cc-72f168f36677",
+      "hasVariants": false,
+      "variants": 0,
+      "attributes": 0,
+      "skus": []
+    },
+    {
+      "slug": "adidas-predator-flexible-ground-ig7760",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "0a95a26f-a3bd-4390-8d19-ce1b3babc23e",
+      "hasVariants": true,
+      "variants": 4,
+      "attributes": 2,
+      "skus": [
+        "ADI-PRED-IG7760-MUL-43",
+        "ADI-PRED-IG7760-MUL-42",
+        "ADI-PRED-IG7760-MUL-38",
+        "ADI-PRED-IG7760-MUL-40"
+      ]
+    },
+    {
+      "slug": "rf3-inka-athletics",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "14849115-4ce4-4a8f-94fc-2ce5d6c4afad",
+      "hasVariants": true,
+      "variants": 2,
+      "attributes": 2,
+      "skus": [
+        "ADI-RF3-GRI-38",
+        "ADI-RF3-GRI-39"
+      ]
+    },
+    {
+      "slug": "adidas-squadra-25-jersey-jg5832",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "84f23af1-906f-48c3-a7f8-89c625f017ac",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "ADI-SQUA25-JG5832-NEG-L",
+        "ADI-SQUA25-JG5832-NEG-S",
+        "ADI-SQUA25-JG5832-NEG-M"
+      ]
+    },
+    {
+      "slug": "adidas-runxcushioned-jd9558",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "6435e780-3046-4d76-92ce-7b06a48f504a",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "ADI-RUNX-JD9558-NEG-EU3436",
+        "ADI-RUNX-JD9558-NEG-EU4042",
+        "ADI-RUNX-JD9558-NEG-EU3739"
+      ]
+    },
+    {
+      "slug": "adidas-squadra-25-shorts-jh3407",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "c5486f8a-c8fe-4776-b521-befad4f4ba78",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "ADI-SQUA25-JH3407-AZU-S",
+        "ADI-SQUA25-JH3407-AZU-L",
+        "ADI-SQUA25-JH3407-AZU-M"
+      ]
+    },
+    {
+      "slug": "nike-academy-hv4386-100",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "106c313c-2688-44c2-a02b-9c0458d34f9a",
+      "hasVariants": false,
+      "variants": 0,
+      "attributes": 0,
+      "skus": []
+    },
+    {
+      "slug": "nike-park3-hombre-bv6855-010",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "1b4ccc06-3527-4c40-8b69-b0746bdc1aa1",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "NIK-PARK3-M-BV6855-NEG-M",
+        "NIK-PARK3-M-BV6855-NEG-S",
+        "NIK-PARK3-M-BV6855-NEG-L"
+      ]
+    },
+    {
+      "slug": "nike-everyday-plus-fq0327",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "bad7a687-c4b9-45c4-a983-2b09c81088a5",
+      "hasVariants": true,
+      "variants": 6,
+      "attributes": 2,
+      "skus": [
+        "NIK-EVP-FQ0327-BLA-EU3438",
+        "NIK-EVP-FQ0327-NEG-EU4246",
+        "NIK-EVP-FQ0327-NEG-EU3842",
+        "NIK-EVP-FQ0327-NEG-EU3438",
+        "NIK-EVP-FQ0327-BLA-EU4246",
+        "NIK-EVP-FQ0327-BLA-EU3842"
+      ]
+    },
+    {
+      "slug": "pitch-inka-athletics",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "3cae8486-25e8-4ece-9809-4cc5714377b2",
+      "hasVariants": false,
+      "variants": 0,
+      "attributes": 0,
+      "skus": []
+    },
+    {
+      "slug": "nike-park3-mujer-bv6860-010",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "68723471-a00c-4de6-a06a-fdb2e270a96d",
+      "hasVariants": true,
+      "variants": 5,
+      "attributes": 2,
+      "skus": [
+        "NIK-PARK3-W-BV6860-NEG-L",
+        "NIK-PARK3-W-BV6860-NEG-XL",
+        "NIK-PARK3-W-BV6860-NEG-XS",
+        "NIK-PARK3-W-BV6860-NEG-M",
+        "NIK-PARK3-W-BV6860-NEG-S"
+      ]
+    },
+    {
+      "slug": "nike-park-vii-bv6708-010",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "1b9d4f22-36e4-4ea2-8690-da31ff7b01c5",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "NIK-PARK7-BV6708-NEG-M",
+        "NIK-PARK7-BV6708-NEG-L",
+        "NIK-PARK7-BV6708-NEG-S"
+      ]
+    },
+    {
+      "slug": "puma-orbita-serie-a-balon-084641-02",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "6e8e10fb-60de-4b39-a475-5110a676c32d",
+      "hasVariants": false,
+      "variants": 0,
+      "attributes": 0,
+      "skus": []
+    },
+    {
+      "slug": "puma-sporting-cristal-782244-02",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "e0ba2b0c-e55e-4ef2-9717-542375b0ff73",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "PUM-SC-782244-BLA-L",
+        "PUM-SC-782244-BLA-S",
+        "PUM-SC-782244-BLA-M"
+      ]
+    },
+    {
+      "slug": "rev7-inka-athletics",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "856a455b-bc29-408c-9030-08dd9e04c538",
+      "hasVariants": true,
+      "variants": 2,
+      "attributes": 2,
+      "skus": [
+        "NIK-REV7-NEG-42",
+        "NIK-REV7-NEG-41"
+      ]
+    },
+    {
+      "slug": "under-armour-tech-20-1326413-001",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "c654387f-fb3c-49a5-9af3-a611191f545b",
+      "hasVariants": true,
+      "variants": 3,
+      "attributes": 2,
+      "skus": [
+        "UA-TECH20-1326413-NEG-L",
+        "UA-TECH20-1326413-NEG-M",
+        "UA-TECH20-1326413-NEG-S"
+      ]
+    },
+    {
+      "slug": "ulp-inka-athletics",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "a7774d36-7490-41d3-8934-507456d23715",
+      "hasVariants": true,
+      "variants": 1,
+      "attributes": 2,
+      "skus": [
+        "PUM-ULP-NEG-42"
+      ]
+    }
+  ],
+  "browserRequests": [
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/home",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "e14d7da1-3c08-43c8-8552-2788da1d410d"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "4aaaa1e3-1eed-4c5f-8c0c-c33e1beb2da9"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/recommendations",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "dea001bc-f801-442a-9cdc-0be567f44ad6"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/variants",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "8c6109a2-4865-4d27-86c2-674f255ee930"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/price?sku=ADI-ENT26-BLA-M",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "c4855fa5-6587-4b62-b8e3-fe453c77374d"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/availability?sku=ADI-ENT26-BLA-M",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "31606926-300c-41f7-b3ae-819e51edc400"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/price?sku=ADI-ENT26-AZU-M",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "0d016eef-31cc-45cf-a5b5-38eeae0afc14"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/adidas-entrada-26-jersey/availability?sku=ADI-ENT26-AZU-M",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "71cd2d7b-e3be-47e1-8425-910c59cba9d6"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/home",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "d7b83af3-b8ab-49e9-95ce-f75b25a9e97a"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/nike-academy-hv4386-100",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "ac333528-24d8-4c4a-8d39-2723d6a11c72"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/nike-academy-hv4386-100/recommendations",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "a5f6484e-44ab-4c71-b90b-29bccdea8553"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/nike-academy-hv4386-100/variants",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "6a79fe92-fd3e-49ee-8386-b84c185ca8dc"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/nike-academy-hv4386-100/price",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "56578d43-a8d1-4fd5-8d74-714b08774959"
+    },
+    {
+      "url": "http://127.0.0.1:3861/api/catalog/products/nike-academy-hv4386-100/availability",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "fb62fd1e-bf95-4fc3-a7f2-139cb241214b"
+    }
+  ],
+  "firstSelection": {
+    "sku": "ADI-ENT26-BLA-M",
+    "summary": "Selección: Color: Blanco · Talla: M.",
+    "price": 503,
+    "availability": 503
+  },
+  "secondSelection": {
+    "sku": "ADI-ENT26-AZU-M",
+    "summary": "Selección: Color: Azul · Talla: M.",
+    "price": 503,
+    "availability": 503
+  },
+  "finishedAt": "2026-11-06T17:21:56.827Z",
+  "summary": {
+    "products200": 20,
+    "totalVariants": 51,
+    "variableProducts": 16,
+    "browser": "PASS",
+    "skuChange": true,
+    "simpleProduct": "PASS"
+  },
+  "backendBase": "5119e170a624e53dd2f586e4144de98e9f6d3ceb",
+  "backendBranch": "feat/f013-variants-from-g6-detail",
+  "frontend": "28f4bb002247c686a742a406c486168e9ad1424c",
+  "sourceFilesSha256": {
+    "src/catalog/product-variants.real.ts": "68b8d49f8bf98bc7bb84395406fd483e6ba063d7172c0576622b204600714148",
+    "src/catalog/product-variants.service.ts": "5c1d2d7076c3ce45166a92b480fcd0b9b988e9a2dc605d32356ea3dd5fa6d208",
+    "src/catalog/product-variants.controller.ts": "75ec668380cb194dd080afc6725f03c9800075e528dc4b248ec60cbe451193d9"
+  }
+}

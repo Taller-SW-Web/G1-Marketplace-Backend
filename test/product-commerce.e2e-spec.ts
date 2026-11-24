@@ -58,6 +58,27 @@ describe('BFF comercial F-012…F-015 (e2e) — MOCK', () => {
 
   const get = (path: string) => request(app.getHttpServer()).get(path);
 
+  describe('F-014 M01: cuatro estados y errores separados', () => {
+    it('UNDETERMINED se publica con 200, sin saldos ni motivos inventados', async () => {
+      const response = await get('/api/v1/catalog/products/producto-demostracion-7/availability').expect(200);
+      expect(response.headers['x-catalog-source']).toBe('MOCK');
+      expect(response.body.data.availability).toBe('UNDETERMINED');
+      expect(Object.keys(response.body.data).sort()).toEqual(['availability', 'checkedAt', 'productId', 'sku']);
+      expect(response.headers['cache-control']).toBe('public, max-age=30');
+    });
+    it('503 de inventario conserva Problem Details y no devuelve estado comercial', async () => {
+      const response = await get('/api/v1/catalog/products/producto-error-503-stock-mock/availability').expect(503);
+      expect(response.headers['content-type']).toContain('application/problem+json');
+      expect(response.body.code).toBe('INVENTORY_UNAVAILABLE');
+      expect(response.body).not.toHaveProperty('data');
+    });
+    it('un SKU ajeno no hereda el estado del producto consultado', async () => {
+      const response = await get('/api/v1/catalog/products/producto-demostracion-7/availability?sku=SKU-OTRO').expect(409);
+      expect(response.body.code).toBe('SKU_NOT_BELONG_TO_PRODUCT');
+      expect(response.body).not.toHaveProperty('data');
+    });
+  });
+
   describe('F-012 — GET /products/:slug/price', () => {
     it('CA-F012-01/02: precio y oferta vigente con descuento derivado', async () => {
       const res = await get(
