@@ -9,6 +9,7 @@ type Manifest = {
   gitBlob: string;
   version: string;
   sourceUrl: string;
+  sourceSha256: string;
   snapshot: string;
   snapshotSha256: string;
 };
@@ -27,12 +28,23 @@ const fixtureDirectory = join(__dirname, '../docs/contratos/fixtures/g6-pinned')
 const manifest = JSON.parse(
   readFileSync(join(fixtureDirectory, 'manifest.json'), 'utf8'),
 ) as Manifest;
-const snapshotBytes = readFileSync(join(fixtureDirectory, manifest.snapshot));
-const snapshotSha256 = createHash('sha256')
-  .update(snapshotBytes)
-  .digest('hex')
-  .toUpperCase();
-const contract = JSON.parse(snapshotBytes.toString('utf8')) as OpenApiExtract;
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n');
+}
+
+function hashSnapshot(text: string): string {
+  return createHash('sha256')
+    .update(normalizeLineEndings(text), 'utf8')
+    .digest('hex')
+    .toUpperCase();
+}
+
+const snapshotText = normalizeLineEndings(
+  readFileSync(join(fixtureDirectory, manifest.snapshot), 'utf8'),
+);
+const snapshotSha256 = hashSnapshot(snapshotText);
+const contract = JSON.parse(snapshotText) as OpenApiExtract;
 
 function findForbiddenKeys(value: unknown, path = ''): string[] {
   if (Array.isArray(value)) {
@@ -64,14 +76,16 @@ function responseSchema(path: string, name: string): Record<string, any> {
 describe('G6 pinned OpenAPI surface — offline extract, not provider compatibility', () => {
   it('pins provenance, commit, source blob, contract version, and the exact local extract hash', () => {
     expect(manifest.repository).toBe('Taller-SW-Web/G6-Productos-Ofertas-docs');
-    expect(manifest.commit).toBe('c36bd9a18f4fdb188df0d7e5158a431cf4b4ea7b');
+    expect(manifest.commit).toBe('40524e96c6973f84d74160076781702fe2a3da19');
     expect(manifest.repositoryPath).toBe('contratos/http/openapi.yaml');
-    expect(manifest.gitBlob).toBe('f64bfe9a097b2a0f74c2600988305443d92f640e');
+    expect(manifest.gitBlob).toBe('e094988f0f0d92a7a4241c1dc30a5e50d9ff709a');
     expect(manifest.sourceUrl).toContain(`/${manifest.commit}/`);
-    expect(manifest.version).toBe('0.6.0-rc.1');
+    expect(manifest.version).toBe('0.7.0-rc.3');
+    expect(manifest.sourceSha256).toBe('E66FBBC2D6837F609EB847BE973567FF3E1199A9F638A904162AD154CB691A05');
     expect(contract.openapi).toBe('3.1.0');
     expect(contract.info.version).toBe(manifest.version);
     expect(snapshotSha256).toBe(manifest.snapshotSha256);
+    expect(hashSnapshot(snapshotText.replace(/\n/g, '\r\n'))).toBe(manifest.snapshotSha256);
   });
 
   it('contains no upstream servers or example payloads', () => {
@@ -127,6 +141,7 @@ describe('G6 pinned OpenAPI surface — offline extract, not provider compatibil
     expect(price.operationId).toBe('obtenerPrecioSku');
     expect(price['x-required-scope']).toBe('precios:leer');
     expect(price['x-scope-registration-status']).toBe('pending-security-registration');
+    expect(price['x-status']).toBe('stable');
     expect(price.parameters).toContainEqual(expect.objectContaining({
       name: 'sku', in: 'path', required: true,
     }));
