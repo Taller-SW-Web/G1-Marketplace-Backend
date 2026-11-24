@@ -219,3 +219,20 @@ model NotificationDelivery {
   @@index([state, nextAttemptAt, createdAt], map: "notification_deliveries_dispatch_idx")
   @@map("notification_deliveries")
 }
+
+model ShipmentWebhookEvent {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId               String   @unique(map: "shipment_webhook_events_event_id_uk") @map("event_id") @db.Uuid
+  orderId               String   @map("order_id") @db.VarChar(100)
+  publicStatus          String   @map("public_status") @db.VarChar(20)
+  trackingNumber        String   @map("tracking_number") @db.VarChar(100)
+  occurredAt            DateTime @map("occurred_at") @db.Timestamptz(6)
+  estimatedDeliveryDate DateTime? @map("estimated_delivery_date") @db.Date
+  payloadFingerprint    String   @map("payload_fingerprint") @db.Char(64)
+  receivedAt            DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+  notificationQueuedAt  DateTime? @map("notification_queued_at") @db.Timestamptz(6)
+
+  @@index([orderId, occurredAt(sort: Asc)], map: "shipment_webhook_events_order_occurred_idx")
+  @@index([orderId, notificationQueuedAt], map: "shipment_webhook_events_notification_idx")
+  @@map("shipment_webhook_events")
+}

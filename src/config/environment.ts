@@ -82,6 +82,12 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (!Number.isInteger(g5HttpTimeoutMs) || g5HttpTimeoutMs < 1000 || g5HttpTimeoutMs > 180000) {
     throw new Error('G5_HTTP_TIMEOUT_MS must be an integer between 1000 and 180000');
   }
+  const shipmentWebhookToken = config.G5_SHIPMENT_WEBHOOK_TOKEN;
+  if (shipmentWebhookToken !== undefined && shipmentWebhookToken !== ''
+    && (typeof shipmentWebhookToken !== 'string' || shipmentWebhookToken.length < 32
+      || shipmentWebhookToken.length > 2048 || /[\r\n\0]/.test(shipmentWebhookToken))) {
+    throw new Error('G5_SHIPMENT_WEBHOOK_TOKEN must be a 32-2048 character secret when configured');
+  }
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'g5', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock, g5 or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
@@ -122,6 +128,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
     G5_HTTP_TIMEOUT_MS: g5HttpTimeoutMs,
+    G5_SHIPMENT_WEBHOOK_TOKEN: typeof shipmentWebhookToken === 'string' ? shipmentWebhookToken : '',
     ORDERS_SOURCE: ordersSource,
     ORDER_CONFIRMATION_OUTBOX_ENABLED: orderConfirmationOutboxEnabled === 'true',
     NOTIFICATION_WORKER_ENABLED: notificationWorkerEnabled === 'true',

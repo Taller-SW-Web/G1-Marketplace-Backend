@@ -30,3 +30,5 @@ services:
         sync: false
       - key: AUTH_JWKS_URL
         sync: false
+      - key: G5_SHIPMENT_WEBHOOK_TOKEN
+        sync: false

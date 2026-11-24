@@ -12,6 +12,7 @@ const LABELS: Record<string, string> = {
   'openapi-catalogo-h4.json': 'Catálogo (F-006–F-010)',
   'openapi-h3.json': 'Carrito y favoritos',
   'checkout-h4.openapi.yaml': 'Checkout (F-022–F-027)',
+  'webhook-ventas-h5.openapi.yaml': 'Webhook Ventas (H-05)',
 };
 
 export function contractsDir(): string {

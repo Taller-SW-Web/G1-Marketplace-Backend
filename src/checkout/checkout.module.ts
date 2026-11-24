@@ -11,6 +11,7 @@ import { G7IntegrationModule } from '../auth/g7-integration.module';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service';
 import { NotificationWorkerService } from '../notifications/notification-worker.service';
 import { ShipmentEventConsumerService } from '../notifications/shipment-event-consumer.service';
+import { ShipmentWebhookController } from '../notifications/shipment-webhook.controller';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { ShipmentEventConsumerService } from '../notifications/shipment-event-co
       }),
     }),
   ],
-  controllers: [CheckoutController],
+  controllers: [CheckoutController, ShipmentWebhookController],
   providers: [
     AuthGuard,
     MockHttpAdapter,
@@ -33,5 +34,6 @@ import { ShipmentEventConsumerService } from '../notifications/shipment-event-co
     ShipmentEventConsumerService,
     CheckoutService,
   ],
+  exports: [ShipmentEventConsumerService],
 })
 export class CheckoutModule {}

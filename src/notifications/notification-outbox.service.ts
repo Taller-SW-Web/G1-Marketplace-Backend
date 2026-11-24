@@ -75,7 +75,7 @@ export class NotificationOutboxService {
     input: EnqueueShipmentUpdateInput,
   ) {
     if (!input.orderId.trim() || !input.customerId.trim()
-      || !/^[A-Za-z0-9._:-]{1,255}$/.test(input.shipmentEventId)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.shipmentEventId)
       || !(input.recipientEmailEncrypted instanceof Uint8Array) || input.recipientEmailEncrypted.byteLength === 0) {
       throw new BadRequestException({ error: { code: 'INVALID_SHIPMENT_NOTIFICATION' } });
     }

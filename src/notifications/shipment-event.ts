@@ -14,7 +14,8 @@ const isRecord = (value: unknown): value is RecordValue => typeof value === 'obj
 export function normalizeShipmentStatusWebhook(value: unknown): ShipmentStatusUpdate {
   if (!isRecord(value) || value.eventType !== 'ShipmentStatusUpdated' || value.version !== '1.0.0'
     || value.emitter !== 'modulo-ventas' || typeof value.eventId !== 'string'
-    || !/^[A-Za-z0-9._:-]{1,255}$/.test(value.eventId) || typeof value.timestamp !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.eventId)
+    || typeof value.timestamp !== 'string'
     || Number.isNaN(Date.parse(value.timestamp)) || !isRecord(value.data)) {
     throw new TypeError('Shipment status event does not match G5 H-05 v1.0.0.');
   }

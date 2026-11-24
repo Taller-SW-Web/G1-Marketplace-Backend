@@ -35,6 +35,7 @@ export interface OrderDetail extends OrderSummary {
 
 export interface OrderTracking {
   state: string;
+  trackingNumber?: string;
   estimatedDelivery?: string;
   milestones: OrderMilestone[];
 }

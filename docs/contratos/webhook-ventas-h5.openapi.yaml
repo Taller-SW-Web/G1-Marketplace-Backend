@@ -1,0 +1,95 @@
+openapi: 3.1.0
+info:
+  title: G1 Marketplace — receptor del webhook de Ventas
+  version: 1.0.0
+  description: Receptor H-05 de ShipmentStatusUpdated enviado por el módulo de Ventas.
+servers:
+  - url: /
+paths:
+  /api/v1/webhooks/ventas/envios:
+    post:
+      operationId: receiveShipmentStatusUpdate
+      summary: Recibir actualización pública del estado de envío
+      security:
+        - webhookToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentStatusUpdated'
+      responses:
+        '202':
+          description: Evento aceptado y persistido (incluidos duplicados idénticos y pedidos aún no asociados).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '400':
+          description: JSON malformado.
+        '401':
+          description: Token ausente o incorrecto.
+        '409':
+          description: eventId ya registrado con otro contenido.
+        '422':
+          description: Evento no válido según H-05 v1.0.0.
+        '503':
+          description: Secreto del receptor no configurado.
+components:
+  securitySchemes:
+    webhookToken:
+      type: apiKey
+      in: header
+      name: X-Webhook-Token
+  schemas:
+    ShipmentStatusUpdated:
+      type: object
+      additionalProperties: true
+      required: [eventId, eventType, version, timestamp, emitter, data]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          const: ShipmentStatusUpdated
+        version:
+          const: '1.0.0'
+        timestamp:
+          type: string
+          format: date-time
+        emitter:
+          const: modulo-ventas
+        data:
+          type: object
+          additionalProperties: true
+          required: [orderId, publicStatus, trackingNumber, estimatedDeliveryDate]
+          properties:
+            orderId:
+              type: string
+              pattern: '^PED-[0-9]{4}-[0-9]{5}$'
+            publicStatus:
+              type: string
+              enum: [DESPACHADO, ENTREGADO]
+            trackingNumber:
+              type: string
+              minLength: 1
+              maxLength: 100
+            estimatedDeliveryDate:
+              type: [string, 'null']
+              format: date
+    Receipt:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accepted, duplicate, orderKnown, notificationQueued]
+          properties:
+            accepted:
+              type: boolean
+            duplicate:
+              type: boolean
+            orderKnown:
+              type: boolean
+            notificationQueued:
+              type: boolean

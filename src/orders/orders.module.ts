@@ -12,9 +12,10 @@ import { CartModule } from '../cart/cart.module';
 import { ReorderService } from './reorder.service';
 import { MockReorderCommerceProvider } from './providers/mock-reorder-commerce.provider';
 import { REORDER_COMMERCE_PROVIDER } from './reorder.types';
+import { CheckoutModule } from '../checkout/checkout.module';
 
 @Module({
-  imports: [G7IntegrationModule, CartModule],
+  imports: [G7IntegrationModule, CartModule, CheckoutModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,
