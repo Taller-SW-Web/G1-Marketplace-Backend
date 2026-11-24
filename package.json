@@ -12,6 +12,7 @@
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
+    "test:pinned-spec:offline": "jest --runInBand --runTestsByPath test/g5-pinned-openapi.spec.ts",
     "test:integration": "ts-node scripts/integration-test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
