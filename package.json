@@ -41,7 +41,8 @@
     "measure:g6:h4": "node scripts/catalog-h4/measure-g6.mjs",
     "test:catalog:h4:timings": "node --test scripts/catalog-h4/timings.test.mjs",
     "check:catalog:config": "node scripts/catalog-h4/config.mjs",
-    "test:catalog:h4:config": "node --test scripts/catalog-h4/config.test.mjs"
+    "test:catalog:h4:config": "node --test scripts/catalog-h4/config.test.mjs",
+    "test:apim-policy": "node --test scripts/apim-policy.test.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
