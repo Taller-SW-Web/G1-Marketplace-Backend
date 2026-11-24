@@ -1,4 +1,10 @@
 export function validateEnvironment(config: Record<string, unknown>): Record<string, unknown> {
+  for (const flag of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
+    if (!['true', 'false'].includes(String(config[flag] ?? 'false'))) throw new Error(`${flag} must be true or false`);
+  }
+  if (config.WISHLIST_SOURCE !== undefined && !['sandbox', 'real'].includes(String(config.WISHLIST_SOURCE))) {
+    throw new Error('WISHLIST_SOURCE must be sandbox or real');
+  }
   const port = Number(config.PORT ?? 10000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT must be an integer between 1 and 65535');
@@ -13,6 +19,9 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   const flag = config.H3_SANDBOX_ENABLED ?? 'false';
   if (!['true', 'false'].includes(String(flag))) throw new Error('H3_SANDBOX_ENABLED must be true or false');
   const sandbox = String(flag) === 'true';
+  if (sandbox && (config.WISHLIST_SOURCE === 'real' || config.CSAT_ENABLED === 'true')) {
+    throw new Error('Real wishlist/CSAT cannot be combined with sandbox identity');
+  }
   if (sandbox && !['development', 'test'].includes(String(config.NODE_ENV))) {
     throw new Error('H3 sandbox is only allowed in development or test');
   }
