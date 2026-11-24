@@ -67,6 +67,12 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   const useMocks = String(config.USE_MOCKS ?? 'false').toLowerCase();
   if (!['true', 'false'].includes(useMocks)) throw new Error('USE_MOCKS must be true or false');
   if (useMocks === 'true' && nodeEnv === 'production') throw new Error('USE_MOCKS cannot be enabled in production');
+  const addressSource = String(config.CHECKOUT_ADDRESS_SOURCE ?? 'fixture');
+  if (!['fixture', 'prism', 'g7'].includes(addressSource)) throw new Error('Invalid CHECKOUT_ADDRESS_SOURCE');
+  if (addressSource === 'prism' && useMocks !== 'true') throw new Error('Prism addresses require USE_MOCKS=true');
+  if (addressSource === 'g7' && (authEnabled !== 'true' || useMocks === 'true')) {
+    throw new Error('G7 addresses require AUTH_ENABLED=true and USE_MOCKS=false');
+  }
   const httpTimeoutMs = Number(config.HTTP_TIMEOUT_MS ?? 3000);
   if (!Number.isInteger(httpTimeoutMs) || httpTimeoutMs < 1 || httpTimeoutMs > 30000) {
     throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
