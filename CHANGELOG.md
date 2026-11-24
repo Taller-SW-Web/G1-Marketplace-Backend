@@ -1,3 +1,27 @@
+## [1.10.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.1...v1.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** usar OriginalUrl.Path para rutas publicas en api-policy.xml ([c910900](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c9109000942660e13b304f73e8b3dd94f2d2ed24))
+
+## [1.10.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.0...v1.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** corregir comillas en atributo condition de api-policy.xml ([140f678](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/140f67827fd608bc16686c3bed59afcbc613aa72))
+
+## [1.10.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.9.0...v1.10.0) (2026-11-23)
+
+### Features
+
+* **apim:** agregar politicas APIM como codigo y workflow de despliegue ([aa3e30d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/aa3e30db7d8d475c005d3778401fdc405989b74f))
+
+## [1.9.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.4...v1.9.0) (2026-11-23)
+
+### Features
+
+* **checkout:** adaptar direcciones del titular al contrato de Seguridad ([a7733f7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a7733f7560449e1af9ce9f6ba28fef897414101e))
+
 ## [1.8.4](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.3...v1.8.4) (2026-11-22)
 
 ### Bug Fixes
