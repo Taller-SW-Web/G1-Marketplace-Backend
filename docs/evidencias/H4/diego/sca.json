@@ -1,0 +1,90 @@
+{
+  "packages": [
+    {
+      "severity": "low",
+      "fixAvailable": true,
+      "package": "@jest/core",
+      "direct": false
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "7.2.0",
+        "isSemVerMajor": true
+      },
+      "package": "@nestjs/cli",
+      "direct": true
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "7.2.0",
+        "isSemVerMajor": true
+      },
+      "package": "deepmerge",
+      "direct": false
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "7.2.0",
+        "isSemVerMajor": true
+      },
+      "package": "fork-ts-checker-webpack-plugin",
+      "direct": false
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "jest",
+        "version": "25.1.0",
+        "isSemVerMajor": true
+      },
+      "package": "jest",
+      "direct": true
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "jest",
+        "version": "25.1.0",
+        "isSemVerMajor": true
+      },
+      "package": "jest-cli",
+      "direct": false
+    },
+    {
+      "severity": "low",
+      "fixAvailable": {
+        "name": "jest",
+        "version": "25.1.0",
+        "isSemVerMajor": true
+      },
+      "package": "jest-config",
+      "direct": false
+    }
+  ],
+  "exitCode": 1,
+  "scanner": "npm audit",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 7,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 7
+    },
+    "dependencies": {
+      "prod": 142,
+      "dev": 516,
+      "optional": 54,
+      "peer": 5,
+      "peerOptional": 0,
+      "total": 663
+    }
+  }
+}

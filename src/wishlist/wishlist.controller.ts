@@ -30,8 +30,9 @@ export class WishlistController {
   }
 
   @Post('items')
-  async save(@Body() dto: SaveWishlistItemDto, @Req() request: AuthenticatedRequest,
+  async save(@Body() dto: SaveWishlistItemDto, @Req() request: AuthenticatedRequest & { query: Record<string, unknown> },
     @Res({ passthrough: true }) response: { status(code: number): unknown }): Promise<{ productId: string }> {
+    if (Object.keys(request.query).length) throw new ApiError(400, 'INVALID_REQUEST', 'No se admiten parámetros');
     const result = await this.wishlist.save(request.identity.customerId, dto.productId);
     response.status(result.created ? 201 : 200);
     return { productId: result.productId };
@@ -40,7 +41,9 @@ export class WishlistController {
   @Delete('items/:productId')
   @HttpCode(204)
   async remove(@Param('productId', ProductIdPipe) productId: string,
-    @Req() request: AuthenticatedRequest): Promise<void> {
+    @Req() request: AuthenticatedRequest & { query: Record<string, unknown>; headers: Record<string, string | undefined> }): Promise<void> {
+    if (Object.keys(request.query).length || Number(request.headers['content-length'] ?? 0) !== 0
+      || request.headers['transfer-encoding']) throw new ApiError(400, 'INVALID_REQUEST', 'Eliminación sin cuerpo ni parámetros');
     await this.wishlist.remove(request.identity.customerId, productId);
   }
 }
