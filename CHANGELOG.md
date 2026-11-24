@@ -1,3 +1,22 @@
+## [1.11.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.2...v1.11.0) (2026-11-24)
+
+### Features
+
+* **csat:** registrar evaluacion autorizada con gates y pruebas aisladas ([1ce075e](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/1ce075e07a60989ce742837193cae7272eec20ca))
+* **h4:** integrar favoritos y CSAT con gates ([0a52051](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0a520517d596c419d3653c2c12abc9bb2449a442))
+* **wishlist:** integrar catalogo publico G6 ([c00229c](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c00229c9ccc59f06b5bc42fd84196117ae8e3b84))
+* **wishlist:** integrar pricing e inventario G6 rc3 ([09100f9](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/09100f96bb56b7f963a9ecb92ed364788e8627fd))
+* **wishlist:** preparar G6 y reforzar aislamiento de favoritos ([8017739](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/801773949deaef8da249ca32a10d7a353943188e))
+
+### Bug Fixes
+
+* **checkout:** evitar completion anterior a creation ([7faefbe](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/7faefbe4d20f916436f04af52768a50373c21948))
+* **ci:** scope H4 verification and validate PostgreSQL constraints ([a262f78](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a262f78cd386257da086c5e3a44dc4765967002a))
+* **csat:** rechazar campos nulos y probar respuestas inciertas ([723d30f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/723d30f51f8ecff345afe3e253dda76722d4f413)), closes [#195](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/195) [#198](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/198)
+* **f039:** sacar catalogo de la transaccion ([f8065da](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/f8065da2e1a0be3dfc9fba4b3d7086c1507d5922))
+* **test:** diagnose unavailable Docker before isolated checks ([87edc10](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/87edc101e531db9ebe6821c2790ce7882a19a4dc))
+* **wishlist:** acotar consultas G6 y rechazar SKU invalidos ([b917273](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b917273699e2f97e3ee1c61a6db194d7f9394736)), closes [#175](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/175) [#180](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/180) [#183](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/183) [#190](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/190) [#193](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/193)
+
 ## [1.10.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.1...v1.10.2) (2026-11-23)
 
 ### Bug Fixes

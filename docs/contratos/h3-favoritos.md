@@ -16,7 +16,8 @@ Sandbox explícito solo development/test: JWT HS256, issuer marketplace-h3-sandb
 
 GET `/api/v1/wishlist`: arreglo del titular, `createdAt DESC` con desempate id DESC.
 Cada elemento incluye productId/createdAt, name/slug/brand/image/price y availability
-AVAILABLE/OUT_OF_STOCK/UNAVAILABLE; retirados sin datos mantienen campos null.
+AVAILABLE/OUT_OF_STOCK/UNDETERMINED/UNAVAILABLE; `UNDETERMINED` conserva el resultado
+no verificable de G6 sin asumir stock ni agotamiento; retirados sin datos mantienen campos null.
 Un catálogo fallido o incoherente produce 503, nunca falso vacío.
 
 POST `/api/v1/wishlist/items/{productId}/add-to-cart`: sin cuerpo, query ni clave
