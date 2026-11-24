@@ -11,6 +11,7 @@
     "test": "npm run test:unit && npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe && npm run test:g7:kit",
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
+    "test:h5-matrices": "node --test scripts/h5-matrices.test.mjs",
     "test:unit": "jest --runInBand",
     "test:integration": "ts-node scripts/integration-test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
