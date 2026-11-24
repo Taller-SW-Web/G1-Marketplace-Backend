@@ -48,9 +48,69 @@ jobs:
       - name: Validar contratos OpenAPI (swagger-cli)
         run: npm run docs:validate
 
+  container-security:
+    name: Trivy (Dockerfile + Imagen) y SBOM CycloneDX
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Escaneo Trivy de Dockerfile (HIGH/CRITICAL bloquean)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'Dockerfile'
+          format: 'sarif'
+          output: 'trivy-dockerfile.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir imagen Docker local para escaneo
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: g1-marketplace-backend:ci-scan
+
+      - name: Escaneo Trivy de imagen Docker (HIGH/CRITICAL corregibles bloquean)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: 'g1-marketplace-backend:ci-scan'
+          format: 'sarif'
+          output: 'trivy-image.sarif'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Generar SBOM CycloneDX de la imagen Docker
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: 'g1-marketplace-backend:ci-scan'
+          format: 'cyclonedx'
+          output: 'sbom-cyclonedx.json'
+
+      - name: Archivar reportes Trivy y SBOM CycloneDX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-trivy-sbom-reports
+          path: |
+            trivy-dockerfile.sarif
+            trivy-image.sarif
+            sbom-cyclonedx.json
+          if-no-files-found: warn
+          retention-days: 30
+
   release:
     name: Versionado (SemVer + CHANGELOG)
-    needs: build-test
+    needs: [build-test, container-security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
@@ -107,13 +167,13 @@ jobs:
           echo "::error::/health no respondió 200 en 10 minutos"; exit 1
 
   docker-image:
-    name: Imagen Docker etiquetada con la versión (GHCR)
-    needs: release
+    name: Imagen Docker etiquetada con la versión (GHCR) + SBOM en Release
+    needs: [release, container-security]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -132,3 +192,28 @@ jobs:
           tags: |
             ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}
             ghcr.io/taller-sw-web/g1-marketplace-backend:latest
+      - name: Generar SBOM CycloneDX del release
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}
+          format: 'cyclonedx'
+          output: sbom-backend-v${{ needs.release.outputs.version }}.cdx.json
+      - name: Generar reporte Trivy SARIF del release
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}
+          format: 'sarif'
+          output: trivy-image-v${{ needs.release.outputs.version }}.sarif
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Adjuntar SBOM CycloneDX y reporte Trivy al GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.release.outputs.version }}" \
+            "sbom-backend-v${{ needs.release.outputs.version }}.cdx.json" \
+            "trivy-image-v${{ needs.release.outputs.version }}.sarif" \
+            --clobber
