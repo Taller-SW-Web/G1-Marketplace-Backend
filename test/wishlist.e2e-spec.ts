@@ -61,6 +61,16 @@ describe('Wishlist HTTP contract (MOCK persistence and providers)', () => {
     expect(rows.has(`${SANDBOX_CUSTOMERS.A}:PRD-1`)).toBe(true);
   });
 
+  it('rejects owner-selection queries and DELETE bodies without touching persistence', async () => {
+    const auth = `Bearer ${token()}`;
+    await request(app.getHttpServer()).post(path).set('Authorization', auth)
+      .query({ customerId: SANDBOX_CUSTOMERS.B }).send({ productId: 'PRD-1' }).expect(400);
+    await request(app.getHttpServer()).delete(`${path}/PRD-1`).set('Authorization', auth)
+      .query({ customerId: SANDBOX_CUSTOMERS.B }).expect(400);
+    await request(app.getHttpServer()).delete(`${path}/PRD-1`).set('Authorization', auth).send({ customerId: SANDBOX_CUSTOMERS.B }).expect(400);
+    expect(repository.save).not.toHaveBeenCalled(); expect(repository.remove).not.toHaveBeenCalled();
+  });
+
   it.each([['PRD-INACTIVE', 404], ['PRD-MISSING', 404], ['PRD-UNAVAILABLE', 503]])(
     'rejects product %s without persisting', async (productId, status) => {
       const response = await request(app.getHttpServer()).post(path).auth(token(), { type: 'bearer' }).send({ productId }).expect(Number(status));

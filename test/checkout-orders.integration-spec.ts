@@ -182,12 +182,19 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     });
   });
 
-  it('returns 409 for a persisted terminal failure on operation lookup', async () => {
+  it('returns 409 for a persisted terminal failure when createdAt is ahead of the JS clock', async () => {
     const operation = await seedPreparedOperation();
+    const createdAt = new Date(Date.now() + 1_000);
+    await prisma.checkoutOperation.update({
+      where: { id: operation.id },
+      data: { createdAt },
+    });
     gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('ANULADO'));
 
     const result = await submit(customerA, operation.id);
     expect(result.data).toMatchObject({ state: 'FAILED', failureCode: 'PAGO_NO_COMPLETADO' });
+    const persisted = await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } });
+    expect(persisted.completedAt!.getTime()).toBeGreaterThanOrEqual(createdAt.getTime());
     await expect(service.getOperation(customerA, operation.id)).rejects.toMatchObject({
       status: 409,
       response: { error: { code: 'PAGO_NO_COMPLETADO' } },
