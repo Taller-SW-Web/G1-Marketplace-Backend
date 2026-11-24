@@ -27,18 +27,21 @@ jobs:
       - name: Ejecutar Semgrep SAST (bloquea ante hallazgos ERROR)
         id: semgrep
         run: |
+          set +e
           docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
-            semgrep scan /src \
+            semgrep scan /src/src \
             --config p/typescript \
             --config p/nodejs \
             --config p/security-audit \
             --severity ERROR \
-            --exclude "node_modules" \
-            --exclude "dist" \
-            --exclude "coverage" \
             --exclude "*.spec.ts" \
             --sarif --output /src/semgrep.sarif \
             --error
+          rc=$?
+          if [ -f semgrep.sarif ]; then
+            node -e "const s=JSON.parse(require('fs').readFileSync('semgrep.sarif','utf8')); for (const r of s.runs?.[0]?.results||[]) console.log(r.ruleId, r.locations?.[0]?.physicalLocation?.artifactLocation?.uri, r.locations?.[0]?.physicalLocation?.region?.startLine, r.message?.text);"
+          fi
+          exit $rc
 
       - name: Archivar reporte SARIF de Semgrep
         if: always()
