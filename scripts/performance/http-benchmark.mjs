@@ -13,7 +13,8 @@ const paths = [
   '/api/v1/catalog/products?q=running&pageSize=48',
 ];
 
-if (baseUrl.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]', '::1'].includes(baseUrl.hostname)) {
+// Use IP literals so a hosts/DNS override cannot map an accepted name off-loopback.
+if (baseUrl.protocol !== 'http:' || !['127.0.0.1', '[::1]'].includes(baseUrl.hostname)) {
   throw new Error('Local benchmark only: PERF_BASE_URL must use HTTP on loopback.');
 }
 if (!Number.isInteger(requests) || requests < 1 || requests > 10000) {
