@@ -33,6 +33,11 @@ const manifest = JSON.parse(
   readFileSync(join(fixtureDirectory, 'manifest.json'), 'utf8'),
 ) as FixtureManifest;
 const forbiddenSpecKeys = new Set(['servers', 'example', 'examples']);
+const normalizeLineEndings = (source: string): string => source.replace(/\r\n/g, '\n');
+
+function sha256Upper(source: string): string {
+  return createHash('sha256').update(source).digest('hex').toUpperCase();
+}
 
 function findForbiddenSpecKeys(value: unknown, currentPath = ''): string[] {
   if (Array.isArray(value)) {
@@ -54,16 +59,14 @@ function loadPinnedSpec(service: 'M1' | 'M2'): {
   snapshotSha256: string;
 } {
   const fixture = manifest.services[service];
-  const source = readFileSync(join(fixtureDirectory, fixture.snapshot));
-  const snapshotSha256 = createHash('sha256')
-    .update(source)
-    .digest('hex')
-    .toUpperCase();
+  const source = readFileSync(join(fixtureDirectory, fixture.snapshot), 'utf8');
+  const normalizedSource = normalizeLineEndings(source);
+  const snapshotSha256 = sha256Upper(normalizedSource);
 
   expect(snapshotSha256).toBe(fixture.snapshotSha256);
 
   return {
-    document: load(source.toString('utf8')) as OpenApiDocument,
+    document: load(normalizedSource) as OpenApiDocument,
     snapshotSha256,
   };
 }
@@ -81,6 +84,19 @@ describe('G5 pinned-spec/offline surface validation', () => {
     m2 = m2Snapshot.document;
     m1SnapshotSha256 = m1Snapshot.snapshotSha256;
     m2SnapshotSha256 = m2Snapshot.snapshotSha256;
+  });
+
+  it('normalizes CRLF to LF before hashing without changing snapshot content', () => {
+    for (const service of ['M1', 'M2'] as const) {
+      const fixture = manifest.services[service];
+      const original = readFileSync(join(fixtureDirectory, fixture.snapshot), 'utf8');
+      const canonical = normalizeLineEndings(original);
+      const crlf = canonical.replace(/\n/g, '\r\n');
+
+      expect(normalizeLineEndings(crlf)).toBe(canonical);
+      expect(sha256Upper(normalizeLineEndings(crlf))).toBe(fixture.snapshotSha256);
+      expect(load(normalizeLineEndings(crlf))).toEqual(load(canonical));
+    }
   });
 
   it('pins source provenance, sanitized snapshot hashes, and exact OpenAPI versions', () => {

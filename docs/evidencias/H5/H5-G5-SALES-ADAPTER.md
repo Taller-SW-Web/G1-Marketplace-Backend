@@ -38,5 +38,14 @@
 
 ## Estado de checkout
 
-- El provider de creación aún no está integrado en `MarketplaceGateway`/`CheckoutService`. La operación persistida no conserva dirección de envío completa ni el desglose/precio/identidad de producto exigido por `CrearPedidoRequest`; no habilitar `POST /api/v1/pedidos` hasta acordar y cubrir ese mapeo. La conexión debe seguir fallando cerrada mientras falte esa implementación/configuración.
+- **Checkout REAL G5 permanece BLOQUEADO.** El provider aislado no está conectado a `MarketplaceGateway`/`CheckoutService`; esta evidencia no presenta la PR como integración G1↔G5. No conectar ni habilitar `POST /api/v1/pedidos` hasta cerrar todos los gaps de datos/contrato siguientes y recibir aprobación explícita de integración.
+- Plan accionable previo a cualquier propuesta de conexión:
+  1. Identificar fuentes autorizadas para `contacto.clienteId` (UUID), nombre, tipo/número de documento, teléfono/email y decidir minimización de PII.
+  2. Completar el modelo/persistencia de cada línea con `productoId`, `sku`, `cantidad` y precio unitario cobrado. Hoy checkout conserva `sku`/`quantity`; no inferir producto ni precio de datos incompletos.
+  3. Acordar `pago.metodoPago`, moneda, subtotal, descuentos/cupón, costo de envío y total; especificar precisión/redondeo y rechazar el envío si los valores no reconcilian. `comprobanteReferencia` es opcional.
+  4. Definir captura/persistencia y mapeo de `envio.modalidad`, `costo`, `destinatario`, `departamento`, `provincia`, `distrito`, `direccion` y referencia opcional. La dirección completa/desglose no está hoy disponible en la operación persistida.
+  5. Persistir UUID v4 `Idempotency-Key` con el cuerpo exacto y reusar ambos en reintentos tras timeout; M1 no ofrece consulta por clave. Adaptar respuesta raíz y errores M1 (`codigo`), no el envelope/error-code del gateway.
+  6. Acordar e implementar/testear por separado M1 `/me` y detalle y M2 CSAT, incluidos sus tokens/roles, paginación y origen de `clienteId`; el provider de creación no los cubre.
+  7. Acordar los contratos/datos con G1 y Ventas, añadir pruebas offline y revisión de privacidad/seguridad, y obtener aprobación explícita del entorno/credenciales/ventana antes de proponer un cambio de activación REAL separado.
+- Mientras cualquiera de esos puntos o la aprobación siga pendiente, el flujo debe permanecer fail-closed. La aprobación/configuración sola no suple los campos ni constituye autorización para esta PR.
 - El test solicitado con cuentas A/B requiere además el despliegue aprobado, acceso a dos tokens de usuario por canal seguro y una ventana coordinada con Ventas. Ninguna prueba aquí envía pedidos reales ni usa credenciales.
