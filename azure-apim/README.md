@@ -7,24 +7,13 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 
 ---
 
-## 1. Creación de la Instancia en Azure Portal (Paso a Paso)
+## 1. Instancia APIM existente
 
-> [!CAUTION]
-> **Plan Obligatorio: Consumption.**  
-> NO seleccionar *Developer*, *Basic* ni *Standard*, ya que tienen costo por hora elevado.  
-> El plan **Consumption (Serverless)** incluye **1,000,000 de llamadas gratis al mes** y se despliega en solo ~5 minutos.
+El responsable de APIM confirmó por escrito que la instancia ya existe y está en línea. **No crear una instancia duplicada.** Los siguientes datos son la configuración confirmada, no el resultado de una consulta hecha por este runbook:
 
 1. Ingresar a [Azure Portal](https://portal.azure.com).
-2. En la barra superior buscar **API Management services** y hacer clic en **Crear**.
-3. Rellenar los campos:
-   - **Suscripción:** Tu suscripción de Azure for Students o Pay-As-You-Go.
-   - **Grupo de recursos:** Crear nuevo llamado `rg-marketplace-g1`.
-   - **Nombre del servicio:** `apim-g1-marketplace-20` (desplegado en `West US`, plan `Consumption`).
-   - **Región:** `East US` (o la región más cercana con cupo).
-   - **Nombre de la organización:** `G1 Marketplace`
-   - **Correo electrónico de administrador:** Tu correo.
-   - **Plan de tarifa (Pricing tier):** Seleccionar **Consumption**.
-4. Clic en **Revisar y crear** $\rightarrow$ **Crear**.
+2. Abrir **API Management services** y localizar `apim-g1-marketplace-20` en `rg-marketplace-g1`.
+3. Confirmar visualmente región `West US` y plan `Consumption` antes de cualquier acción de configuración.
 
 ---
 
@@ -40,21 +29,23 @@ Este directorio contiene las políticas como código y las instrucciones para lo
    - Jim Segovia
 5. Clic en **Review + assign**.
 
-> 📷 **Captura 1 para Issue #307:** Pantalla de vista general donde se observe el nombre `apim-g1-marketplace`, el plan `Consumption` y la lista de IAM con el equipo.
+> 📷 **Captura 1 para Issue #307:** Pantalla de vista general donde se observe el nombre `apim-g1-marketplace-20`, el plan `Consumption` y la lista de IAM con el equipo.
 
 ---
 
 ## 3. Importar el API del Backend (OpenAPI)
 
 1. En el menú lateral de APIM, ir a **APIs**.
-2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI**.
-3. Seleccionar **Full** y configurar:
-   - **OpenAPI specification:** Ingresar una de las URLs reales de Swagger de Render (ej. `https://g1-marketplace-backend.onrender.com/docs/specs/openapi-catalogo-h4.json` o `/docs/specs/openapi-h3.json`) o crear una API HTTP apuntando a `https://g1-marketplace-backend.onrender.com`.
+2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI** e importar el archivo local `docs/apim/marketplace-bff-v1.subset.openapi.yaml`.
+3. Configurar el API confirmado:
    - **Display name:** `G1 Marketplace Backend API`
-   - **Name:** `marketplace-api`
+   - **Name / API ID:** `marketplace-api`
    - **API URL suffix:** `v1`
-   - **Web service URL:** `https://g1-marketplace-backend.onrender.com`
-4. Clic en **Create**.
+   - **Web service URL (`serviceUrl`):** `https://g1-marketplace-backend.onrender.com` (origen, sin prefijo de ruta)
+   - **Gateway público:** `https://apim-g1-marketplace-20.azure-api.net/v1`
+4. La importación/revisión y configuración son pasos pendientes de autorización; este runbook no acredita que se ejecutaron.
+
+El OpenAPI importado contiene solo 33 operaciones contratadas. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones importadas `/v1/...` a `/api/v1/...` y conserva query params.
 
 ---
 
