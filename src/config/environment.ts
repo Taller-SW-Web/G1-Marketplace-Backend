@@ -39,6 +39,33 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     }
   }
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const securityEventsEnabled = String(config.SECURITY_EVENTS_ENABLED ?? 'false').toLowerCase();
+  if (!['true', 'false'].includes(securityEventsEnabled)) {
+    throw new Error('SECURITY_EVENTS_ENABLED must be true or false');
+  }
+  const securityEventsPrefetch = Number(config.SECURITY_EVENTS_PREFETCH ?? 1);
+  if (!Number.isInteger(securityEventsPrefetch) || securityEventsPrefetch < 1 || securityEventsPrefetch > 100) {
+    throw new Error('SECURITY_EVENTS_PREFETCH must be an integer between 1 and 100');
+  }
+  const securityEventsDlqQueue = String(config.SECURITY_EVENTS_DLQ_QUEUE ?? 'marketplace.usuarios.dlq');
+  if (!/^[A-Za-z0-9._-]{1,200}$/.test(securityEventsDlqQueue)) {
+    throw new Error('SECURITY_EVENTS_DLQ_QUEUE must be a valid queue name');
+  }
+  if (securityEventsEnabled === 'true') {
+    let rabbitUrl: URL;
+    try {
+      rabbitUrl = new URL(String(config.RABBITMQ_URL ?? ''));
+    } catch {
+      throw new Error('RABBITMQ_URL is required when SECURITY_EVENTS_ENABLED=true');
+    }
+    if (!['amqp:', 'amqps:'].includes(rabbitUrl.protocol) || !rabbitUrl.hostname
+      || !rabbitUrl.username || !rabbitUrl.password || rabbitUrl.search || rabbitUrl.hash) {
+      throw new Error('RABBITMQ_URL must be an authenticated AMQP(S) URL without query or fragment');
+    }
+    if (nodeEnv === 'production' && rabbitUrl.protocol !== 'amqps:') {
+      throw new Error('RABBITMQ_URL must use TLS (amqps) in production');
+    }
+  }
   const authEnabled = String(config.AUTH_ENABLED ?? 'false');
   for (const name of ['G7_REGISTRATION_ENABLED', 'G7_RECOVERY_ENABLED', 'G7_INTROSPECTION_ENABLED']) {
     if (!['true', 'false'].includes(String(config[name] ?? 'false'))) throw new Error(`${name} must be true or false`);
@@ -93,6 +120,9 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    SECURITY_EVENTS_ENABLED: securityEventsEnabled === 'true',
+    SECURITY_EVENTS_PREFETCH: securityEventsPrefetch,
+    SECURITY_EVENTS_DLQ_QUEUE: securityEventsDlqQueue,
     ORDERS_SOURCE: ordersSource,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
