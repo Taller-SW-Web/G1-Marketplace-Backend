@@ -94,5 +94,7 @@ test('APIM QA smoke is opt-in, bounded, read-only, and does not print secret or 
   assert.match(qaSmoke, /AbortSignal\.timeout\(45_000\)/u);
   assert.doesNotMatch(qaSmoke, /console\.(?:log|error)\([^\n]*(?:subscriptionKey|response\.text|response\.json)/u);
   assert.match(docs, /exactly two[\s\S]*GETs/u);
+  assert.match(docs, /Real QA attempt — 25 Nov 2026 UTC[\s\S]*Both requests\s+returned `404`[\s\S]*failed REAL gateway check/u);
+  assert.match(docs, /`X-Correlation-Id` matched[\s\S]*`X-Request-Id` did not/u);
   assert.match(runbook, /RUN_APIM_QA_SMOKE/u);
 });

@@ -121,6 +121,17 @@ only with explicit QA authorization and after the intended policy revision has
 been applied. A passing request validates only these cases, not all operations
 or the APIM policy language/runtime generally.
 
+### Real QA attempt — 25 Nov 2026 UTC
+
+GitHub Actions run [45528575052](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45528575052)
+confirmed the QA secret was present without displaying its value. Both requests
+returned `404`: catalog products (expected `200`) and wishlist without JWT
+(expected `401`). `X-Correlation-Id` matched the synthetic input, but
+`X-Request-Id` did not. This is a **failed REAL gateway check**, not a pass or
+evidence for all operations. Do not repeat it until the APIM owner reviews the
+imported operations, `/v1`→`/api/v1` rewrite, and applied policy revision. No
+response bodies or key values were logged; no load test or deployment ran.
+
 ## 24 November offline alignment
 
 The APIM owner confirmed `X-Correlation-Id` as the public header, its alias to
