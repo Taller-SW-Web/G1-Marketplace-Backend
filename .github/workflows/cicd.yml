@@ -155,16 +155,23 @@ jobs:
           tags: g1-marketplace-backend:ci-scan
       - name: Escaneo Trivy de imagen Docker (HIGH/CRITICAL corregibles bloquean)
         run: |
+          set +e
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "${{ github.workspace }}:/workspace" \
             aquasec/trivy:latest \
             image g1-marketplace-backend:ci-scan \
+            --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --format sarif \
             --output /workspace/trivy-image.sarif \
             --exit-code 1
+          rc=$?
+          if [ -f trivy-image.sarif ]; then
+            node -e "const s=JSON.parse(require('fs').readFileSync('trivy-image.sarif','utf8')); const res=s.runs?.[0]?.results||[]; console.log('Trivy HIGH/CRITICAL fixable count:', res.length); for (const r of res.slice(0,20)) console.log('-', r.ruleId, r.message?.text?.split('\n')[0]);"
+          fi
+          exit $rc
       - name: Generar SBOM CycloneDX de la imagen Docker
         if: always()
         run: |

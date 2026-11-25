@@ -1,6 +1,6 @@
-FROM node:22.18.0-bookworm-slim AS base
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 FROM base AS build
 COPY package.json package-lock.json ./
