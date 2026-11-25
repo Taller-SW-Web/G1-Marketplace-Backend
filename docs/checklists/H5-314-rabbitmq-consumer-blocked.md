@@ -21,7 +21,7 @@
 ## Pendiente para integración REAL
 
 - Publicar en G1 SPECS el sobre de evento acordado, nombre exacto del ID, reglas de versión/campos y semántica de retries/DLQ. La rama local de SPECS aún no contiene ese acuerdo.
-- Incorporar en el gestor de secretos del entorno de prueba `RABBITMQ_URL` (nunca en Git) y confirmar el nombre efectivo de la DLQ si difiere de `marketplace.usuarios.dlq`.
+- Incorporar en el gestor de secretos del entorno de prueba `RABBITMQ_URL` (nunca en Git) y confirmar que la topología del broker mantiene el DLX `seguridad.usuarios.dlx` con routing key `descartado` hacia `seguridad.usuarios.dlq`.
 - Ejecutar integración autorizada con el publisher de Seguridad; comprobar evento, persistencia, duplicado, error y DLQ, y registrar evidencia sanitizada. Las pruebas locales no sustituyen esa evidencia.
 
 ## Validación local de este corte

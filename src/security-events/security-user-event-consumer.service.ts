@@ -15,6 +15,8 @@ import { SecurityUserEventIdentityConflictError, SecurityUserEventInboxService }
 import {
   parseSecurityUserEvent,
   SECURITY_USER_EVENTS_BINDING,
+  SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+  SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
   SECURITY_USER_EVENTS_EXCHANGE,
   SECURITY_USER_EVENTS_EXCHANGE_TYPE,
   SECURITY_USER_EVENTS_QUEUE,
@@ -26,7 +28,6 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   private readonly logger = new Logger(SecurityUserEventConsumerService.name);
   private readonly enabled: boolean;
   private readonly rabbitUrl: string;
-  private readonly dlqQueue: string;
   private readonly prefetch: number;
   private connection?: ChannelModel;
   private channel?: ConfirmChannel;
@@ -42,7 +43,6 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   ) {
     this.enabled = this.config.get<boolean>('SECURITY_EVENTS_ENABLED', false);
     this.rabbitUrl = this.config.get<string>('RABBITMQ_URL', '');
-    this.dlqQueue = this.config.get<string>('SECURITY_EVENTS_DLQ_QUEUE', 'marketplace.usuarios.dlq');
     this.prefetch = this.config.get<number>('SECURITY_EVENTS_PREFETCH', 1);
   }
 
@@ -89,9 +89,14 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       await channel.assertExchange(SECURITY_USER_EVENTS_EXCHANGE, SECURITY_USER_EVENTS_EXCHANGE_TYPE, {
         durable: true,
       });
-      await channel.assertQueue(SECURITY_USER_EVENTS_QUEUE, { durable: true });
+      await channel.assertQueue(SECURITY_USER_EVENTS_QUEUE, {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+          'x-dead-letter-routing-key': SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
+        },
+      });
       await channel.bindQueue(SECURITY_USER_EVENTS_QUEUE, SECURITY_USER_EVENTS_EXCHANGE, SECURITY_USER_EVENTS_BINDING);
-      await channel.assertQueue(this.dlqQueue, { durable: true });
       await channel.prefetch(this.prefetch);
 
       this.connection = connection;
@@ -154,32 +159,13 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
           ? 'event_id_payload_conflict'
           : 'inbox_persistence_failure';
       try {
-        await this.publishToDlq(channel, message, reason);
-        channel.ack(message);
-        this.logger.warn(`Moved security event to DLQ (${reason})`);
+        channel.nack(message, false, false);
+        this.logger.warn(`Rejected security event for dead-letter routing (${reason})`);
       } catch {
-        this.logger.error('Could not confirm DLQ publication; forcing broker redelivery');
+        this.logger.error('Could not reject security event; forcing broker redelivery');
         await this.forceRedelivery(channel);
       }
     }
-  }
-
-  private async publishToDlq(channel: ConfirmChannel, message: ConsumeMessage, reason: string): Promise<void> {
-    const headers = {
-      ...(message.properties.headers ?? {}),
-      'x-marketplace-dead-letter-reason': reason,
-      'x-marketplace-original-routing-key': message.fields.routingKey,
-    };
-    await new Promise<void>((resolve, reject) => {
-      channel.sendToQueue(this.dlqQueue, message.content, {
-        persistent: true,
-        contentType: message.properties.contentType ?? 'application/json',
-        contentEncoding: message.properties.contentEncoding,
-        correlationId: message.properties.correlationId,
-        messageId: message.properties.messageId,
-        headers,
-      }, (error) => error ? reject(error) : resolve());
-    });
   }
 
   private async forceRedelivery(channel: ConfirmChannel): Promise<void> {

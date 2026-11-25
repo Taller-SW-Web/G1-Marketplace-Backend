@@ -30,6 +30,7 @@ function makeMessage(event: { tipo: string; [key: string]: unknown } = EVENT): C
 function makeChannel(confirmError?: Error) {
   return {
     ack: jest.fn(),
+    nack: jest.fn(),
     assertExchange: jest.fn().mockResolvedValue({}),
     assertQueue: jest.fn().mockResolvedValue({ queue: 'queue' }),
     bindQueue: jest.fn().mockResolvedValue({}),
@@ -41,6 +42,7 @@ function makeChannel(confirmError?: Error) {
     sendToQueue: jest.fn((_queue, _content, _options, confirm) => confirm?.(confirmError, {})),
   } as unknown as ConfirmChannel & {
     ack: jest.Mock;
+    nack: jest.Mock;
     assertExchange: jest.Mock;
     assertQueue: jest.Mock;
     bindQueue: jest.Mock;
@@ -75,7 +77,6 @@ describe('SecurityUserEventConsumerService', () => {
     service = new SecurityUserEventConsumerService(
       new ConfigService({
         SECURITY_EVENTS_ENABLED: false,
-        SECURITY_EVENTS_DLQ_QUEUE: 'marketplace.usuarios.dlq',
         SECURITY_EVENTS_PREFETCH: 1,
         RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
       }),
@@ -96,7 +97,6 @@ describe('SecurityUserEventConsumerService', () => {
     service = new SecurityUserEventConsumerService(
       new ConfigService({
         SECURITY_EVENTS_ENABLED: true,
-        SECURITY_EVENTS_DLQ_QUEUE: 'marketplace.usuarios.dlq',
         SECURITY_EVENTS_PREFETCH: 2,
         RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
       }),
@@ -106,7 +106,13 @@ describe('SecurityUserEventConsumerService', () => {
     await service.onModuleInit();
     expect(connect).toHaveBeenCalledWith(expect.stringContaining('heartbeat=30'));
     expect(channel.assertExchange).toHaveBeenCalledWith('seguridad.usuarios', 'topic', { durable: true });
-    expect(channel.assertQueue).toHaveBeenCalledWith('marketplace.usuarios', { durable: true });
+    expect(channel.assertQueue).toHaveBeenCalledWith('marketplace.usuarios', {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': 'seguridad.usuarios.dlx',
+        'x-dead-letter-routing-key': 'descartado',
+      },
+    });
     expect(channel.bindQueue).toHaveBeenCalledWith('marketplace.usuarios', 'seguridad.usuarios', 'usuario.*');
     expect(channel.prefetch).toHaveBeenCalledWith(2);
     expect(channel.consume).toHaveBeenCalledWith('marketplace.usuarios', expect.any(Function), { noAck: false });
@@ -142,26 +148,19 @@ describe('SecurityUserEventConsumerService', () => {
     expect(channel.ack).toHaveBeenCalledWith(message);
   });
 
-  it('publishes an invalid event to the DLQ before acknowledging it', async () => {
+  it('rejects an invalid event for broker-side DLX routing', async () => {
     const channel = makeChannel();
     const message = makeMessage({ ...EVENT, version: 2 });
 
     await (service as unknown as ConsumerTestSurface).handleMessage(channel, message);
 
-    expect(channel.sendToQueue).toHaveBeenCalledWith(
-      'marketplace.usuarios.dlq',
-      message.content,
-      expect.objectContaining({
-        persistent: true,
-        headers: expect.objectContaining({ 'x-marketplace-dead-letter-reason': 'unsupported_schema_version' }),
-      }),
-      expect.any(Function),
-    );
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+    expect(channel.ack).not.toHaveBeenCalled();
   });
 
-  it('does not acknowledge if DLQ publication is not confirmed', async () => {
-    const channel = makeChannel(new Error('confirm failed'));
+  it('forces broker redelivery if rejecting to the DLX fails', async () => {
+    const channel = makeChannel();
+    channel.nack.mockImplementation(() => { throw new Error('channel closed'); });
     const message = makeMessage({ ...EVENT, version: 2 });
 
     await (service as unknown as ConsumerTestSurface).handleMessage(channel, message);

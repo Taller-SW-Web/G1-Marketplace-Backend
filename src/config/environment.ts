@@ -47,10 +47,6 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (!Number.isInteger(securityEventsPrefetch) || securityEventsPrefetch < 1 || securityEventsPrefetch > 100) {
     throw new Error('SECURITY_EVENTS_PREFETCH must be an integer between 1 and 100');
   }
-  const securityEventsDlqQueue = String(config.SECURITY_EVENTS_DLQ_QUEUE ?? 'marketplace.usuarios.dlq');
-  if (!/^[A-Za-z0-9._-]{1,200}$/.test(securityEventsDlqQueue)) {
-    throw new Error('SECURITY_EVENTS_DLQ_QUEUE must be a valid queue name');
-  }
   if (securityEventsEnabled === 'true') {
     let rabbitUrl: URL;
     try {
@@ -122,7 +118,6 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
     SECURITY_EVENTS_ENABLED: securityEventsEnabled === 'true',
     SECURITY_EVENTS_PREFETCH: securityEventsPrefetch,
-    SECURITY_EVENTS_DLQ_QUEUE: securityEventsDlqQueue,
     ORDERS_SOURCE: ordersSource,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
