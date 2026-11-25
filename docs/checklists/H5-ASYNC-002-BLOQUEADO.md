@@ -1,47 +1,31 @@
 # H5 ASYNC-002 — consumidor de eventos de Seguridad
 
-**Estado: BLOQUEADO en la frontera del contrato/acuerdo con Seguridad.** No se implementa ni se conecta un consumidor RabbitMQ hasta que el contrato esté aceptado y el acuerdo de broker de TASK-H5-ASYNC-001 esté acreditado. Esta nota no es evidencia de integración ni de evento REAL.
+**Estado: implementación local en curso.** La revisión que marcó #314 como bloqueado queda supersedida por la decisión del responsable de coordinación: G1 administrará el broker de pruebas y construirá el consumidor. Este documento no afirma conexión ni integración REAL.
 
-## Alcance y fuentes revisadas
+## Contrato y topología usados para el primer corte
 
-- [Issue #314](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314): sigue abierto. Pide un consumidor en la cola `marketplace.usuarios`, binding `usuario.*`, validación de esquema y versión. La aceptación pide consumir y registrar un evento publicado por Seguridad. Fecha objetivo H5: 20/nov/2026; prioridad P0.
-- [Issue #313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313): sigue abierto y no consta un acuerdo público con Seguridad sobre host/vhost, credenciales, cola y publicador de prueba. La aceptación pide acuerdo escrito y entrega de credenciales de prueba por canal seguro.
-- [Catálogo de eventos de Seguridad](https://github.com/Taller-SW-Web/Modulo-de-Seguridad/blob/main/specs/catalogo-eventos.md), blob `2df4b484f3218120afc9817433a1a4420c22f631`: está publicado, pero su propio estado es **Borrador — pendiente de acuerdo con los seis equipos** y dice **Marketplace: ninguno** en consumidores. Describe un sobre con `eventoId`, `tipo`, `version` (empieza en `1`), `fecha`, `usuarioId` y `datos`; topología propuesta: exchange `seguridad.usuarios`, cola propia `<modulo>.usuarios` y binding sugerido `usuario.*`. No equivale a homologación del contrato para Marketplace.
-- [PR #46 del backend de Seguridad](https://github.com/Taller-SW-Web/Modulo-de-Seguridad-Backend/pull/46), fusionado a `develop`: documenta publicador/outbox, mensajes JSON persistentes, `messageId = eventoId` y confirmación del broker. Es implementación del productor, no acuerdo de consumo de Marketplace ni evidencia de este backend.
-- Búsqueda local en este backend: no hay consumidor RabbitMQ/AMQP ni dependencia asociada. Hay idempotencia de Checkout y `X-Correlation-Id` en fronteras HTTP, pero no son patrones de entrega/ack de mensajes y no se trasladan como contrato.
-- [Issue #315](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/315) requiere idempotencia por `eventoId`, backoff y DLQ; [#316](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/316) describe reacciones a bloqueo, eliminación y cambio de rol; [#321](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/321) deja la documentación del contrato/esquemas como tarea H5.
+- Issue [#314](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314): consumir y registrar eventos de Seguridad desde `marketplace.usuarios`.
+- Topología indicada para el broker de G1: exchange topic durable `seguridad.usuarios`, cola durable `marketplace.usuarios`, binding `usuario.*` y cola de descarte. El código declara/asegura exchange, cola y binding al iniciar; `SECURITY_EVENTS_ENABLED` permanece desactivado por defecto.
+- La última referencia publicada de Seguridad describe el sobre v1 con `eventoId`, `tipo`, `version`, `fecha`, `usuarioId` y `datos`; se validan los siete tipos publicados y se ignoran tipos desconocidos después de validar el sobre común.
+- **Discrepancia por resolver en SPECS:** el mensaje de coordinación usa `eventId`, mientras el issue #315 y el catálogo de Seguridad usan `eventoId`. El código actual lee `eventoId` en el wire y lo normaliza internamente como `eventId`; el contrato G1 aceptado deberá fijar el nombre definitivo antes de la prueba REAL.
+- La tabla `security_user_event_inbox` guarda solo identificador, tipo, versión, fingerprint SHA-256 y fecha de recepción; no persiste el payload ni `usuarioId`. La PK evita registrar dos veces el mismo identificador y un mismo ID con contenido distinto se trata como conflicto.
 
-Los issues remiten además a `reparto.md` e `issues-h5.md`, que no están versionados en este backend. No se les atribuyen decisiones adicionales.
+## Implementación local
 
-## Decisiones/gates pendientes
+- `src/security-events/security-user-event.ts`: validación del sobre y payloads v1, tipo/routing key, fecha UTC y versión.
+- `src/security-events/security-user-event-consumer.service.ts`: consumidor manual-ack, conexión opt-in por `RABBITMQ_URL`, confirmación de publicación a DLQ y reconexión con backoff; no registra URL ni credenciales en logs.
+- `src/security-events/security-user-event-inbox.service.ts`: registro durable mínimo e idempotencia por ID.
+- La política de reintentos de fallos transitorios, backoff y agotamiento hacia DLQ se desarrolla en #315; no desplegar #314 aislada como versión final del flujo.
 
-- [ ] Seguridad y Marketplace aceptan una versión concreta del catálogo; registrar responsable, fecha y revisión. Resolver si el borrador publicado es la base vigente o debe actualizarse.
-- [ ] Publicar un esquema verificable (incluidos campos requeridos/opcionales, nulabilidad, tipos/formato y restricciones por evento) y política para versiones desconocidas. El catálogo describe el sobre y ejemplos, pero no aporta un esquema ejecutable aprobado.
-- [ ] Confirmar eventos y nombres que recibirá Marketplace. El catálogo enumera `usuario.desactivado`; #316 habla de “eliminado”. No inferir un routing key como `usuario.eliminado` ni mapear nombres sin decisión del proveedor.
-- [ ] Confirmar topología efectiva y propiedad: exchange, cola `marketplace.usuarios`, binding, vhost/host y entorno. Compartir cualquier credencial sólo por canal seguro; no copiarla a este repo.
-- [ ] Acordar semántica de entrega del consumidor: ack/nack y redelivery (incluidos requeue y límites/conteo de intentos), reintentos/backoff, cuándo enviar a DLQ, retención y recuperación. El catálogo borrador menciona DLQ tras 3 reintentos; #315 no fija el número y PR #46 describe reintentos del **publicador**, no la política del consumidor.
-- [ ] Acordar deduplicación durable por `eventoId`, retención y transacción con el efecto. Definir cómo aplicar `fecha` para eventos fuera de orden por usuario.
-- [ ] Definir qué significa “registrado” para la aceptación de #314 (almacenamiento/observabilidad) y qué datos se pueden registrar, con redacción de PII.
+## Pendiente para integración REAL
 
-## Pruebas deterministas pendientes (offline, sin broker)
+- Publicar en G1 SPECS el sobre de evento acordado, nombre exacto del ID, reglas de versión/campos y semántica de retries/DLQ. La rama local de SPECS aún no contiene ese acuerdo.
+- Incorporar en el gestor de secretos del entorno de prueba `RABBITMQ_URL` (nunca en Git) y confirmar el nombre efectivo de la DLQ si difiere de `marketplace.usuarios.dlq`.
+- Ejecutar integración autorizada con el publisher de Seguridad; comprobar evento, persistencia, duplicado, error y DLQ, y registrar evidencia sanitizada. Las pruebas locales no sustituyen esa evidencia.
 
-Preparar sólo después de aceptar contrato y política; usar fixtures explícitos derivados de la versión aprobada y etiquetarlos como **datos de prueba**, nunca como tráfico REAL.
+## Validación local de este corte
 
-- [ ] Positivos por cada evento/routing key que se acuerde: sobre v1 completo, fechas UTC, `datos` válido y propiedades opcionales/nulas según esquema.
-- [ ] Negativos: JSON inválido; campos requeridos ausentes; tipos/formato inválidos; mismatch entre `tipo` y routing key; versión ausente/no soportada. Afirmar el resultado esperado sólo cuando se acuerde ack/retry/DLQ.
-- [ ] Compatibilidad: campos adicionales ignorados y evento desconocido ignorado, según el catálogo; confirmar cómo se confirma al broker antes de fijar la prueba de settlement.
-- [ ] Duplicado: mismo `eventoId` no repite el efecto, incluida repetición después de reinicio/recuperación; distinto `eventoId` sí se procesa.
-- [ ] Orden: evento antiguo para el mismo `usuarioId` no revierte una proyección más nueva, usando reloj/datos controlados y la regla aprobada.
-- [ ] Política de fallos: retry/backoff/DLQ con reloj y transporte falsos inyectados, sin RabbitMQ ni evidencia REAL; incluir recuperación sin pérdida según la política acordada.
-- [ ] Sanitización: logs no exponen credenciales ni atributos personales no autorizados; correlación sólo con campos acordados.
-
-## Frontera de evidencia
-
-Hasta resolver los gates anteriores: no añadir dependencias RabbitMQ, variables/credenciales, infraestructura, consumidor, schema propio ni fixtures que aparenten representar tráfico real. No afirmar integración ni despliegue. Cuando se autorice la integración, reportar por separado pruebas unitarias con fixtures, integración REAL con proveedor/versión y mensaje sanitizado, y verificación del despliegue, de acuerdo con #314.
-
-## Revisión offline — 24/nov/2026
-
-- Se mantiene **BLOQUEADO**: el catálogo consultado está marcado borrador y Marketplace no figura como consumidor acordado; la topología descrita es sugerida, no una configuración aprobada.
-- La implementación del publicador/outbox de Seguridad no sustituye el acuerdo de consumo. Host/vhost, cola/binding, contrato ejecutable/versiones, ack/nack/redelivery, retry/backoff/DLQ, deduplicación durable, orden y sanitización siguen siendo decisiones de frontera.
-- No se conectó a RabbitMQ, no se probaron credenciales, no se añadieron dependencia/configuración/consumidor ni fixtures de tráfico. No se ejecutó una prueba de integración offline que pretenda fijar settlement antes de acordar la política.
-- La salida de este corte es documental solamente; no cambia el estado registrado de #313/#314/#315 ni acredita un evento recibido.
+- Typecheck: PASS.
+- Unitarias focalizadas (parser, inbox y variables de entorno): 43/43 PASS.
+- `prisma validate`: PASS usando URL sintética; no se conectó a PostgreSQL ni se aplicó la migración.
+- Sin conexión RabbitMQ, llamadas de negocio ni secretos locales.
