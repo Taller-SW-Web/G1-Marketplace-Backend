@@ -12,6 +12,7 @@
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
+    "test:ventas:webhook:postgres": "node scripts/test-shipment-webhook-postgres.mjs",
     "test:integration": "ts-node scripts/integration-test.ts",
     "test:diego:isolated": "node scripts/test-diego-isolated.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",

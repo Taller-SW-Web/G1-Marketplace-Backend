@@ -1,23 +1,54 @@
-# H5 — receptor local del webhook de Ventas
+# H5 — receptor del webhook de envíos de Ventas
 
-## Contrato y seguridad
+## Contrato y autenticación
 
-- Ruta preparada: `POST /api/v1/webhooks/ventas/envios`.
-- Evento: M1 `pedidos.envio.estado_actualizado`, `ShipmentStatusUpdated`, versión `1.0.0`; deduplicación por `eventId` según la especificación G1 F-035.
-- El header de autenticación es configurable con `VENTAS_WEBHOOK_HEADER` (default `authorization`) y el valor esperado con `VENTAS_WEBHOOK_TOKEN`. El token es obligatorio; la ausencia de configuración responde 503 y no hay secreto por defecto. El header se compara exactamente como lo envía G5; si su valor incluye un prefijo, ese prefijo debe formar parte del valor configurado.
-- Validación local de `eventId`, `eventType`, versión, timestamp, emisor, pedido `PED-YYYY-NNNNN`, estado público y fecha estimada. Los errores no incluyen payload sensible ni token.
+- Ruta: `POST /api/v1/webhooks/ventas/envios`.
+- Evento: `ShipmentStatusUpdated`, versión `1.0.0`, emisor exacto `modulo-ventas`.
+- Ventas autentica con `X-Webhook-Token`. El código y `render.yaml` fijan `VENTAS_WEBHOOK_HEADER=x-webhook-token` por defecto. `VENTAS_WEBHOOK_TOKEN` es obligatorio y se configura únicamente en el gestor privado de secretos de Render; no se guarda en Git ni se solicita para esta prueba. Si no está configurado, el endpoint responde 503.
+- El sobre requiere `eventId` UUID, timestamp ISO real, `data.orderId` con forma `PED-YYYY-NNNNN`, `data.publicStatus`, `data.trackingNumber` y `data.estimatedDeliveryDate`. La fecha estimada debe estar presente, acepta `null` y si es una fecha debe ser real (`YYYY-MM-DD`).
+- Se aceptan y persisten estados `publicStatus` no conocidos, con 200. Se reserva 400 para un sobre mal formado; no se consulta el pedido ni se rechaza por no existir en el backend.
+- El token se compara en tiempo constante. No se registran tokens ni payloads en las respuestas de error.
 
-## Idempotencia y límite de ejecución
+## ACK, persistencia y deduplicación
 
-- El controller delega en `ShipmentEventSink.accept(event)`, cuyo contrato exige persistir/deduplicar por `eventId` y encolar atómicamente.
-- El sink productivo por defecto responde 503: no hay aún store duradero/outbox implementado. No se añadió migración ni se usa la `NotificationDelivery` existente, porque faltan una resolución documentada de pedido→cliente/destinatario y datos cifrados requeridos por ese modelo.
-- La suite sustituye el sink por un doble local que demuestra aceptación y repetición sin reprocesar. Esa prueba no acredita deduplicación durable ni entrega bilateral.
-- No se afirma acuerdo nuevo sobre ACK/reintentos, backoff, URL real o correlación extremo a extremo. G2 Specs #42 y los gates de #318 permanecen abiertos.
+- La migración aditiva `20261124000100_shipment_event_inbox` crea `shipment_event_inbox`; su PK única es `event_id` y conserva `order_id`, el payload JSON completo y `received_at`.
+- El endpoint responde 200 únicamente después de insertar el evento. Reintentos con el mismo UUID responden 200 con `duplicate=true` y no crean otra fila. Un fallo de escritura responde 503, para que Ventas pueda reintentar.
+- Un pedido desconocido sigue siendo persistido y recibe 200; la bandeja no depende de una fila de pedido ni de la disponibilidad de módulos posteriores.
 
-## Prueba
+## Proyección y reproceso — pendiente (#319)
 
-```text
-npx jest --runInBand --runTestsByPath src/webhooks/ventas/shipment-webhook.spec.ts
+El inbox es el registro durable de entrada; no se proyecta todavía el estado a seguimiento F-032 ni se dispara el correo F-035. La proyección/reprocesador queda en #319, leyendo este inbox; no se asigna aquí responsable ni fecha que no estén confirmados. El correo continúa condicionado a G-MAIL.
+
+Hasta que exista ese consumidor, no borrar ni editar filas del inbox. Para revisar y preparar un replay se ordenan todas las filas por `received_at, event_id`:
+
+```sql
+SELECT event_id, order_id, payload, received_at
+FROM shipment_event_inbox
+ORDER BY received_at ASC, event_id ASC;
 ```
 
-HTTP de Nest en memoria, configuración y token sintéticos; no se llama a Ventas/G5 ni a RabbitMQ.
+La tabla aún no tiene marca/checkpoint de procesamiento. El consumidor de #319 debe añadir un checkpoint/outbox de proyección y hacer idempotentes F-032 y F-035 por `eventId`; así podrá reintentar fallos y reproducir desde el inicio sin pedir a Ventas que reenvíe eventos ni duplicar efectos. No hay hoy un comando de reproceso ejecutable ni se afirma que el seguimiento/correo ya estén actualizados.
+
+No habilitar los siete eventos de Ventas hasta tener aprobación de Diego/Andrés, despliegue autorizado en staging y una prueba 2xx con la cabecera acordada. La activación corresponde a Ventas después de esa evidencia.
+
+## Pruebas
+
+Unitarias/HTTP en memoria (sin servicios externos):
+
+```text
+npx jest --runInBand --runTestsByPath src/webhooks/ventas/shipment-webhook.spec.ts src/webhooks/ventas/prisma-shipment-event.sink.spec.ts
+```
+
+Integración con PostgreSQL 16 desechable, que aplica todas las migraciones antes de levantar el endpoint de prueba:
+
+```powershell
+docker compose -f docker-compose.h5-webhook-test.yml up -d --wait
+$env:TEST_DATABASE_URL = "postgresql://h5_test:h5_local_test_only@127.0.0.1:55433/marketplace_h5_webhook_test?schema=public"
+npm run test:ventas:webhook:postgres
+Remove-Item Env:TEST_DATABASE_URL
+docker compose -f docker-compose.h5-webhook-test.yml down
+```
+
+El script rechaza cualquier host que no sea loopback y cualquier base cuyo nombre no sea exactamente `marketplace_h5_webhook_test`; no usarlo con una base compartida. La integración comprueba migración aplicada, duplicado 200/una fila, pedido desconocido persistido con 200 y 503/no fila ante fallo de escritura. Esta sesión no pudo iniciar Docker Desktop; queda pendiente la ejecución local y se añade el mismo caso a CI con PostgreSQL efímero.
+
+Refs: #319

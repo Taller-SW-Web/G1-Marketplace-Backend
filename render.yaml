@@ -30,3 +30,7 @@ services:
         sync: false
       - key: AUTH_JWKS_URL
         sync: false
+      - key: VENTAS_WEBHOOK_HEADER
+        value: x-webhook-token
+      - key: VENTAS_WEBHOOK_TOKEN
+        sync: false

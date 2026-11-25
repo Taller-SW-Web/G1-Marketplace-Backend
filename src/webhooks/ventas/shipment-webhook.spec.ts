@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { ServiceUnavailableException, type INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -8,11 +8,11 @@ import { ShipmentWebhookService } from './shipment-webhook.service';
 
 const syntheticToken = 'synthetic-test-only-header-value';
 const event = {
-  eventId: 'event-shipment-2026-00001',
+  eventId: '11111111-1111-4111-8111-111111111111',
   eventType: 'ShipmentStatusUpdated',
   version: '1.0.0',
   timestamp: '2026-11-24T10:15:00.000Z',
-  emitter: 'ventas',
+  emitter: 'modulo-ventas',
   data: {
     orderId: 'PED-2026-00001',
     publicStatus: 'EN_CAMINO',
@@ -32,10 +32,7 @@ describe('Ventas shipment webhook — offline HTTP contract', () => {
     }),
   };
   const config = {
-    get: (key: string, fallback?: unknown) => ({
-      VENTAS_WEBHOOK_HEADER: 'x-ventas-signature',
-      VENTAS_WEBHOOK_TOKEN: syntheticToken,
-    } as Record<string, unknown>)[key] ?? fallback,
+    get: (key: string, fallback?: unknown) => key === 'VENTAS_WEBHOOK_TOKEN' ? syntheticToken : fallback,
   };
 
   beforeAll(async () => {
@@ -56,10 +53,10 @@ describe('Ventas shipment webhook — offline HTTP contract', () => {
 
   const postEvent = () => request(app.getHttpServer())
     .post('/api/v1/webhooks/ventas/envios')
-    .set('x-ventas-signature', syntheticToken)
+    .set('X-Webhook-Token', syntheticToken)
     .send(event);
 
-  it('accepts a valid v1 event and deduplicates repeated eventId through the sink', async () => {
+  it('accepts the H-05 envelope through the exact X-Webhook-Token header and deduplicates repeated eventId', async () => {
     await postEvent().expect(200, { data: { accepted: true, duplicate: false } });
     await postEvent().expect(200, { data: { accepted: true, duplicate: true } });
     expect(sink.accept).toHaveBeenCalledTimes(2);
@@ -70,31 +67,57 @@ describe('Ventas shipment webhook — offline HTTP contract', () => {
     }));
   });
 
+  it.each([
+    ['reprogrammed status', { ...event, eventId: '22222222-2222-4222-8222-222222222222', data: { ...event.data, publicStatus: 'REPROGRAMADO', estimatedDeliveryDate: '2026-12-02' } }],
+    ['nullable estimated date', { ...event, eventId: '33333333-3333-4333-8333-333333333333', data: { ...event.data, estimatedDeliveryDate: null } }],
+    ['unknown public status', { ...event, eventId: '44444444-4444-4444-8444-444444444444', data: { ...event.data, publicStatus: 'ESTADO_FUTURO_NO_CONOCIDO' } }],
+  ])('accepts %s as a well-formed H-05 envelope', async (_name, acceptedEvent) => {
+    await request(app.getHttpServer()).post('/api/v1/webhooks/ventas/envios')
+      .set('X-Webhook-Token', syntheticToken).send(acceptedEvent).expect(200, {
+        data: { accepted: true, duplicate: false },
+      });
+  });
+
   it('rejects absent or incorrect configured header before processing the event', async () => {
     await request(app.getHttpServer()).post('/api/v1/webhooks/ventas/envios').send(event).expect(401);
     await request(app.getHttpServer()).post('/api/v1/webhooks/ventas/envios')
-      .set('x-ventas-signature', 'wrong-synthetic-value').send(event).expect(401);
+      .set('X-Webhook-Token', 'wrong-synthetic-value').send(event).expect(401);
     expect(sink.accept).not.toHaveBeenCalled();
   });
 
   it.each([
     [{ ...event, eventType: 'OtherEvent' }],
     [{ ...event, version: '2.0.0' }],
-    [{ ...event, eventId: '  ' }],
+    [{ ...event, eventId: 'event-shipment-2026-00001' }],
     [{ ...event, timestamp: 'not-a-timestamp' }],
+    [{ ...event, timestamp: '2026-02-30T10:15:00.000Z' }],
+    [{ ...event, emitter: 'ventas' }],
     [{ ...event, data: { ...event.data, orderId: 'not-a-public-order-id' } }],
+    [{ ...event, data: { ...event.data, trackingNumber: undefined } }],
+    [{ ...event, data: { ...event.data, trackingNumber: '' } }],
+    [{ ...event, data: { ...event.data, estimatedDeliveryDate: undefined } }],
     [{ ...event, data: { ...event.data, estimatedDeliveryDate: '2026-02-30' } }],
   ])('rejects event outside the pinned v1 shape', async (invalidEvent) => {
     await request(app.getHttpServer()).post('/api/v1/webhooks/ventas/envios')
-      .set('x-ventas-signature', syntheticToken).send(invalidEvent).expect(400);
+      .set('X-Webhook-Token', syntheticToken).send(invalidEvent).expect(400);
     expect(sink.accept).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the sink cannot persist the event', async () => {
+    jest.spyOn(sink, 'accept').mockRejectedValueOnce(new ServiceUnavailableException({
+      error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' },
+    }));
+
+    await postEvent().expect(503);
+    expect(seen.size).toBe(0);
+    jest.restoreAllMocks();
   });
 
   it('fails closed when token configuration is absent', async () => {
     const unconfigured = {
-      get: (key: string, fallback?: unknown) => key === 'VENTAS_WEBHOOK_HEADER' ? 'authorization' : fallback,
+      get: (key: string, fallback?: unknown) => key === 'VENTAS_WEBHOOK_HEADER' ? fallback : undefined,
     };
     const service = new ShipmentWebhookService(unconfigured as ConfigService, sink);
-    await expect(service.receive({ authorization: syntheticToken }, event)).rejects.toMatchObject({ status: 503 });
+    await expect(service.receive({ 'x-webhook-token': syntheticToken }, event)).rejects.toMatchObject({ status: 503 });
   });
 });

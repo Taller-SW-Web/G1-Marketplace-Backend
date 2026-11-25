@@ -4,11 +4,11 @@ import { PrismaShipmentEventSink } from './prisma-shipment-event.sink';
 import type { ShipmentStatusUpdatedEvent } from './shipment-event';
 
 const event: ShipmentStatusUpdatedEvent = {
-  eventId: 'event-shipment-2026-00001',
+  eventId: '11111111-1111-4111-8111-111111111111',
   eventType: 'ShipmentStatusUpdated',
   version: '1.0.0',
   timestamp: '2026-11-24T10:15:00.000Z',
-  emitter: 'ventas',
+  emitter: 'modulo-ventas',
   data: {
     orderId: 'PED-2026-00001',
     publicStatus: 'EN_CAMINO',

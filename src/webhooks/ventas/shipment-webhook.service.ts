@@ -15,7 +15,7 @@ export class ShipmentWebhookService {
   ) {}
 
   async receive(headers: Record<string, string | string[] | undefined>, body: unknown) {
-    const headerName = this.config.get<string>('VENTAS_WEBHOOK_HEADER', 'authorization').toLowerCase();
+    const headerName = this.config.get<string>('VENTAS_WEBHOOK_HEADER', 'x-webhook-token').toLowerCase();
     const expectedToken = this.config.get<string>('VENTAS_WEBHOOK_TOKEN');
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/u.test(headerName) ||
         !expectedToken || expectedToken.length > 8192) {
