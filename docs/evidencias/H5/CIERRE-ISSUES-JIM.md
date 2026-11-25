@@ -4,6 +4,14 @@ Corte del 23/11/2026 (Lima), con la mini-ronda registrada el 24/11 a las 03:14 U
 
 **5 cerrables hoy** · **1 tras revisión de Andrés** · **21 no cerrables**. La mini-ronda completó los casos pendientes de #25, #37 y #41. Las tres issues todavía tienen requisitos de homologación y revisión de G-AUTH.
 
+## Actualización 25/11/2026 · APIM y performance H5
+
+Como actualización posterior al corte de esta matriz, Andrés reportó que aplicó manualmente la policy APIM (`df137b1`) e hizo un smoke **read-only**. La solicitud de catálogo llegó a Render, pero respondió `503 CATALOG_UNAVAILABLE` desde G6; wishlist sin JWT respondió `401`. También se observaron correlación sincronizada (`X-Correlation-Id`/`X-Request-Id`) y `Cache-Control: no-store`.
+
+Este smoke no completa la aceptación de #308: `/v1/health` y `/v1/docs` están fuera del subset contratado y no se probaron; tampoco se probó `429` en esta ejecución. La mención de una validación `429` en el corte anterior es evidencia histórica separada y no debe atribuirse a este smoke ni usarse como evidencia de la policy actual sin su artefacto correspondiente.
+
+La corrida de aceptación #306 sigue **NOT RUN**. No se informaron aquí un entorno/BD aislados, owner y ventana autorizados, SHAs inmutables de base/candidato ni harness aprobado. El smoke APIM es read-only y no sustituye la medición antes/después de #306. No se afirma aceptación REAL de performance.
+
 ## G7 REAL del 23/11
 
 Ronda funcional autorizada por Brenis: **19 solicitudes del kit: 18 PASS, 1 FAIL y 4 SKIP, sin 429**. Ventana UTC `2026-11-23 21:53:07–21:55:48`. Kit `0d80b87`. Backend de G7 `05ad567d16d1323c1b13711aeb83f6ee5f041254`, confirmado por Brenis, no verificado por el kit. Evidencia resumida del reporte local sanitizado `REAL-2026-11-23T21-53-07.176Z-d6d8348c.json`; el archivo permanece ignorado por Git. Las rutas siguientes son relativas a `/api/v1`.
