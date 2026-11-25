@@ -1,19 +1,25 @@
 <!--
   Política Global / API para Azure API Management (Plan Consumption)
-  Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-006 (Issues #309 y #311)
+  Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-004 / TASK-H5-APIM-006 (Issues #309, #310, #311)
   Controles:
+  - Trazabilidad unificada: X-Correlation-Id (oficial) + alias sincronizado X-Request-Id
   - CORS hacia el frontend de Vercel
   - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429)
-  - Validación de JWT RS256 contra JWKS de G7 (-> HTTP 401)
-  - Propagación de trazabilidad distribuida (X-Correlation-Id)
+  - Validación de JWT RS256 contra OIDC/JWKS de G7 (-> HTTP 401 en rutas protegidas)
+  - Rewrite /v1/{ruta} -> /api/v1/{ruta} excluyendo /health y /docs (preservando query params)
+  - Caché deshabilitada por defecto (Cache-Control: no-store)
 -->
 <policies>
     <inbound>
         <base />
 
-        <!-- 1. Inyección o conservación de X-Correlation-Id -->
-        <set-header name="X-Correlation-Id" exists-action="skip">
-            <value>@(Guid.NewGuid().ToString())</value>
+        <!-- 1. Trazabilidad: conservar o generar X-Correlation-Id y sincronizar alias X-Request-Id -->
+        <set-variable name="correlationId" value='@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", context.Request.Headers.GetValueOrDefault("X-Request-Id", Guid.NewGuid().ToString())))' />
+        <set-header name="X-Correlation-Id" exists-action="override">
+            <value>@((string)context.Variables["correlationId"])</value>
+        </set-header>
+        <set-header name="X-Request-Id" exists-action="override">
+            <value>@((string)context.Variables["correlationId"])</value>
         </set-header>
 
         <!-- 2. Configuración de CORS hacia Vercel y desarrollo local -->
@@ -35,17 +41,17 @@
             </allowed-headers>
             <expose-headers>
                 <header>X-Correlation-Id</header>
+                <header>X-Request-Id</header>
                 <header>Retry-After</header>
             </expose-headers>
         </cors>
 
         <!-- 3. Rate Limiting (Plan Consumption): Máximo 60 llamadas por minuto por suscripción (HTTP 429) -->
-        <!-- Nota: Aplicar a nivel de API (no en All APIs), requiere Subscription Key -->
         <rate-limit calls="60" renewal-period="60" retry-after-header-name="Retry-After" />
 
         <!-- 4. Validación de Token JWT (G7 Auth Service) en rutas protegidas -->
         <choose>
-            <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger -->
+            <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger, preflight -->
             <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") || 
                                context.Request.OriginalUrl.Path.ToLower().Contains("/docs") || 
                                context.Request.OriginalUrl.Path.ToLower().Contains("/catalog") || 
@@ -62,6 +68,13 @@
                 </validate-jwt>
             </otherwise>
         </choose>
+
+        <!-- 5. Rewrite /v1/{ruta} -> /api/v1/{ruta} para rutas de negocio (excluye /health, /docs y /api/*) -->
+        <choose>
+            <when condition='@(!context.Request.Url.Path.ToLower().StartsWith("/health") &amp;&amp; !context.Request.Url.Path.ToLower().StartsWith("/docs") &amp;&amp; !context.Request.Url.Path.ToLower().StartsWith("/api/"))'>
+                <rewrite-uri template='@("/api/v1" + context.Request.Url.Path)' copy-unmatched-params="true" />
+            </when>
+        </choose>
     </inbound>
 
     <backend>
@@ -70,16 +83,25 @@
 
     <outbound>
         <base />
-        <!-- Reenviar X-Correlation-Id al cliente en la respuesta -->
+        <!-- Reflejar el mismo UUID en X-Correlation-Id y X-Request-Id + no-store -->
         <set-header name="X-Correlation-Id" exists-action="override">
-            <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", Guid.NewGuid().ToString()))</value>
+            <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
+        </set-header>
+        <set-header name="X-Request-Id" exists-action="override">
+            <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
+        </set-header>
+        <set-header name="Cache-Control" exists-action="skip">
+            <value>no-store</value>
         </set-header>
     </outbound>
 
     <on-error>
         <base />
         <set-header name="X-Correlation-Id" exists-action="override">
-            <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", Guid.NewGuid().ToString()))</value>
+            <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
+        </set-header>
+        <set-header name="X-Request-Id" exists-action="override">
+            <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
         </set-header>
     </on-error>
 </policies>
