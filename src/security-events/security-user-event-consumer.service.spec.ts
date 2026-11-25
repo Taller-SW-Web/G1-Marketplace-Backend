@@ -83,8 +83,8 @@ describe('SecurityUserEventConsumerService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     service = new SecurityUserEventConsumerService(
-    new ConfigService({
-      SECURITY_EVENTS_ENABLED: false,
+      new ConfigService({
+        SECURITY_EVENTS_ENABLED: false,
         SECURITY_EVENTS_MAX_RETRIES: 3,
         SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
         SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
