@@ -37,6 +37,7 @@ function makeMessage(
 function makeChannel(confirmError?: Error) {
   return {
     ack: jest.fn(),
+    nack: jest.fn(),
     assertExchange: jest.fn().mockResolvedValue({}),
     assertQueue: jest.fn().mockResolvedValue({ queue: 'queue' }),
     bindQueue: jest.fn().mockResolvedValue({}),
@@ -48,6 +49,7 @@ function makeChannel(confirmError?: Error) {
     sendToQueue: jest.fn((_queue, _content, _options, confirm) => confirm?.(confirmError, {})),
   } as unknown as ConfirmChannel & {
     ack: jest.Mock;
+    nack: jest.Mock;
     assertExchange: jest.Mock;
     assertQueue: jest.Mock;
     bindQueue: jest.Mock;
@@ -81,9 +83,8 @@ describe('SecurityUserEventConsumerService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     service = new SecurityUserEventConsumerService(
-      new ConfigService({
-        SECURITY_EVENTS_ENABLED: false,
-        SECURITY_EVENTS_DLQ_QUEUE: 'marketplace.usuarios.dlq',
+    new ConfigService({
+      SECURITY_EVENTS_ENABLED: false,
         SECURITY_EVENTS_MAX_RETRIES: 3,
         SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
         SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
@@ -108,7 +109,6 @@ describe('SecurityUserEventConsumerService', () => {
     service = new SecurityUserEventConsumerService(
       new ConfigService({
         SECURITY_EVENTS_ENABLED: true,
-        SECURITY_EVENTS_DLQ_QUEUE: 'marketplace.usuarios.dlq',
         SECURITY_EVENTS_MAX_RETRIES: 3,
         SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
         SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
@@ -121,7 +121,13 @@ describe('SecurityUserEventConsumerService', () => {
     await service.onModuleInit();
     expect(connect).toHaveBeenCalledWith(expect.stringContaining('heartbeat=30'));
     expect(channel.assertExchange).toHaveBeenCalledWith('seguridad.usuarios', 'topic', { durable: true });
-    expect(channel.assertQueue).toHaveBeenCalledWith('marketplace.usuarios', { durable: true });
+    expect(channel.assertQueue).toHaveBeenCalledWith('marketplace.usuarios', {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': 'seguridad.usuarios.dlx',
+        'x-dead-letter-routing-key': 'descartado',
+      },
+    });
     expect(channel.bindQueue).toHaveBeenCalledWith('marketplace.usuarios', 'seguridad.usuarios', 'usuario.*');
     expect(channel.prefetch).toHaveBeenCalledWith(2);
     expect(channel.consume).toHaveBeenCalledWith('marketplace.usuarios', expect.any(Function), { noAck: false });
@@ -157,47 +163,33 @@ describe('SecurityUserEventConsumerService', () => {
     expect(channel.ack).toHaveBeenCalledWith(message);
   });
 
-  it('publishes an invalid schema message to the DLQ before acknowledging it', async () => {
+  it('rejects an invalid schema message for broker-side DLX routing', async () => {
     const channel = makeChannel();
     const message = makeMessage({ ...EVENT, version: 2 });
 
     await handleMessage(channel, message);
 
-    expect(channel.sendToQueue).toHaveBeenCalledWith(
-      'marketplace.usuarios.dlq',
-      message.content,
-      expect.objectContaining({
-        persistent: true,
-        headers: expect.objectContaining({ 'x-marketplace-dead-letter-reason': 'unsupported_schema_version' }),
-      }),
-      expect.any(Function),
-    );
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(channel.sendToQueue).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
   });
 
-  it('sends an event identity conflict directly to the DLQ', async () => {
+  it('rejects an event identity conflict for broker-side DLX routing', async () => {
     record.mockRejectedValue(new SecurityUserEventIdentityConflictError());
     const channel = makeChannel();
     const message = makeMessage();
 
     await handleMessage(channel, message);
 
-    expect(channel.sendToQueue).toHaveBeenCalledTimes(1);
-    expect(channel.sendToQueue).toHaveBeenCalledWith(
-      'marketplace.usuarios.dlq',
-      message.content,
-      expect.objectContaining({
-        persistent: true,
-        headers: expect.objectContaining({ 'x-marketplace-dead-letter-reason': 'event_id_payload_conflict' }),
-      }),
-      expect.any(Function),
-    );
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(channel.sendToQueue).not.toHaveBeenCalled();
   });
 
-  it('does not acknowledge if DLQ publication is not confirmed', async () => {
-    const channel = makeChannel(new Error('confirm failed'));
+  it('forces broker redelivery if DLX rejection fails on a closed channel', async () => {
+    const channel = makeChannel();
+    channel.nack.mockImplementation(() => { throw new Error('channel closed'); });
     const message = makeMessage({ ...EVENT, version: 2 });
 
     await handleMessage(channel, message);
@@ -245,22 +237,16 @@ describe('SecurityUserEventConsumerService', () => {
       });
   });
 
-  it('sends a transient failure to the DLQ after the configured retries are exhausted', async () => {
+  it('rejects a transient failure through the configured DLX after the retries are exhausted', async () => {
     record.mockRejectedValue(new Error('database unavailable'));
     const channel = makeChannel();
     const message = makeMessage(EVENT, { 'x-marketplace-retry-count': 3 });
 
     await handleMessage(channel, message);
 
-    expect(channel.sendToQueue).toHaveBeenCalledWith(
-      'marketplace.usuarios.dlq',
-      message.content,
-      expect.objectContaining({
-        headers: expect.objectContaining({ 'x-marketplace-dead-letter-reason': 'retry_exhausted' }),
-      }),
-      expect.any(Function),
-    );
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(channel.sendToQueue).not.toHaveBeenCalled();
   });
 
   it('does not acknowledge the source if retry publication is not confirmed', async () => {
@@ -273,14 +259,10 @@ describe('SecurityUserEventConsumerService', () => {
     expect(channel.close).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['retry', 'DLQ'] as const)(
-    'waits for %s publisher confirmation before acknowledging the source',
-    async (destination) => {
-      if (destination === 'retry') record.mockRejectedValue(new Error('database unavailable'));
+  it('waits for retry publisher confirmation before acknowledging the source', async () => {
+      record.mockRejectedValue(new Error('database unavailable'));
       const channel = makeChannel();
-      const message = destination === 'retry'
-        ? makeMessage()
-        : makeMessage({ ...EVENT, version: 2 });
+      const message = makeMessage();
       let confirmPublish: ((error: Error | null) => void) | undefined;
       let notifyPublishStarted!: () => void;
       const publishStarted = new Promise<void>((resolve) => { notifyPublishStarted = resolve; });
@@ -297,7 +279,7 @@ describe('SecurityUserEventConsumerService', () => {
       await publishStarted;
 
       expect(channel.sendToQueue).toHaveBeenCalledWith(
-        destination === 'retry' ? 'marketplace.usuarios.retry.1.usuario_creado' : 'marketplace.usuarios.dlq',
+        'marketplace.usuarios.retry.1.usuario_creado',
         message.content,
         expect.objectContaining({ persistent: true }),
         expect.any(Function),
@@ -309,6 +291,37 @@ describe('SecurityUserEventConsumerService', () => {
       await handling;
 
       expect(channel.ack).toHaveBeenCalledWith(message);
-    },
-  );
+  });
+
+  it('closes a stale connection and schedules reconnection when only the channel closes', async () => {
+    jest.useFakeTimers();
+    const channel = makeChannel();
+    const connection = makeConnection(channel);
+    connect.mockResolvedValue(connection);
+    service = new SecurityUserEventConsumerService(
+      new ConfigService({
+        SECURITY_EVENTS_ENABLED: true,
+        SECURITY_EVENTS_MAX_RETRIES: 3,
+        SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
+        SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
+        SECURITY_EVENTS_PREFETCH: 1,
+        RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
+      }),
+      inbox,
+    );
+    await service.onModuleInit();
+    const closeListener = (channel.on as jest.Mock).mock.calls
+      .find(([event]) => event === 'close')?.[1] as (() => void) | undefined;
+
+    expect(closeListener).toBeDefined();
+    closeListener?.();
+    expect(connection.close).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(connect).toHaveBeenCalledTimes(2);
+
+    await service.onModuleDestroy();
+    expect(jest.getTimerCount()).toBe(0);
+    jest.useRealTimers();
+  });
 });

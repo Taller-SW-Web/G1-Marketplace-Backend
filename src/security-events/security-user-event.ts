@@ -4,6 +4,8 @@ export const SECURITY_USER_EVENTS_EXCHANGE = 'seguridad.usuarios';
 export const SECURITY_USER_EVENTS_EXCHANGE_TYPE = 'topic';
 export const SECURITY_USER_EVENTS_QUEUE = 'marketplace.usuarios';
 export const SECURITY_USER_EVENTS_BINDING = 'usuario.*';
+export const SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE = 'seguridad.usuarios.dlx';
+export const SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY = 'descartado';
 
 export const SECURITY_USER_EVENT_TYPES = [
   'usuario.creado',

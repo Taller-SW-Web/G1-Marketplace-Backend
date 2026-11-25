@@ -47,10 +47,6 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (!Number.isInteger(securityEventsPrefetch) || securityEventsPrefetch < 1 || securityEventsPrefetch > 100) {
     throw new Error('SECURITY_EVENTS_PREFETCH must be an integer between 1 and 100');
   }
-  const securityEventsDlqQueue = String(config.SECURITY_EVENTS_DLQ_QUEUE ?? 'marketplace.usuarios.dlq');
-  if (!/^[A-Za-z0-9._-]{1,200}$/.test(securityEventsDlqQueue)) {
-    throw new Error('SECURITY_EVENTS_DLQ_QUEUE must be a valid queue name');
-  }
   const securityEventsMaxRetries = Number(config.SECURITY_EVENTS_MAX_RETRIES ?? 3);
   const securityEventsBackoffBaseMs = Number(config.SECURITY_EVENTS_BACKOFF_BASE_MS ?? 1000);
   const securityEventsBackoffMaxMs = Number(config.SECURITY_EVENTS_BACKOFF_MAX_MS ?? 30000);
@@ -80,7 +76,6 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
       throw new Error('RABBITMQ_URL must use TLS (amqps) in production');
     }
     for (const name of [
-      'SECURITY_EVENTS_DLQ_QUEUE',
       'SECURITY_EVENTS_MAX_RETRIES',
       'SECURITY_EVENTS_BACKOFF_BASE_MS',
       'SECURITY_EVENTS_BACKOFF_MAX_MS',
@@ -146,7 +141,6 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
     SECURITY_EVENTS_ENABLED: securityEventsEnabled === 'true',
     SECURITY_EVENTS_PREFETCH: securityEventsPrefetch,
-    SECURITY_EVENTS_DLQ_QUEUE: securityEventsDlqQueue,
     SECURITY_EVENTS_MAX_RETRIES: securityEventsMaxRetries,
     SECURITY_EVENTS_BACKOFF_BASE_MS: securityEventsBackoffBaseMs,
     SECURITY_EVENTS_BACKOFF_MAX_MS: securityEventsBackoffMaxMs,

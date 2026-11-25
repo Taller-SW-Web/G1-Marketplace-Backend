@@ -15,6 +15,8 @@ import { SecurityUserEventIdentityConflictError, SecurityUserEventInboxService }
 import {
   parseSecurityUserEvent,
   SECURITY_USER_EVENTS_BINDING,
+  SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+  SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
   SECURITY_USER_EVENTS_EXCHANGE,
   SECURITY_USER_EVENTS_EXCHANGE_TYPE,
   SECURITY_USER_EVENTS_QUEUE,
@@ -37,7 +39,6 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   private readonly logger = new Logger(SecurityUserEventConsumerService.name);
   private readonly enabled: boolean;
   private readonly rabbitUrl: string;
-  private readonly dlqQueue: string;
   private readonly prefetch: number;
   private readonly retrySettings: SecurityUserEventRetrySettings;
   private connection?: ChannelModel;
@@ -54,7 +55,6 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   ) {
     this.enabled = this.config.get<boolean>('SECURITY_EVENTS_ENABLED', false);
     this.rabbitUrl = this.config.get<string>('RABBITMQ_URL', '');
-    this.dlqQueue = this.config.get<string>('SECURITY_EVENTS_DLQ_QUEUE', 'marketplace.usuarios.dlq');
     this.prefetch = this.config.get<number>('SECURITY_EVENTS_PREFETCH', 1);
     this.retrySettings = {
       maxRetries: this.config.get<number>('SECURITY_EVENTS_MAX_RETRIES', 3),
@@ -106,9 +106,14 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       await channel.assertExchange(SECURITY_USER_EVENTS_EXCHANGE, SECURITY_USER_EVENTS_EXCHANGE_TYPE, {
         durable: true,
       });
-      await channel.assertQueue(SECURITY_USER_EVENTS_QUEUE, { durable: true });
+      await channel.assertQueue(SECURITY_USER_EVENTS_QUEUE, {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+          'x-dead-letter-routing-key': SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
+        },
+      });
       await channel.bindQueue(SECURITY_USER_EVENTS_QUEUE, SECURITY_USER_EVENTS_EXCHANGE, SECURITY_USER_EVENTS_BINDING);
-      await channel.assertQueue(this.dlqQueue, { durable: true });
       await this.assertRetryQueues(channel);
       await channel.prefetch(this.prefetch);
 
@@ -120,7 +125,13 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       });
       channel.on('error', () => this.logger.warn('RabbitMQ channel error; details omitted'));
       channel.on('close', () => {
-        if (this.channel === channel) this.scheduleReconnect();
+        if (this.channel !== channel) return;
+        const activeConnection = this.connection;
+        this.channel = undefined;
+        this.connection = undefined;
+        this.consumerTag = undefined;
+        void activeConnection?.close().catch(() => undefined);
+        this.scheduleReconnect();
       });
 
       const consumer = await channel.consume(
@@ -216,9 +227,7 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     try {
       const retryCount = readSecurityUserEventRetryCount(message.properties.headers, this.retrySettings.maxRetries);
       if (retryCount >= this.retrySettings.maxRetries) {
-        await this.publishToDlq(channel, message, 'retry_exhausted');
-        channel.ack(message);
-        this.logger.warn('Moved exhausted security event to DLQ');
+        await this.moveToDlqOrRedeliver(channel, message, 'retry_exhausted');
         return;
       }
 
@@ -233,18 +242,18 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
         await this.moveToDlqOrRedeliver(channel, message, error.message);
         return;
       }
-      this.logger.error('Could not confirm retry/DLQ publication; forcing broker redelivery');
+      this.logger.error('Could not confirm retry publication; forcing broker redelivery');
       await this.forceRedelivery(channel);
     }
   }
 
   private async moveToDlqOrRedeliver(channel: ConfirmChannel, message: ConsumeMessage, reason: string): Promise<void> {
     try {
-      await this.publishToDlq(channel, message, reason);
-      channel.ack(message);
-      this.logger.warn(`Moved security event to DLQ (${reason})`);
+      // The source queue's configured DLX routes rejected messages to seguridad.usuarios.dlq.
+      channel.nack(message, false, false);
+      this.logger.warn(`Rejected security event for dead-letter routing (${reason})`);
     } catch {
-      this.logger.error('Could not confirm DLQ publication; forcing broker redelivery');
+      this.logger.error('Could not reject security event; forcing broker redelivery');
       await this.forceRedelivery(channel);
     }
   }
@@ -263,24 +272,6 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     };
     await new Promise<void>((resolve, reject) => {
       channel.sendToQueue(queue, message.content, {
-        persistent: true,
-        contentType: message.properties.contentType ?? 'application/json',
-        contentEncoding: message.properties.contentEncoding,
-        correlationId: message.properties.correlationId,
-        messageId: message.properties.messageId,
-        headers,
-      }, (error) => error ? reject(error) : resolve());
-    });
-  }
-
-  private async publishToDlq(channel: ConfirmChannel, message: ConsumeMessage, reason: string): Promise<void> {
-    const headers = {
-      ...(message.properties.headers ?? {}),
-      'x-marketplace-dead-letter-reason': reason,
-      'x-marketplace-original-routing-key': message.fields.routingKey,
-    };
-    await new Promise<void>((resolve, reject) => {
-      channel.sendToQueue(this.dlqQueue, message.content, {
         persistent: true,
         contentType: message.properties.contentType ?? 'application/json',
         contentEncoding: message.properties.contentEncoding,
