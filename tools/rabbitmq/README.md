@@ -45,7 +45,7 @@ El setup solo declara exchanges, colas y bindings en el vhost existente. Usa `x-
 
 ## Evidencia de prueba
 
-El emisor admite `usuario.creado` (por defecto), `usuario.bloqueado` y `usuario.roles_cambiados`. Genera UUID sintéticos, exige `routed:true` y marca la salida como **MOCK**. El lector inspecciona ambas colas con `ack_requeue_true` (5 mensajes por omisión, máximo 10 por cola). Puede cambiar el orden visible o marcar una reentrega. Usarlo con el consumidor detenido. Solo imprime tipo, versión e ID del evento reconocido.
+El emisor admite `usuario.creado` (por defecto), `usuario.bloqueado` y `usuario.roles_cambiados`. Genera UUID sintéticos y exige `routed:true`. Publicación y lectura indican `modo`: **REAL** con el transporte de red por HTTPS fuera de loopback y **MOCK** con un doble en memoria o un destino loopback. La etiqueta describe el transporte al broker; el evento sigue siendo sintético y no demuestra publicación desde G7. El lector inspecciona ambas colas con `ack_requeue_true` (5 mensajes por omisión, máximo 10 por cola). Puede cambiar el orden visible o marcar una reentrega. Usarlo con el consumidor detenido. Solo imprime tipo, versión e ID del evento reconocido.
 
 Pruebas **MOCK** con transporte en memoria:
 

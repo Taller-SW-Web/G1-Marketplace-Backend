@@ -93,6 +93,7 @@ test('MOCK · inspecciona las dos colas con reencolado y sin volcar cuerpos', as
     { payload_encoding: 'string', payload: 'no-imprimir tampoco' },
   ]));
   const out = await peekQueues(client, 2);
+  assert.deepEqual(out.map(({ modo }) => modo), ['MOCK', 'MOCK']);
   assert.deepEqual(calls.map((call) => call.path), [
     '/api/queues/h5%2Fpruebas/marketplace.usuarios/get',
     '/api/queues/h5%2Fpruebas/seguridad.usuarios.dlq/get',
@@ -167,4 +168,20 @@ test('MOCK · modo inválido se rechaza antes de hacer peticiones', async () => 
   const { client, calls } = fake();
   await assert.rejects(setupBroker(client, { ...env, RABBITMQ_MODO: 'unusuario' }), /RABBITMQ_MODO/);
   assert.equal(calls.length, 0);
+});
+
+test('clasifica por destino y por transporte sin abrir conexiones', () => {
+  assert.equal(managementClient(env).modo, 'REAL');
+  for (const url of ['http://localhost:15672', 'https://127.0.0.2:15671', 'https://[::1]:15671']) {
+    assert.equal(managementClient({ ...env, RABBITMQ_MANAGEMENT_URL: url }).modo, 'MOCK');
+  }
+  assert.equal(fake().client.modo, 'MOCK');
+});
+
+test('publicación y ambas colas conservan la etiqueta REAL de un destino HTTPS', async () => {
+  const replies = [{ routed: true }, [], []];
+  // Construir la configuración de red y sustituir las llamadas antes de ejecutarlas.
+  const client = { ...managementClient(env), call: async () => replies.shift() };
+  assert.equal((await publishTestEvent(client)).modo, 'REAL');
+  assert.deepEqual((await peekQueues(client)).map(({ modo }) => modo), ['REAL', 'REAL']);
 });

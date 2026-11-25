@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isIPv4 } from 'node:net';
 
 const exchange = 'seguridad.usuarios';
 const queue = 'marketplace.usuarios';
@@ -27,14 +28,18 @@ function requireEnv(env, name) {
   return env[name];
 }
 
-export function managementClient(env, request = fetch) {
+export function managementClient(env, request) {
   let base;
   try { base = new URL(requireEnv(env, 'RABBITMQ_MANAGEMENT_URL')); }
   catch (error) {
     if (error instanceof BrokerError) throw error;
     throw new BrokerError('RABBITMQ_MANAGEMENT_URL no es válida.');
   }
-  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
+  const host = base.hostname;
+  const loopback = host === 'localhost' || host === '[::1]' ||
+    (isIPv4(host) && host.startsWith('127.'));
+  const modo = loopback || request !== undefined ? 'MOCK' : 'REAL';
+  const transport = request === undefined ? fetch : request;
   if (base.username || base.password || base.search || base.hash ||
       !['/', '/api', '/api/'].includes(base.pathname) ||
       (base.protocol !== 'https:' && !(loopback && base.protocol === 'http:'))) {
@@ -51,7 +56,7 @@ export function managementClient(env, request = fetch) {
     const path = '/api/' + parts.map(encodeURIComponent).join('/');
     let response;
     try {
-      response = await request(base.origin + path, {
+      response = await transport(base.origin + path, {
         method, headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(10_000),
       });
@@ -66,7 +71,7 @@ export function managementClient(env, request = fetch) {
       throw new BrokerError(operation + ': respuesta JSON inválida.');
     }
   }
-  return { call, vhost };
+  return { call, vhost, modo };
 }
 
 async function configureAccounts(call, vhost, env) {
@@ -119,7 +124,7 @@ export async function setupBroker({ call, vhost }, env) {
     { routing_key: 'usuario.*', arguments: {} }, 'Vincular cola G1');
 }
 
-export async function publishTestEvent({ call, vhost }, type = 'usuario.creado') {
+export async function publishTestEvent({ call, vhost, modo }, type = 'usuario.creado') {
   const makeData = eventData.get(type);
   if (!makeData) throw new BrokerError('Tipo de evento de prueba no admitido.');
   const event = {
@@ -131,10 +136,10 @@ export async function publishTestEvent({ call, vhost }, type = 'usuario.creado')
     routing_key: event.tipo, payload: JSON.stringify(event), payload_encoding: 'string',
   }, 'Publicar evento de prueba', true);
   if (result?.routed !== true) throw new BrokerError('Broker sin ruta confirmada para el evento de prueba.');
-  return { modo: 'MOCK', eventoId: event.eventoId, tipo: event.tipo, routed: true };
+  return { modo, eventoId: event.eventoId, tipo: event.tipo, routed: true };
 }
 
-export async function peekQueues({ call, vhost }, count = 5) {
+export async function peekQueues({ call, vhost, modo }, count = 5) {
   if (!Number.isInteger(count) || count < 1 || count > 10) {
     throw new BrokerError('El número de mensajes por cola debe estar entre 1 y 10.');
   }
@@ -144,6 +149,7 @@ export async function peekQueues({ call, vhost }, count = 5) {
       { count, ackmode: 'ack_requeue_true', encoding: 'auto', truncate: 4096 }, 'Leer cola de pruebas', true);
     if (!Array.isArray(messages)) throw new BrokerError('Respuesta de cola inesperada.');
     summaries.push({
+      modo,
       cola: name,
       mensajes: messages.map((message) => {
         let event;
