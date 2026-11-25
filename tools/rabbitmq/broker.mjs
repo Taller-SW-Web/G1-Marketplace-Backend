@@ -9,6 +9,7 @@ const deadKey = 'descartado';
 const publisher = 'g7_publicador';
 const consumer = 'g1_consumidor';
 const never = '^$';
+const retryQueues = '^marketplace\\.usuarios\\.retry\\.(?:[1-9]|10)\\.usuario_(?:creado|desactivado|reactivado|bloqueado|desbloqueado|roles_cambiados|atributos_actualizados)$';
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const eventData = new Map([
@@ -90,7 +91,11 @@ async function configureAccounts(call, vhost, env) {
   await call('PUT', ['permissions', vhost, publisher],
     { configure: never, write: '^seguridad\\.usuarios$', read: never }, 'Asignar permisos G7');
   await call('PUT', ['permissions', vhost, consumer],
-    { configure: '^marketplace\\.usuarios$', write: never, read: '^marketplace\\.usuarios$' },
+    {
+      configure: '^(?:seguridad\\.usuarios|marketplace\\.usuarios|' + retryQueues.slice(1, -1) + ')$',
+      write: retryQueues,
+      read: '^(?:marketplace\\.usuarios|seguridad\\.usuarios)$',
+    },
     'Asignar permisos G1');
 }
 
@@ -112,14 +117,8 @@ export async function setupBroker({ call, vhost }, env) {
     { routing_key: deadKey, arguments: {} }, 'Vincular cola de descarte');
   await call('PUT', ['queues', vhost, queue], {
     ...durableQueue,
-    arguments: shared ? { 'x-dead-letter-exchange': deadExchange, 'x-dead-letter-routing-key': deadKey } : {},
+    arguments: { 'x-dead-letter-exchange': deadExchange, 'x-dead-letter-routing-key': deadKey },
   }, 'Declarar cola G1');
-  if (!shared) {
-    await call('PUT', ['policies', vhost, 'g1-marketplace-usuarios-dlx'], {
-      pattern: '^marketplace\\.usuarios$', 'apply-to': 'queues', priority: 10,
-      definition: { 'dead-letter-exchange': deadExchange, 'dead-letter-routing-key': deadKey },
-    }, 'Configurar política de descarte');
-  }
   await call('POST', ['bindings', vhost, 'e', exchange, 'q', queue],
     { routing_key: 'usuario.*', arguments: {} }, 'Vincular cola G1');
 }

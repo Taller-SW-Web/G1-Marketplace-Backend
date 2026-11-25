@@ -26,7 +26,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Falló la publicación de prueba' }
 node tools/rabbitmq/leer-cola.mjs 5
 ```
 
-El setup crea las dos cuentas sin tags, aplica permisos exactos y configura el descarte por política. Repetir con los mismos valores declara la misma topología; cambiar las contraseñas de integración las actualiza.
+El setup crea las dos cuentas sin tags y configura el DLX de la cola principal por argumentos. G1 puede leer el exchange de eventos y `marketplace.usuarios`, configurar el exchange y las colas principal/retry, y publicar solo a las colas retry; no tiene permiso de publicación a la cola principal, al exchange de eventos ni a la DLQ. Repetir con los mismos valores declara la misma topología; cambiar las contraseñas de integración las actualiza.
 
 ## Un usuario compartido
 
@@ -41,7 +41,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Falló la publicación de prueba' }
 node tools/rabbitmq/leer-cola.mjs 5
 ```
 
-El setup solo declara exchanges, colas y bindings en el vhost existente. Usa `x-dead-letter-exchange` y `x-dead-letter-routing-key` en `marketplace.usuarios`. No llama a las API de usuarios, vhosts, permisos ni políticas. Repetir el mismo modo declara los mismos recursos. Si la cola ya existe con argumentos incompatibles, detenerse y coordinar la resolución antes de cambiar de modo. Ante un 401/403, revisar la cuenta y los permisos antes de repetir.
+El setup solo declara exchanges, colas y bindings en el vhost existente. Usa `x-dead-letter-exchange=seguridad.usuarios.dlx` y `x-dead-letter-routing-key=descartado` en `marketplace.usuarios`, que se enruta a `seguridad.usuarios.dlq`. No llama a las API de usuarios, vhosts, permisos ni políticas. Repetir el mismo modo declara los mismos recursos. Si la cola ya existe con argumentos incompatibles, detenerse y coordinar la resolución antes de cambiar de modo. Ante un 401/403, revisar la cuenta y los permisos antes de repetir.
 
 ## Evidencia de prueba
 

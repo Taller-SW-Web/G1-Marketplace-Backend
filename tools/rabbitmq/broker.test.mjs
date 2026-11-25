@@ -28,7 +28,7 @@ test('MOCK · setup declara los mismos recursos y bindings al repetir', async ()
   await setupBroker(client, env);
   await setupBroker(client, env);
   const count = calls.length / 2;
-  assert.equal(count, 11);
+  assert.equal(count, 10);
   assert.deepEqual(calls.slice(0, count), calls.slice(count));
   const vhost = 'h5%2Fpruebas';
   const at = (path) => calls.find((call) => call.path === '/api/' + path);
@@ -37,14 +37,22 @@ test('MOCK · setup declara los mismos recursos y bindings al repetir', async ()
   assert.deepEqual(at('permissions/' + vhost + '/g7_publicador').body,
     { configure: '^$', write: '^seguridad\\.usuarios$', read: '^$' });
   assert.deepEqual(at('permissions/' + vhost + '/g1_consumidor').body,
-    { configure: '^marketplace\\.usuarios$', write: '^$', read: '^marketplace\\.usuarios$' });
+    {
+      configure: '^(?:seguridad\\.usuarios|marketplace\\.usuarios|marketplace\\.usuarios\\.retry\\.(?:[1-9]|10)\\.usuario_(?:creado|desactivado|reactivado|bloqueado|desbloqueado|roles_cambiados|atributos_actualizados))$',
+      write: '^marketplace\\.usuarios\\.retry\\.(?:[1-9]|10)\\.usuario_(?:creado|desactivado|reactivado|bloqueado|desbloqueado|roles_cambiados|atributos_actualizados)$',
+      read: '^(?:marketplace\\.usuarios|seguridad\\.usuarios)$',
+    });
   assert.equal(at('exchanges/' + vhost + '/seguridad.usuarios').body.type, 'topic');
-  assert.equal(at('queues/' + vhost + '/marketplace.usuarios').body.durable, true);
+  assert.deepEqual(at('queues/' + vhost + '/marketplace.usuarios').body, {
+    durable: true,
+    auto_delete: false,
+    arguments: {
+      'x-dead-letter-exchange': 'seguridad.usuarios.dlx',
+      'x-dead-letter-routing-key': 'descartado',
+    },
+  });
   assert.equal(at('exchanges/' + vhost + '/seguridad.usuarios.dlx').body.type, 'direct');
   assert.equal(at('queues/' + vhost + '/seguridad.usuarios.dlq').body.durable, true);
-  assert.deepEqual(at('policies/' + vhost + '/g1-marketplace-usuarios-dlx').body.definition, {
-    'dead-letter-exchange': 'seguridad.usuarios.dlx', 'dead-letter-routing-key': 'descartado',
-  });
   assert.equal(at('bindings/' + vhost + '/e/seguridad.usuarios.dlx/q/seguridad.usuarios.dlq').body.routing_key, 'descartado');
   const binding = at('bindings/' + vhost + '/e/seguridad.usuarios/q/marketplace.usuarios');
   assert.equal(binding.method, 'POST');
