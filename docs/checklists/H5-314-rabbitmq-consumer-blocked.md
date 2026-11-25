@@ -1,13 +1,14 @@
-# H5 ASYNC-002 — consumidor de eventos de Seguridad
+# H5-314 — consumidor de eventos de Seguridad
 
-**Estado: implementación local en curso.** La revisión que marcó #314 como bloqueado queda supersedida por la decisión del responsable de coordinación: G1 administrará el broker de pruebas y construirá el consumidor. Este documento no afirma conexión ni integración REAL.
+**Estado: implementación local; integración REAL pendiente.** G1 administrará el broker de pruebas y construirá el consumidor. Este documento no afirma conexión ni integración REAL.
 
 ## Contrato y topología usados para el primer corte
 
-- Issue [#314](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314): consumir y registrar eventos de Seguridad desde `marketplace.usuarios`.
+- Issue [#314](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314): consumir, validar y registrar eventos de Seguridad desde `marketplace.usuarios`.
+- El alcance de #314 termina en consumo, validación y registro idempotente. Las reacciones de dominio (invalidar acceso y purgar carrito/favoritos) pertenecen a la issue separada [#316](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/316); este consumer no afirma implementarlas ni cerrar esa issue.
 - Topología indicada para el broker de G1: exchange topic durable `seguridad.usuarios`, cola durable `marketplace.usuarios`, binding `usuario.*` y cola de descarte. El código declara/asegura exchange, cola y binding al iniciar; `SECURITY_EVENTS_ENABLED` permanece desactivado por defecto.
 - La última referencia publicada de Seguridad describe el sobre v1 con `eventoId`, `tipo`, `version`, `fecha`, `usuarioId` y `datos`; se validan los siete tipos publicados y se ignoran tipos desconocidos después de validar el sobre común.
-- **Discrepancia por resolver en SPECS:** el mensaje de coordinación usa `eventId`, mientras el issue #315 y el catálogo de Seguridad usan `eventoId`. El código actual lee `eventoId` en el wire y lo normaliza internamente como `eventId`; el contrato G1 aceptado deberá fijar el nombre definitivo antes de la prueba REAL.
+- **Discrepancias por resolver en SPECS:** el mensaje de coordinación usa `eventId`, mientras el issue #315 y el catálogo de Seguridad usan `eventoId`; además, #316 menciona `eliminado` y el catálogo publicado `desactivado`. El código lee `eventoId` y reconoce `usuario.desactivado` según el catálogo; no mapea `desactivado` a una baja irreversible ni ejecuta efectos de dominio sin acuerdo explícito.
 - La tabla `security_user_event_inbox` guarda solo identificador, tipo, versión, fingerprint SHA-256 y fecha de recepción; no persiste el payload ni `usuarioId`. La PK evita registrar dos veces el mismo identificador y un mismo ID con contenido distinto se trata como conflicto.
 
 ## Implementación local
