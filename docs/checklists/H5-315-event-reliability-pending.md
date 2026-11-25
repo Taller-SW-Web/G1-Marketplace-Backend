@@ -1,37 +1,24 @@
-# H5-315 — confiabilidad de eventos: decisiones pendientes
+# H5-315 — confiabilidad del consumidor de eventos
 
-**Estado:** bloqueado hasta disponer del contrato publicado. **Alcance de esta nota:** preparación local; no implementa ni habilita un consumer.
+**Estado: implementación local en curso.** #315 cubre la extensión de confiabilidad del consumidor de #314. La evidencia REAL requiere el broker autorizado y un evento del publisher de Seguridad; no se conectó ni se desplegó en este corte.
 
-## Fuentes y límite
+## Comportamiento implementado
 
-El alcance asignado a #315 es idempotencia por `eventoId`, reintentos con backoff y DLQ; su criterio de aceptación pide no procesar dos veces un duplicado y enviar un evento fallido a DLQ tras agotar reintentos. La dependencia #313 sigue abierta y no existe un acuerdo público. Estos requisitos delimitan el objetivo, pero no fijan por sí solos las decisiones operativas de implementación.
+- Inbox durable en PostgreSQL (tabla introducida por #314) con unicidad por ID de evento. Un duplicado de mismo ID y mismo fingerprint se confirma sin procesarlo otra vez; el mismo ID con tipo, versión o contenido distinto se envía a DLQ.
+- El consumidor usa ack manual. Sólo confirma el mensaje original después de confirmar la publicación persistente a una retry queue/DLQ o tras registrar/identificar el duplicado en la base.
+- Errores de validación/versión y conflicto de identidad son permanentes y van directamente a DLQ. Fallos al persistir se reintentan; al agotar el límite se envían a DLQ.
+- Las retry queues son durables y separadas por tipo y número de reintento. Cada una usa TTL y dead-letters de vuelta a `seguridad.usuarios` con la routing key original. El código declara las colas al habilitar el consumidor.
+- Configuración por entorno: `SECURITY_EVENTS_MAX_RETRIES`, `SECURITY_EVENTS_BACKOFF_BASE_MS`, `SECURITY_EVENTS_BACKOFF_MAX_MS` y `SECURITY_EVENTS_DLQ_QUEUE`. Valores iniciales locales: 3 reintentos, backoff exponencial 1 s / 2 s / 4 s y tope 30 s. Son configurables y deben coincidir con el acuerdo final publicado en SPECS antes de activar el entorno.
+- No se persiste el payload ni `usuarioId`; el inbox conserva sólo el ID, tipo, versión, fingerprint y fecha de recepción.
 
-Este checkout no contiene una copia del texto completo de #315 ni del acuerdo #313. La búsqueda de archivos versionados y del historial local tampoco encontró un contrato RabbitMQ/eventos. `package.json` no declara un cliente AMQP y `src/` no contiene un consumer de eventos. No se consultó GitHub ni ningún servicio externo desde el agente, ni se conectó a RabbitMQ. No se presume esquema o payload, almacenamiento/clave/retención de idempotencia, clasificación de errores, cantidad o intervalo de reintentos, backoff concreto ni destino/routing/TTL de DLQ. No hay una pieza pura deducible sin ambigüedad que justifique código o tests ejecutables ahora.
+## Validación local
 
-## Decisiones que debe fijar el contrato
+- `npm run test:unit`: 53 suites, 635/635 tests PASS; incluye backoff, límites de intentos, nombres/topología de retry queues, idempotencia y confirmación antes del ack.
+- `npm run typecheck`: PASS; `npm run build`: PASS; `prisma validate` con URL sintética: PASS.
+- Sin conexión RabbitMQ ni PostgreSQL; no se aplicó la migración. Estas pruebas no acreditan DLX/TTL real del broker.
 
-Antes de implementar estos tres puntos, una referencia publicada debe precisar, dentro del alcance de #315:
+## Pendiente para cierre REAL
 
-1. Idempotencia por `eventoId`: qué identifica un duplicado, durante cuánto tiempo se conserva el estado de deduplicación y cómo se relaciona con el efecto de negocio, incluidas las reentregas.
-2. Reintentos con backoff: qué fallos son reintentables, cómo se cuentan los intentos, cuál es el límite y qué intervalos/backoff se aplican.
-3. DLQ: en qué condición se envía el evento una vez agotados los reintentos y qué destino/routing requiere el contrato.
-
-La semántica de confirmación/entrega sólo se concreta en la medida necesaria para cumplir y verificar esos requisitos. Los detalles de esquema, validación, orden, concurrencia, shutdown, retención o replay no amplían por sí mismos el alcance de #315: se consideran únicamente si el contrato publicado los requiere explícitamente para estos tres puntos. No completar decisiones con valores por defecto ni con convenciones de RabbitMQ.
-
-## Matriz local, condicionada al contrato
-
-No ejecutar estas comprobaciones hasta que el contrato esté publicado. Las aserciones y los valores parametrizados salen de ese contrato; esta tabla no define política.
-
-| Caso | Comprobación local con dobles | Condición contractual previa |
-| --- | --- | --- |
-| Duplicado por `eventoId` | Reentregar el mismo `eventoId` y comprobar que no se aplica dos veces el efecto de negocio. Incluir concurrencia sólo si el contrato la contempla para esta garantía. | Identidad, garantía y ciclo de vida del estado de deduplicación; semántica de reentrega/confirmación cuando aplique. |
-| Backoff/reintento | Inyectar un fallo que el contrato clasifique como reintentable y comprobar intentos y esperas. | Clasificación, límite de intentos y calendario/backoff. |
-| Agotamiento y DLQ | Provocar el fallo contractual hasta agotar los reintentos y comprobar el envío a DLQ. | Definición de agotamiento y destino/routing requerido. |
-
-La matriz usa dobles locales y no requiere RabbitMQ ni servicios externos. Cualquier prueba de broker queda fuera de esta nota y requiere autorización separada; no se asume como parte del contrato ni de #315.
-
-## Patrones locales revisados
-
-- Pruebas unitarias Jest con colaboradores simulados: `src/health/health.service.spec.ts`.
-- La evidencia local distingue pruebas con dobles de integración real y declara sus límites: `docs/evidencias/H4/checkout-f026-f027-local.md`.
-- No se añadió dependencia, configuración, migración ni código de integración.
+- Confirmar en G1 SPECS el campo de identidad (`eventId` en el mensaje de coordinación vs `eventoId` en el issue/catálogo publicado), número/intervalos de retry y nombre de DLQ. Los valores de código son configurables y no sustituyen el acuerdo.
+- Inyectar `RABBITMQ_URL` desde el secret store, confirmar permisos para declarar retry queues y ejecutar los casos positivo, duplicado, fallo/reintento y agotamiento/DLQ con el publisher de prueba.
+- Aplicar la migración sólo mediante el despliegue autorizado a la base del entorno de prueba y adjuntar evidencia sanitizada; no marcar como integrada por estas pruebas locales.

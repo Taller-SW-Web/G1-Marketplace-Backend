@@ -51,6 +51,20 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (!/^[A-Za-z0-9._-]{1,200}$/.test(securityEventsDlqQueue)) {
     throw new Error('SECURITY_EVENTS_DLQ_QUEUE must be a valid queue name');
   }
+  const securityEventsMaxRetries = Number(config.SECURITY_EVENTS_MAX_RETRIES ?? 3);
+  const securityEventsBackoffBaseMs = Number(config.SECURITY_EVENTS_BACKOFF_BASE_MS ?? 1000);
+  const securityEventsBackoffMaxMs = Number(config.SECURITY_EVENTS_BACKOFF_MAX_MS ?? 30000);
+  if (!Number.isInteger(securityEventsMaxRetries) || securityEventsMaxRetries < 1 || securityEventsMaxRetries > 10) {
+    throw new Error('SECURITY_EVENTS_MAX_RETRIES must be an integer between 1 and 10');
+  }
+  if (!Number.isInteger(securityEventsBackoffBaseMs) || securityEventsBackoffBaseMs < 1
+    || securityEventsBackoffBaseMs > 300000) {
+    throw new Error('SECURITY_EVENTS_BACKOFF_BASE_MS must be an integer between 1 and 300000');
+  }
+  if (!Number.isInteger(securityEventsBackoffMaxMs) || securityEventsBackoffMaxMs < securityEventsBackoffBaseMs
+    || securityEventsBackoffMaxMs > 3600000) {
+    throw new Error('SECURITY_EVENTS_BACKOFF_MAX_MS must be an integer between the base delay and 3600000');
+  }
   if (securityEventsEnabled === 'true') {
     let rabbitUrl: URL;
     try {
@@ -64,6 +78,16 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     }
     if (nodeEnv === 'production' && rabbitUrl.protocol !== 'amqps:') {
       throw new Error('RABBITMQ_URL must use TLS (amqps) in production');
+    }
+    for (const name of [
+      'SECURITY_EVENTS_DLQ_QUEUE',
+      'SECURITY_EVENTS_MAX_RETRIES',
+      'SECURITY_EVENTS_BACKOFF_BASE_MS',
+      'SECURITY_EVENTS_BACKOFF_MAX_MS',
+    ]) {
+      if (config[name] === undefined || String(config[name]).trim() === '') {
+        throw new Error(`${name} must be explicitly configured when SECURITY_EVENTS_ENABLED=true`);
+      }
     }
   }
   const authEnabled = String(config.AUTH_ENABLED ?? 'false');
@@ -123,6 +147,9 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     SECURITY_EVENTS_ENABLED: securityEventsEnabled === 'true',
     SECURITY_EVENTS_PREFETCH: securityEventsPrefetch,
     SECURITY_EVENTS_DLQ_QUEUE: securityEventsDlqQueue,
+    SECURITY_EVENTS_MAX_RETRIES: securityEventsMaxRetries,
+    SECURITY_EVENTS_BACKOFF_BASE_MS: securityEventsBackoffBaseMs,
+    SECURITY_EVENTS_BACKOFF_MAX_MS: securityEventsBackoffMaxMs,
     ORDERS_SOURCE: ordersSource,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),

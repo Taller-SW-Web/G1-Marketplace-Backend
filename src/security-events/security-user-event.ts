@@ -39,7 +39,7 @@ export class SecurityUserEventValidationError extends Error {
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const EVENT_TYPE_PATTERN = /^usuario\.[a-z][a-z0-9_]*$/;
+const EVENT_TYPE_PATTERN = /^usuario\.[a-z][a-z0-9_]{0,80}$/;
 const UTC_MILLISECONDS_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const ROLE_PATTERN = /^[A-Z][A-Z0-9_]{0,49}$/;
 
