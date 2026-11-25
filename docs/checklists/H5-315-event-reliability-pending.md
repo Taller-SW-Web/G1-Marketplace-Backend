@@ -15,7 +15,7 @@
 
 ## Validación local
 
-- `npm run test:unit`: 53 suites, 635/635 tests PASS; incluye backoff, límites de intentos, nombres/topología de retry queues, idempotencia y confirmación antes del ack.
+- `npm run test:unit`: 53 suites, 643/643 tests PASS; incluye backoff, límites de intentos, nombres/topología de retry queues, idempotencia y confirmación antes del ack.
 - `npm run typecheck`: PASS; `npm run build`: PASS; `prisma validate` con URL sintética: PASS.
 - Sin conexión RabbitMQ ni PostgreSQL; no se aplicó la migración. Estas pruebas no acreditan DLX/TTL real del broker.
 

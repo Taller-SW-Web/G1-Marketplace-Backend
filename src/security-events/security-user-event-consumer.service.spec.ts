@@ -1,7 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
 import { ChannelModel, ConfirmChannel, ConsumeMessage } from 'amqplib';
-import { SecurityUserEventInboxService } from './security-user-event-inbox.service';
+import {
+  SecurityUserEventIdentityConflictError,
+  SecurityUserEventInboxService,
+} from './security-user-event-inbox.service';
 import { SecurityUserEventConsumerService } from './security-user-event-consumer.service';
 
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
@@ -173,6 +176,26 @@ describe('SecurityUserEventConsumerService', () => {
     expect(record).not.toHaveBeenCalled();
   });
 
+  it('sends an event identity conflict directly to the DLQ', async () => {
+    record.mockRejectedValue(new SecurityUserEventIdentityConflictError());
+    const channel = makeChannel();
+    const message = makeMessage();
+
+    await handleMessage(channel, message);
+
+    expect(channel.sendToQueue).toHaveBeenCalledTimes(1);
+    expect(channel.sendToQueue).toHaveBeenCalledWith(
+      'marketplace.usuarios.dlq',
+      message.content,
+      expect.objectContaining({
+        persistent: true,
+        headers: expect.objectContaining({ 'x-marketplace-dead-letter-reason': 'event_id_payload_conflict' }),
+      }),
+      expect.any(Function),
+    );
+    expect(channel.ack).toHaveBeenCalledWith(message);
+  });
+
   it('does not acknowledge if DLQ publication is not confirmed', async () => {
     const channel = makeChannel(new Error('confirm failed'));
     const message = makeMessage({ ...EVENT, version: 2 });
@@ -249,4 +272,43 @@ describe('SecurityUserEventConsumerService', () => {
     expect(channel.ack).not.toHaveBeenCalled();
     expect(channel.close).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['retry', 'DLQ'] as const)(
+    'waits for %s publisher confirmation before acknowledging the source',
+    async (destination) => {
+      if (destination === 'retry') record.mockRejectedValue(new Error('database unavailable'));
+      const channel = makeChannel();
+      const message = destination === 'retry'
+        ? makeMessage()
+        : makeMessage({ ...EVENT, version: 2 });
+      let confirmPublish: ((error: Error | null) => void) | undefined;
+      let notifyPublishStarted!: () => void;
+      const publishStarted = new Promise<void>((resolve) => { notifyPublishStarted = resolve; });
+
+      (channel.sendToQueue as jest.Mock).mockImplementation(
+        (_queue: unknown, _content: unknown, _options: unknown, confirm: (error: Error | null) => void) => {
+          confirmPublish = confirm;
+          notifyPublishStarted();
+          return true;
+        },
+      );
+
+      const handling = handleMessage(channel, message);
+      await publishStarted;
+
+      expect(channel.sendToQueue).toHaveBeenCalledWith(
+        destination === 'retry' ? 'marketplace.usuarios.retry.1.usuario_creado' : 'marketplace.usuarios.dlq',
+        message.content,
+        expect.objectContaining({ persistent: true }),
+        expect.any(Function),
+      );
+      expect(channel.ack).not.toHaveBeenCalled();
+      if (!confirmPublish) throw new Error('publish confirmation callback was not captured');
+
+      confirmPublish(null);
+      await handling;
+
+      expect(channel.ack).toHaveBeenCalledWith(message);
+    },
+  );
 });
