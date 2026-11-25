@@ -145,8 +145,17 @@ export class CartService {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`cart:${owner}`}, 0))::text`;
   }
 
+  async getActiveItemQuantity(params: { customerId: string; sku: string }): Promise<number> {
+    const item = await this.prisma.cartItem.findFirst({
+      where: { sku: params.sku.trim(), cart: { customerId: params.customerId, state: CartState.ACTIVE } },
+      select: { quantity: true },
+    });
+    return item?.quantity ?? 0;
+  }
+
   async addItemInTransaction(tx: Prisma.TransactionClient, params: AddCartParams,
-    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>): Promise<AddItemResult> {
+    quote?: (sku: string, totalQuantity: number) => Promise<CommerceQuote>,
+    expectedTotalQuantity?: number): Promise<AddItemResult> {
     const { sessionHash, customerId, sku } = params;
     const quantity = params.quantity ?? 1;
 
@@ -179,6 +188,9 @@ export class CartService {
 
     let isCreated = false;
     const totalQuantity = (existingItem?.quantity ?? 0) + parsedQty;
+    if (expectedTotalQuantity !== undefined && totalQuantity !== expectedTotalQuantity) {
+      throw new ConflictException({ code: 'CART_CHANGED_RETRY', message: 'El carrito cambió; vuelve a intentarlo' });
+    }
     const commercial = quote ? await quote(sku.trim(), totalQuantity) : undefined;
     if (commercial && (!Number.isFinite(commercial.amount) || commercial.amount < 0
       || commercial.currency !== cart.currency || !Number.isSafeInteger(commercial.version) || commercial.version < 0)) {
