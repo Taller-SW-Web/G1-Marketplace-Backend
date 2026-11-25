@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
     "sandbox:fixtures": "ts-node scripts/wishlist-fixtures.ts",
+    "mail:demo": "ts-node scripts/demo-commercial-mail.ts",
     "docs:openapi": "ts-node scripts/openapi.ts",
     "docs:validate": "node scripts/validate-contracts.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
