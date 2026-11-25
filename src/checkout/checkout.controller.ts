@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -29,14 +30,17 @@ export class CheckoutController {
   constructor(private readonly checkout: CheckoutService) {}
 
   @Get('delivery-addresses')
+  @Header('Cache-Control', 'no-store, private')
   async listAddresses(@Req() request: AuthenticatedRequest) {
     const addresses = await this.checkout.listAddresses(
+      this.customerId(request),
       this.accessToken(request),
     );
     return { data: addresses };
   }
 
   @Post('delivery-addresses')
+  @Header('Cache-Control', 'no-store, private')
   async createAddress(
     @Req() request: AuthenticatedRequest,
     @Body() input: CreateDeliveryAddressDto,

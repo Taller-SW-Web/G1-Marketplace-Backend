@@ -136,7 +136,7 @@ describe('CheckoutService', () => {
       cartVersion: cart.version,
       lines: cart.items.map(({ sku, quantity }) => ({ sku, quantity })),
     });
-    expect(gateway.listAddresses).toHaveBeenCalledWith('valid-test-token');
+    expect(gateway.listAddresses).toHaveBeenCalledWith(customerId, 'valid-test-token');
     expect(quotes.get(customerId, 'Q-1')).toEqual(quote);
 
     await expect(
@@ -351,7 +351,7 @@ describe('CheckoutService', () => {
       phone: '999999999',
     });
 
-    expect(gateway.createAddress).toHaveBeenCalledWith('valid-test-token', expect.objectContaining({
+    expect(gateway.createAddress).toHaveBeenCalledWith(customerId, 'valid-test-token', expect.objectContaining({
       street: 'Av. Lima 456',
     }));
     expect(quotes.get(customerId, 'Q-1')).toBeUndefined();

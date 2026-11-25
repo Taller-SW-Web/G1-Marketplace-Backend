@@ -1,0 +1,144 @@
+{
+  "source_secret_scan_exit": 0,
+  "source_findings": [],
+  "source_files": 245,
+  "sast": {
+    "findings": 0,
+    "errors": 0,
+    "scanned_files": 130,
+    "rules": 4,
+    "scope": "src/scripts; reglas locales, sin certificación exhaustiva"
+  },
+  "sca_all": {
+    "counts": {
+      "info": 0,
+      "low": 3,
+      "moderate": 18,
+      "high": 0,
+      "critical": 0,
+      "total": 21
+    },
+    "findings": [
+      {
+        "package": "@jest/core",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "@jest/expect",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "@jest/globals",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "@jest/reporters",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "@jest/transform",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "@nestjs/cli",
+        "severity": "moderate",
+        "direct": true
+      },
+      {
+        "package": "babel-jest",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "babel-plugin-istanbul",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "deepmerge",
+        "severity": "low",
+        "direct": false
+      },
+      {
+        "package": "fork-ts-checker-webpack-plugin",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "glob",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest",
+        "severity": "low",
+        "direct": true
+      },
+      {
+        "package": "jest-circus",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest-cli",
+        "severity": "low",
+        "direct": false
+      },
+      {
+        "package": "jest-config",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest-resolve-dependencies",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest-runner",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest-runtime",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "jest-snapshot",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "minimatch",
+        "severity": "moderate",
+        "direct": false
+      },
+      {
+        "package": "test-exclude",
+        "severity": "moderate",
+        "direct": false
+      }
+    ]
+  },
+  "sca_runtime": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "findings": []
+  },
+  "artifact": {
+    "findings": 0,
+    "scope": "dist generado por build"
+  }
+}
