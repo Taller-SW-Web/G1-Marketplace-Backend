@@ -49,6 +49,6 @@ Remove-Item Env:TEST_DATABASE_URL
 docker compose -f docker-compose.h5-webhook-test.yml down
 ```
 
-El script rechaza cualquier host que no sea loopback y cualquier base cuyo nombre no sea exactamente `marketplace_h5_webhook_test`; no usarlo con una base compartida. La integración comprueba migración aplicada, duplicado 200/una fila, pedido desconocido persistido con 200 y 503/no fila ante fallo de escritura. Esta sesión no pudo iniciar Docker Desktop; queda pendiente la ejecución local y se añade el mismo caso a CI con PostgreSQL efímero.
+El script rechaza cualquier host que no sea loopback y cualquier base cuyo nombre no sea exactamente `marketplace_h5_webhook_test`; no usarlo con una base compartida. La integración comprueba migración aplicada, duplicado 200/una fila, pedido desconocido persistido con 200 y 503/no fila ante fallo de escritura. El job de CI [45553497971](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45553497971) pasó esos tres casos sobre PostgreSQL 16 efímero. La ejecución local queda pendiente: Docker Desktop no estaba activo en este entorno.
 
 Refs: #319
