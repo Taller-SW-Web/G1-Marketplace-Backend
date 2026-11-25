@@ -11,13 +11,13 @@ const env = {
   RABBITMQ_G1_CONSUMER_PASSWORD: 'valor-mock-g1',
 };
 
-function fake(reply = () => new Response(null, { status: 204 })) {
+function fake(reply = () => new Response(null, { status: 204 }), settings = env) {
   const calls = [];
-  const client = managementClient(env, async (url, opts) => {
+  const client = managementClient(settings, async (url, opts) => {
     calls.push({ path: new URL(url).pathname, method: opts.method, body: JSON.parse(opts.body) });
     assert.equal(opts.redirect, 'error');
     assert.equal(opts.headers.Authorization,
-      'Basic ' + Buffer.from(env.RABBITMQ_ADMIN_USER + ':' + env.RABBITMQ_ADMIN_PASSWORD).toString('base64'));
+      'Basic ' + Buffer.from(settings.RABBITMQ_ADMIN_USER + ':' + settings.RABBITMQ_ADMIN_PASSWORD).toString('base64'));
     return reply();
   });
   return { calls, client };
@@ -110,4 +110,61 @@ test('MOCK · permisos rechazados detienen el setup y no propagan el cuerpo', as
   await assert.rejects(setupBroker(client, env), (error) => error.message === 'Crear usuario G7: HTTP 403.');
   assert.equal(calls.length, 1);
   assert.throws(() => managementClient({ ...env, RABBITMQ_MANAGEMENT_URL: 'http://broker.example.invalid/' }), /HTTPS/);
+});
+
+test('MOCK · un usuario usa el vhost existente y repite solo la topología', async () => {
+  const sharedEnv = {
+    RABBITMQ_MANAGEMENT_URL: env.RABBITMQ_MANAGEMENT_URL,
+    RABBITMQ_ADMIN_USER: env.RABBITMQ_ADMIN_USER,
+    RABBITMQ_ADMIN_PASSWORD: env.RABBITMQ_ADMIN_PASSWORD,
+    RABBITMQ_VHOST: 'h5/pruebas +%?',
+    RABBITMQ_MODO: 'un-usuario',
+  };
+  const { calls, client } = fake(undefined, sharedEnv);
+  await setupBroker(client, sharedEnv);
+  await setupBroker(client, sharedEnv);
+
+  const path = 'h5%2Fpruebas%20%2B%25%3F';
+  assert.deepEqual(calls.slice(0, 6), calls.slice(6));
+  assert.deepEqual(calls.slice(0, 6).map(({ method, path }) => [method, path]), [
+    ['PUT', '/api/exchanges/' + path + '/seguridad.usuarios'],
+    ['PUT', '/api/exchanges/' + path + '/seguridad.usuarios.dlx'],
+    ['PUT', '/api/queues/' + path + '/seguridad.usuarios.dlq'],
+    ['POST', '/api/bindings/' + path + '/e/seguridad.usuarios.dlx/q/seguridad.usuarios.dlq'],
+    ['PUT', '/api/queues/' + path + '/marketplace.usuarios'],
+    ['POST', '/api/bindings/' + path + '/e/seguridad.usuarios/q/marketplace.usuarios'],
+  ]);
+  assert.equal(calls[0].body.type, 'topic');
+  assert.equal(calls[0].body.durable, true);
+  assert.equal(calls[2].body.durable, true);
+  assert.deepEqual(calls[4].body, {
+    durable: true, auto_delete: false, arguments: {
+      'x-dead-letter-exchange': 'seguridad.usuarios.dlx',
+      'x-dead-letter-routing-key': 'descartado',
+    },
+  });
+  assert.deepEqual(calls[3].body, { routing_key: 'descartado', arguments: {} });
+  assert.deepEqual(calls[5].body, { routing_key: 'usuario.*', arguments: {} });
+});
+
+test('MOCK · publicación y lectura reutilizan la cuenta de management de un usuario', async () => {
+  const sharedEnv = { ...env, RABBITMQ_MODO: 'un-usuario' };
+  delete sharedEnv.RABBITMQ_G7_PUBLISHER_PASSWORD;
+  delete sharedEnv.RABBITMQ_G1_CONSUMER_PASSWORD;
+  const replies = [{ routed: true }, [], []];
+  const { calls, client } = fake(() => Response.json(replies.shift()), sharedEnv);
+  assert.equal((await publishTestEvent(client)).routed, true);
+  assert.equal((await peekQueues(client)).length, 2);
+  assert.deepEqual(calls.map(({ path }) => path), [
+    '/api/exchanges/h5%2Fpruebas/seguridad.usuarios/publish',
+    '/api/queues/h5%2Fpruebas/marketplace.usuarios/get',
+    '/api/queues/h5%2Fpruebas/seguridad.usuarios.dlq/get',
+  ]);
+  assert.ok(calls.slice(1).every(({ body }) => body.ackmode === 'ack_requeue_true'));
+});
+
+test('MOCK · modo inválido se rechaza antes de hacer peticiones', async () => {
+  const { client, calls } = fake();
+  await assert.rejects(setupBroker(client, { ...env, RABBITMQ_MODO: 'unusuario' }), /RABBITMQ_MODO/);
+  assert.equal(calls.length, 0);
 });

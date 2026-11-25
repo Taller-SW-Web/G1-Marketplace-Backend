@@ -41,9 +41,7 @@ export function managementClient(env, request = fetch) {
     throw new BrokerError('Usa la URL HTTPS de management sin credenciales. HTTP solo en loopback.');
   }
   const user = requireEnv(env, 'RABBITMQ_ADMIN_USER');
-  if (user.includes(':') || [publisher, consumer].includes(user)) {
-    throw new BrokerError('Usa una cuenta de administración distinta de las cuentas de integración.');
-  }
+  if (user.includes(':')) throw new BrokerError('El usuario de management no puede contener dos puntos.');
   const password = requireEnv(env, 'RABBITMQ_ADMIN_PASSWORD');
   const vhost = requireEnv(env, 'RABBITMQ_VHOST');
   if (vhost === '.' || vhost === '..') throw new BrokerError('El vhost no puede ser un segmento relativo.');
@@ -71,7 +69,10 @@ export function managementClient(env, request = fetch) {
   return { call, vhost };
 }
 
-export async function setupBroker({ call, vhost }, env) {
+async function configureAccounts(call, vhost, env) {
+  if ([publisher, consumer].includes(env.RABBITMQ_ADMIN_USER)) {
+    throw new BrokerError('Usa una cuenta de administración distinta de las cuentas de integración.');
+  }
   const g7Password = requireEnv(env, 'RABBITMQ_G7_PUBLISHER_PASSWORD');
   const g1Password = requireEnv(env, 'RABBITMQ_G1_CONSUMER_PASSWORD');
   if (g7Password === g1Password || [g7Password, g1Password].includes(env.RABBITMQ_ADMIN_PASSWORD)) {
@@ -86,6 +87,15 @@ export async function setupBroker({ call, vhost }, env) {
   await call('PUT', ['permissions', vhost, consumer],
     { configure: '^marketplace\\.usuarios$', write: never, read: '^marketplace\\.usuarios$' },
     'Asignar permisos G1');
+}
+
+export async function setupBroker({ call, vhost }, env) {
+  const mode = env.RABBITMQ_MODO ?? 'dos-usuarios';
+  if (mode !== 'dos-usuarios' && mode !== 'un-usuario') {
+    throw new BrokerError('RABBITMQ_MODO debe ser dos-usuarios o un-usuario.');
+  }
+  const shared = mode === 'un-usuario';
+  if (!shared) await configureAccounts(call, vhost, env);
 
   await call('PUT', ['exchanges', vhost, exchange],
     { type: 'topic', durable: true, auto_delete: false, internal: false, arguments: {} }, 'Declarar exchange G7');
@@ -95,11 +105,16 @@ export async function setupBroker({ call, vhost }, env) {
   await call('PUT', ['queues', vhost, deadQueue], durableQueue, 'Declarar cola de descarte');
   await call('POST', ['bindings', vhost, 'e', deadExchange, 'q', deadQueue],
     { routing_key: deadKey, arguments: {} }, 'Vincular cola de descarte');
-  await call('PUT', ['queues', vhost, queue], durableQueue, 'Declarar cola G1');
-  await call('PUT', ['policies', vhost, 'g1-marketplace-usuarios-dlx'], {
-    pattern: '^marketplace\\.usuarios$', 'apply-to': 'queues', priority: 10,
-    definition: { 'dead-letter-exchange': deadExchange, 'dead-letter-routing-key': deadKey },
-  }, 'Configurar política de descarte');
+  await call('PUT', ['queues', vhost, queue], {
+    ...durableQueue,
+    arguments: shared ? { 'x-dead-letter-exchange': deadExchange, 'x-dead-letter-routing-key': deadKey } : {},
+  }, 'Declarar cola G1');
+  if (!shared) {
+    await call('PUT', ['policies', vhost, 'g1-marketplace-usuarios-dlx'], {
+      pattern: '^marketplace\\.usuarios$', 'apply-to': 'queues', priority: 10,
+      definition: { 'dead-letter-exchange': deadExchange, 'dead-letter-routing-key': deadKey },
+    }, 'Configurar política de descarte');
+  }
   await call('POST', ['bindings', vhost, 'e', exchange, 'q', queue],
     { routing_key: 'usuario.*', arguments: {} }, 'Vincular cola G1');
 }
