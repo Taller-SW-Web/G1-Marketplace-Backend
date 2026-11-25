@@ -69,10 +69,13 @@
             </otherwise>
         </choose>
 
-        <!-- 5. Rewrite /v1/{ruta} -> /api/v1/{ruta} para rutas de negocio (excluye /health, /docs y /api/*) -->
+        <!-- 5. Reescribir el prefijo público /v1 al prefijo Nest /api/v1; health y docs no tienen prefijo api. -->
         <choose>
-            <when condition='@(!context.Request.Url.Path.ToLower().StartsWith("/health") &amp;&amp; !context.Request.Url.Path.ToLower().StartsWith("/docs") &amp;&amp; !context.Request.Url.Path.ToLower().StartsWith("/api/"))'>
-                <rewrite-uri template='@("/api/v1" + context.Request.Url.Path)' copy-unmatched-params="true" />
+            <when condition='@(context.Request.Url.Path.ToLower() == "/v1/health" || context.Request.Url.Path.ToLower().StartsWith("/v1/health/") || context.Request.Url.Path.ToLower() == "/v1/docs" || context.Request.Url.Path.ToLower().StartsWith("/v1/docs/"))'>
+                <rewrite-uri template='@(context.Request.Url.Path.Substring(3))' copy-unmatched-params="true" />
+            </when>
+            <when condition='@(context.Request.Url.Path.ToLower() == "/v1" || context.Request.Url.Path.ToLower().StartsWith("/v1/"))'>
+                <rewrite-uri template='@("/api" + context.Request.Url.Path)' copy-unmatched-params="true" />
             </when>
         </choose>
     </inbound>

@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL base del entorno propio de G1 (staging/Render)'
+        description: 'URL HTTPS explícita del entorno de staging G1'
         required: false
-        default: 'https://g1-marketplace-backend.onrender.com'
+        default: ''
 
 permissions:
   contents: read
@@ -23,18 +23,28 @@ jobs:
     name: OWASP ZAP Baseline (Staging propio)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: pruebas
     env:
-      TARGET_URL: ${{ github.event.inputs.target_url || vars.BACKEND_STAGING_URL || 'https://g1-marketplace-backend.onrender.com' }}
+      TARGET_URL: ${{ github.event.inputs.target_url || vars.BACKEND_STAGING_URL || '' }}
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
+      - name: Configurar Node.js e instalar parser OpenAPI
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias para importar los contratos
+        run: npm ci --no-audit --no-fund
+
       - name: Validar que TARGET_URL pertenezca únicamente al entorno propio de G1
         run: |
-          host=$(node -e "console.log(new URL(process.env.TARGET_URL).hostname)")
+          if [ -z "$TARGET_URL" ]; then echo "::error::Configura BACKEND_STAGING_URL o indica target_url; no se usa fallback de producción."; exit 1; fi
+          host=$(node -e "const u = new URL(process.env.TARGET_URL); if (u.protocol !== 'https:' || u.hostname === 'g1-marketplace-backend.onrender.com') process.exit(1); console.log(u.hostname)") || { echo "::error::TARGET_URL debe ser HTTPS y no puede ser el host de producción."; exit 1; }
           echo "Host objetivo DAST: $host"
           case "$host" in
-            g1-marketplace-backend.onrender.com|g1-marketplace-backend-*.onrender.com|apim-g1-marketplace-20.azure-api.net|localhost|127.0.0.1)
+            g1-marketplace-backend-*.onrender.com)
               echo "OK: entorno propio de G1 verificado."
               ;;
             *)
@@ -107,6 +117,41 @@ jobs:
             exit "$rc"
           fi
 
+      - name: Importar contratos OpenAPI y ejecutar ZAP API Scan en modo seguro
+        run: |
+          mkdir -p zap-wrk/openapi
+          node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const yaml = require("js-yaml");
+            const source = "docs/contratos";
+            for (const name of fs.readdirSync(source).filter((f) => /\.(json|ya?ml)$/i.test(f))) {
+              const file = path.join(source, name);
+              const spec = name.endsWith(".json") ? JSON.parse(fs.readFileSync(file, "utf8")) : yaml.load(fs.readFileSync(file, "utf8"));
+              if (!spec || !spec.openapi || !spec.paths) continue;
+              spec.servers = [{ url: process.env.TARGET_URL }];
+              fs.writeFileSync(path.join("zap-wrk/openapi", name), name.endsWith(".json") ? JSON.stringify(spec) : yaml.dump(spec));
+            }
+          '
+          shopt -s nullglob
+          specs=(zap-wrk/openapi/*)
+          if [ ${#specs[@]} -eq 0 ]; then echo "::error::No hay especificaciones OpenAPI que escanear."; exit 1; fi
+          failed=0
+          for spec in "${specs[@]}"; do
+            name=$(basename "$spec")
+            echo "Importando y escaneando $name en modo seguro"
+            set +e
+            docker run --rm \
+              -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
+              -t ghcr.io/zaproxy/zaproxy:stable \
+              zap-api-scan.py -t "/zap/wrk/openapi/$name" -f openapi -S \
+                -r "/zap/wrk/zap-api-$name.html" -J "/zap/wrk/zap-api-$name.json"
+            rc=$?
+            set -e
+            if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then echo "::error::Falló al menos un escaneo ZAP API."; exit 1; fi
+
       - name: Archivar reportes OWASP ZAP (HTML, JSON, Markdown)
         if: always()
         uses: actions/upload-artifact@v4
@@ -116,5 +161,7 @@ jobs:
             zap-wrk/zap-report.html
             zap-wrk/zap-report.json
             zap-wrk/zap-report.md
+            zap-wrk/zap-api-*.html
+            zap-wrk/zap-api-*.json
           if-no-files-found: warn
           retention-days: 30

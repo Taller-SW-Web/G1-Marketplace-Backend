@@ -17,7 +17,12 @@ const ALLOWED_HOST_PATTERNS = [
   /^127\.0\.0\.1$/,
 ];
 
-const targetBase = (process.env.PERF_TARGET_URL || 'https://g1-marketplace-backend.onrender.com').replace(/\/$/, '');
+const targetValue = process.env.PERF_TARGET_URL?.trim();
+if (!targetValue) {
+  console.error('ERROR: PERF_TARGET_URL debe configurarse explícitamente con el entorno de staging; no se usa un destino de producción por defecto.');
+  process.exit(1);
+}
+const targetBase = targetValue.replace(/\/$/, '');
 const totalRequests = Number(process.env.PERF_REQUESTS || 30);
 const concurrency = Number(process.env.PERF_CONCURRENCY || 5);
 const maxP95Ms = Number(process.env.PERF_MAX_P95_MS || 1500);
@@ -25,7 +30,7 @@ const maxErrorRate = Number(process.env.PERF_MAX_ERROR_RATE || 0.01);
 const timeoutMs = Number(process.env.PERF_TIMEOUT_MS || 15000);
 
 const parsed = new URL(targetBase);
-if (!ALLOWED_HOST_PATTERNS.some((rx) => rx.test(parsed.hostname))) {
+if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() === 'g1-marketplace-backend.onrender.com' || !ALLOWED_HOST_PATTERNS.some((rx) => rx.test(parsed.hostname))) {
   console.error(`ERROR: Host '${parsed.hostname}' no autorizado. El smoke de performance solo aplica a entornos propios de G1.`);
   process.exit(1);
 }

@@ -23,8 +23,9 @@ jobs:
     name: Smoke de Performance (p95 ≤ umbral)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: pruebas
     env:
-      PERF_TARGET_URL: ${{ vars.BACKEND_STAGING_URL || 'https://g1-marketplace-backend.onrender.com' }}
+      PERF_TARGET_URL: ${{ vars.BACKEND_STAGING_URL || '' }}
       PERF_REQUESTS: '30'
       PERF_CONCURRENCY: '5'
       PERF_MAX_P95_MS: ${{ github.event.inputs.max_p95_ms || '1500' }}
