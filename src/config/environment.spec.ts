@@ -38,7 +38,9 @@ describe('Environment boundaries', () => {
     expect(validateEnvironment(base)).toMatchObject({
       SECURITY_EVENTS_ENABLED: false,
       SECURITY_EVENTS_PREFETCH: 1,
-      SECURITY_EVENTS_DLQ_QUEUE: 'marketplace.usuarios.dlq',
+      SECURITY_EVENTS_MAX_RETRIES: 3,
+      SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
+      SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
     });
     expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_ENABLED: 'true' })).toThrow(
       'RABBITMQ_URL is required when SECURITY_EVENTS_ENABLED=true',
@@ -46,12 +48,24 @@ describe('Environment boundaries', () => {
   });
   it('validates RabbitMQ transport security and bounded consumer prefetch', () => {
     expect(validateEnvironment({ ...base, SECURITY_EVENTS_ENABLED: 'true',
-      RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost' }))
+      RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
+      SECURITY_EVENTS_MAX_RETRIES: '3',
+      SECURITY_EVENTS_BACKOFF_BASE_MS: '1000',
+      SECURITY_EVENTS_BACKOFF_MAX_MS: '30000' }))
       .toMatchObject({ SECURITY_EVENTS_ENABLED: true });
+    expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_ENABLED: 'true',
+      RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost' })).toThrow(
+      'SECURITY_EVENTS_MAX_RETRIES must be explicitly configured when SECURITY_EVENTS_ENABLED=true',
+    );
     expect(() => validateEnvironment({ ...base, NODE_ENV: 'production', SECURITY_EVENTS_ENABLED: 'true',
-      RABBITMQ_URL: 'amqp://user:secret@broker.example/vhost' })).toThrow('must use TLS');
+      RABBITMQ_URL: 'amqp://user:secret@broker.example/vhost',
+      SECURITY_EVENTS_MAX_RETRIES: '3',
+      SECURITY_EVENTS_BACKOFF_BASE_MS: '1000',
+      SECURITY_EVENTS_BACKOFF_MAX_MS: '30000' })).toThrow('must use TLS');
     expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_PREFETCH: '0' })).toThrow();
-    expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_DLQ_QUEUE: 'invalid queue' })).toThrow();
+    expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_MAX_RETRIES: '0' })).toThrow();
+    expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_BACKOFF_BASE_MS: '0' })).toThrow();
+    expect(() => validateEnvironment({ ...base, SECURITY_EVENTS_BACKOFF_MAX_MS: '999' })).toThrow();
   });
   it('preserves develop production mock restrictions and requires explicit production auth', () => {
     expect(() => validateEnvironment({ ...base, NODE_ENV: 'production', USE_MOCKS: 'true' })).toThrow();
