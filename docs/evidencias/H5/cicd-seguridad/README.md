@@ -40,3 +40,11 @@
 ## 3. Documentos del Paquete
 - [`ciclo-hallazgo-correccion-retest.md`](./ciclo-hallazgo-correccion-retest.md): Registro completo de hallazgos reales bloqueados por los gates, sus tickets/PRs, correcciones y retests en verde.
 - [`../keep-alive-cold-start.md`](../keep-alive-cold-start.md): Evidencia antes/después de mitigación de arranque en frío en Render.
+
+## 4. Estado de DAST y performance — 2026-11-25
+
+Los workflows `dast-zap.yml` y `perf-smoke.yml` fallan cerrados si falta el destino propio de staging. Ambos toman `BACKEND_STAGING_URL` de la variable del entorno GitHub `pruebas`; DAST también admite un `target_url` explícito al ejecutarse manualmente. No hay fallback al host de producción.
+
+En el head `2ddf13c`, las ejecuciones de PR terminaron en la validación previa al tráfico porque `BACKEND_STAGING_URL` estaba vacía. Por tanto, **no se enviaron solicitudes al servicio**, no hubo resultados DAST ni mediciones de performance en esas ejecuciones y no se consideran evidencia de seguridad/rendimiento aprobada.
+
+Para desbloquear ambas pruebas, el owner del entorno debe configurar `BACKEND_STAGING_URL` en `pruebas` con el host HTTPS de un staging aislado de G1 y autorizar la ventana. El workflow valida el host y rechaza producción; no se debe desactivar esa validación ni relajar los umbrales para hacer pasar el check. Hasta que exista esa configuración, el estado es **NOT RUN / bloqueado por entorno**.
