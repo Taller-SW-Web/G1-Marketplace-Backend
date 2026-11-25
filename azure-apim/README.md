@@ -69,23 +69,27 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 
 ## 5. Pruebas de Validación y Evidencias
 
-*(En plan Consumption, `<rate-limit>` cuenta por clave de suscripción: obtener la `Primary key` en el menú izquierdo **Subscriptions** $\rightarrow$ `Built-in all-access subscription`).*
+**No ejecutar sin autorización expresa para una ventana de pruebas no productiva.** La instancia confirmada es `apim-g1-marketplace-20` (`rg-marketplace-g1`, West US, Consumption); API ID `marketplace-api`, sufijo `v1`. El header de suscripción activo es `api-key`. Para QA, leer `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets en el entorno aprobado; no copiar el valor al repositorio, consola compartida, logs o evidencias. Las suscripciones individuales confirmadas son `web-frontend-g1`, `ci-qa-smoke` y `demo-team`.
 
 ### A. Prueba de Rate Limiting (Issue #309)
-Ejecutar una ráfaga de más de 60 peticiones en menos de un minuto:
+Solo durante una ventana autorizada, ejecutar una ráfaga de más de 60 peticiones en menos de un minuto contra una operación contratada. `/v1/health` no pertenece al subconjunto OpenAPI y no debe usarse como ruta de prueba.
 ```powershell
-$KEY = "<TU_PRIMARY_KEY>"
-1..65 | ForEach-Object { curl.exe -s -o NUL -H "Ocp-Apim-Subscription-Key: $KEY" -w "Req $_ -> HTTP %{http_code}`n" "https://apim-g1-marketplace-20.azure-api.net/v1/health" }
+$KEY = $env:APIM_QA_SUBSCRIPTION_KEY
+if (-not $KEY) { throw "APIM_QA_SUBSCRIPTION_KEY no está configurada en el entorno autorizado" }
+1..65 | ForEach-Object { curl.exe -s -o NUL -H "api-key: $KEY" -w "Req $_ -> HTTP %{http_code}`n" "https://apim-g1-marketplace-20.azure-api.net/v1/catalog/products?page=0&pageSize=10" }
 ```
-* **Resultado esperado:** Las primeras 60 responden `200`, a partir de la 61 responde **`429 Too Many Requests`**.
+* **Resultado esperado:** APIM devuelve **`429 Too Many Requests`** al superar el límite; las respuestas previas dependen de la disponibilidad del origen.
 
 ### B. Prueba de Validación JWT contra G7 (Issue #309)
-Hacer una petición a un endpoint protegido sin token o con token alterado:
+Hacer una petición a la operación contratada y protegida de favoritos, sin token:
 ```powershell
-curl.exe -i -H "Ocp-Apim-Subscription-Key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/cart"
+curl.exe -i -H "api-key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/wishlist"
 ```
 * **Resultado esperado:** Código **`401 Unauthorized`** con el mensaje:
   `Acceso no autorizado: Token JWT invalido, expirado o ausente`.
+
+### C. Correlación
+Enviar `X-Correlation-Id` con un identificador de prueba aprobado. Confirmar en el backend que APIM lo refleja como `X-Request-Id` y que la respuesta pública conserva `X-Correlation-Id`. No reutilizar identificadores reales de usuarios.
 
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.

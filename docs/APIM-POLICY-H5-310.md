@@ -2,25 +2,34 @@
 
 **Status: offline review only. Do not deploy without express authorization.**
 Confirmed in GitHub on 23 November 2026: issue #307 was closed and APIM
-Consumption is Online. The policy has **not** been validated in that
-instance. Online status is not policy validation or deployment authorization;
-this task does not deploy it. The repository does not contain the target
-API/subscription configuration needed to validate policy inheritance, consumer
-keys, or cache behavior.
+Consumption is Online. The APIM owner subsequently confirmed the target and
+consumer configuration in writing. This branch only records those details;
+the policy has **not** been validated in the instance and no Azure operation or
+runtime request was made. Online status and written configuration are not
+policy validation or deployment authorization.
+
+| Setting | Confirmed value |
+| --- | --- |
+| Instance / resource group / region / tier | `apim-g1-marketplace-20` / `rg-marketplace-g1` / West US / Consumption |
+| API ID / suffix | `marketplace-api` / `v1` |
+| Gateway | `https://apim-g1-marketplace-20.azure-api.net/v1` |
+| Backend `serviceUrl` | `https://g1-marketplace-backend.onrender.com` (origin, no path prefix) |
 
 The canonical policy already integrated in `develop` is
 [`azure-apim/policies/api-policy.xml`](../azure-apim/policies/api-policy.xml)
-(PRs #340/#342). This branch does not add a second APIM policy or change that
-shared policy. It currently propagates `X-Correlation-Id`, applies CORS,
-rate-limiting, and JWT validation; it does not contain catalog cache policies.
+(PRs #340/#342). This branch does not add a second APIM policy. The canonical
+policy applies CORS, rate-limiting, and JWT validation; it does not contain
+catalog cache policies. This branch proposes an offline update to its
+correlation-header mapping.
 
-There is a public-header contract mismatch to resolve before claiming
-correlation is complete: the BFF emits `X-Request-Id`, while the canonical
-APIM policy emits `X-Correlation-Id`. The BFF accepts
-`[A-Za-z0-9._-]{1,64}` for `X-Request-Id`; `X-Correlation-Id` is also used by
-the backend on its internal G1-to-G6 request. The approved public header and
-whether either layer should alias the other remain contract decisions. This
-branch does not invent an alias or change the public contract.
+The public header is `X-Correlation-Id`, confirmed as the H5 standard and agreed
+with G6/G7. Inbound, APIM preserves or creates that ID; if the value is outside
+the BFF's safe `[A-Za-z0-9._-]{1,64}` format, APIM replaces it with a UUID.
+It then aliases the normalized value as `X-Request-Id` toward the BFF. Outbound, APIM returns
+`X-Correlation-Id` to the client (and CORS exposes it). The BFF's `X-Request-Id`
+alias remains an internal compatibility detail; the separate G1→G6
+`X-Correlation-Id` propagation is unchanged. The policy change is represented
+in XML and offline tests only; it has not been executed by APIM.
 
 ## Cache scope and prerequisites
 
@@ -60,8 +69,8 @@ resolution in the API contract/APIM configuration:
    cache directive and TTL are not present in the current contract. Do not copy
    the 30-second availability TTL: availability is explicitly out of scope.
 2. APIM cache-key behavior for every documented `products` query parameter and
-   per-consumer partitioning. Confirm which subscription header/query parameter
-   is configured, and test it in the target APIM instance before enabling lookup.
+   per-consumer partitioning. The currently configured subscription header is
+   `api-key`; test it in the target APIM instance before enabling lookup.
 3. Existing global/product policy inheritance and any APIM behavior that could
    cache responses outside the API's intended scope.
 4. Policy validation in the target APIM instance and a non-production
@@ -70,19 +79,19 @@ resolution in the API contract/APIM configuration:
 
 ## Subscription keys by consumer
 
-Provision one APIM subscription for each consumer identity approved through the
-consumer/API configuration process.
-The repository does not establish the consumer inventory, APIM subscription
-names, or secret-store references, so they remain placeholders rather than
-invented identities. Use the configured APIM subscription header (the common
-default is `Ocp-Apim-Subscription-Key`; confirm it in the APIM configuration).
-Store and rotate key **values** only in the approved secret store/consumer
-configuration; never put them in this repository, policy XML, tests, logs, or
-issue evidence.
+The APIM owner confirmed subscription-required is active, the current header is
+`api-key`, and the following subscriptions are scoped to All APIs. The
+`<rate-limit>` isolation/runtime behavior still needs an authorized non-prod
+check. Store and rotate key **values** only in the approved secret
+store/consumer configuration; never put them in this repository, policy XML,
+tests, logs, or issue evidence. Values remain only in their approved secret
+stores.
 
 | Consumer identity | APIM subscription name/resource | Secret reference (not value) | Status |
 | --- | --- | --- | --- |
-| `<consumer identity to be approved>` | `<provision in APIM>` | `<external secret reference>` | Placeholder: configuration not confirmed |
+| `web-frontend-g1` | `web-frontend-g1` (All APIs) | Vercel Env Vars, G1-Marketplace-Frontend: `APIM_SUBSCRIPTION_KEY` (server-side only; never `NEXT_PUBLIC_`) | Confirmed; value not recorded |
+| `ci-qa-smoke` | `ci-qa-smoke` (All APIs) | GitHub Actions Secrets, G1-Marketplace-Backend: `APIM_QA_SUBSCRIPTION_KEY` | Confirmed; value not recorded |
+| `demo-team` | `demo-team` (All APIs) | Local/Postman team secret store (outside Git) | Confirmed; value not recorded |
 
 Do not enable APIM caching or set the #345 TTL above zero in a deployed
 environment until the contract, subscription configuration, and per-consumer
@@ -92,18 +101,19 @@ change.
 ## Offline validation
 
 `npm run test:apim-policy` uses Node's built-in test runner and local files
-only. It checks the canonical policy's existing controls, the public-header
-mismatch, the catalog contract/runtime `no-store` state, and the absence of
+only. It checks the canonical policy's existing controls, the
+`X-Correlation-Id` → `X-Request-Id` alias, the catalog contract/runtime
+`no-store` state, the documented subscription inventory, and the absence of
 active cache behavior or a duplicate policy artifact. These offline checks do
 not call Azure, validate APIM's policy expression runtime, or authorize
 deployment.
 
-## 24 November offline review
+## 24 November offline alignment
 
-`npm run test:apim-policy`: **6/6 PASS**. The mismatch remains explicit: G1's
-public response/request contract uses `X-Request-Id`; APIM forwards
-`X-Correlation-Id`, which is also the backend's G1→G6 correlation header. A
-consumer/API owner must decide whether APIM should alias/propagate both or
-whether the public contract changes. Until that decision, do not change either
-header or claim end-to-end correlation alignment. This review made no Azure or
-APIM runtime calls and left catalog caching disabled (`no-store`, TTL 0).
+The APIM owner confirmed `X-Correlation-Id` as the public header, its alias to
+`X-Request-Id` for the BFF, the `api-key` subscription header, and three
+consumer subscriptions. The offline policy/test/runbook changes reflect those
+decisions. `npm run test:apim-policy` is a local check only; no APIM request,
+subscription-key use, load test, deployment, or cache change was performed.
+Catalog caching remains disabled (`no-store`, TTL 0); `AZURE_CREDENTIALS` is
+still pending.

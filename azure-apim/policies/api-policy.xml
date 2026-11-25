@@ -5,7 +5,7 @@
   - CORS hacia el frontend de Vercel
   - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429)
   - Validación de JWT RS256 contra JWKS de G7 (-> HTTP 401)
-  - Propagación de trazabilidad distribuida (X-Correlation-Id)
+  - Correlación pública X-Correlation-Id con alias upstream X-Request-Id
 -->
 <policies>
     <inbound>
@@ -14,6 +14,20 @@
         <!-- 1. Inyección o conservación de X-Correlation-Id -->
         <set-header name="X-Correlation-Id" exists-action="skip">
             <value>@(Guid.NewGuid().ToString())</value>
+        </set-header>
+
+        <!-- Mantener el formato seguro que el middleware del BFF admite (1–64 caracteres). -->
+        <choose>
+            <when condition='@(!System.Text.RegularExpressions.Regex.IsMatch(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", ""), "^[A-Za-z0-9._-]{1,64}$"))'>
+                <set-header name="X-Correlation-Id" exists-action="override">
+                    <value>@(Guid.NewGuid().ToString())</value>
+                </set-header>
+            </when>
+        </choose>
+
+        <!-- El contrato público usa X-Correlation-Id; el BFF recibe su alias X-Request-Id. -->
+        <set-header name="X-Request-Id" exists-action="override">
+            <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", ""))</value>
         </set-header>
 
         <!-- 2. Configuración de CORS hacia Vercel y desarrollo local -->

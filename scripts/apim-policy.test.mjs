@@ -8,6 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const policy = readFileSync(resolve(root, 'azure-apim/policies/api-policy.xml'), 'utf8');
 const catalog = JSON.parse(readFileSync(resolve(root, 'docs/contratos/openapi-catalogo-h4.json'), 'utf8'));
 const docs = readFileSync(resolve(root, 'docs/APIM-POLICY-H5-310.md'), 'utf8');
+const runbook = readFileSync(resolve(root, 'azure-apim/README.md'), 'utf8');
 
 test('canonical develop policy is reused instead of adding a duplicate policy', () => {
   assert.match(policy, /<cors\b/u);
@@ -17,13 +18,16 @@ test('canonical develop policy is reused instead of adding a duplicate policy', 
   assert.doesNotMatch(policy, /<\/?\s*cache-[\w-]+\b/iu);
   assert.doesNotMatch(policy, /<set-header\s+name="(?:Cache-Control|X-Cache)"/iu);
   assert.doesNotMatch(policy, /<rewrite-uri\b/iu, 'this issue must not duplicate APIM routing policy');
-  assert.match(docs, /does not add a second APIM policy or change that\s+shared policy/iu);
+  assert.match(docs, /does not add a second APIM policy/iu);
 });
 
-test('public header mismatch is documented without inventing an alias', () => {
-  assert.match(policy, /name="X-Correlation-Id"/u);
-  assert.match(docs, /BFF emits `X-Request-Id`, while the canonical\s+APIM policy emits `X-Correlation-Id`/u);
-  assert.match(docs, /does not invent an alias or change the public contract/u);
+test('public X-Correlation-Id is aliased to X-Request-Id upstream and returned publicly', () => {
+  const inbound = policy.match(/<inbound>([\s\S]*?)<\/inbound>/u)?.[1] ?? '';
+  const outbound = policy.match(/<outbound>([\s\S]*?)<\/outbound>/u)?.[1] ?? '';
+  assert.match(inbound, /set-header\s+name="X-Correlation-Id"[\s\S]*?Regex\.IsMatch\([\s\S]*?\[A-Za-z0-9\._-\]\{1,64\}\$[\s\S]*?set-header\s+name="X-Request-Id"\s+exists-action="override"[\s\S]*?GetValueOrDefault\("X-Correlation-Id"/u);
+  assert.match(outbound, /set-header\s+name="X-Correlation-Id"/u);
+  assert.match(docs, /X-Correlation-Id[\s\S]*safe `\[A-Za-z0-9\._-\]\{1,64\}` format[\s\S]*X-Request-Id[\s\S]*BFF/u);
+  assert.match(runbook, /X-Correlation-Id.*X-Request-Id/u);
 });
 
 test('the catalog contract exposes exactly the three public GET operations', () => {
@@ -61,14 +65,19 @@ test('runtime contract and canonical APIM policy do not activate or report cache
 test('documentation records current APIM status without treating it as policy validation or permission', () => {
   assert.match(docs, /#307 was closed[\s\S]*APIM\s+Consumption is Online/iu);
   assert.match(docs, /23 November 2026/u);
-  assert.match(docs, /has \*\*not\*\* been validated in that\s+instance/iu);
+  assert.match(docs, /has \*\*not\*\* been validated in the instance/iu);
   assert.match(docs, /Do not deploy without express authorization/iu);
 });
 
 test('subscription-key configuration remains external and contains no key value', () => {
-  assert.match(docs, /Ocp-Apim-Subscription-Key/u);
-  assert.ok(docs.includes('key **values** only in the approved secret store'));
-  assert.match(docs, /`<consumer identity to be approved>`[\s\S]*`<provision in APIM>`[\s\S]*`<external secret reference>`/u);
+  assert.match(docs, /current header is\s+`api-key`/u);
+  assert.match(docs, /`web-frontend-g1`[\s\S]*`APIM_SUBSCRIPTION_KEY`/u);
+  assert.match(docs, /`ci-qa-smoke`[\s\S]*`APIM_QA_SUBSCRIPTION_KEY`/u);
+  assert.match(docs, /`demo-team`[\s\S]*outside Git/u);
+  assert.match(runbook, /-H "api-key: \$KEY"/u);
+  assert.doesNotMatch(docs + runbook, /Ocp-Apim-Subscription-Key/u);
+  assert.match(docs, /key \*\*values\*\* only in the approved secret\s+store/u);
+  assert.match(docs, /Values remain only in their approved secret\s+stores/u);
   assert.doesNotMatch(docs, /Blocked: APIM #307 pending/u);
   assert.doesNotMatch(docs, /(?:SharedAccessSignature|DefaultEndpointsProtocol|Bearer\s+[A-Za-z0-9._~-]{20,})/u);
 });
