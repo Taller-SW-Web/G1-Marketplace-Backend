@@ -18,7 +18,6 @@ describe('entrega local de correos comerciales', () => {
   it.each([
     [order, 'Pagado'],
     [{ ...shipment, state: 'DESPACHADO' }, 'Despachado'],
-    [{ ...shipment, state: 'ENTREGADO' }, 'Entregado'],
   ] as const)('entrega HTML y texto plano para %j', async (snapshot, expectedState) => {
     const fetchImpl = mockFetch().mockResolvedValue(Response.json({ ID: 'qa-message-1' }));
     const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
@@ -43,7 +42,7 @@ describe('entrega local de correos comerciales', () => {
     const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
     const unpaid = { ...order, state: 'CREADO' } as unknown as EmailSnapshot;
     await expect(deliverCommercialMail(unpaid, to, config, transport)).rejects.toThrow('EMAIL_ORDER_NOT_PAID');
-    for (const state of ['ASIGNADO', 'EN_CAMINO', 'REPROGRAMADO', 'INCIDENCIA'] as const) {
+    for (const state of ['ASIGNADO', 'EN_CAMINO', 'REPROGRAMADO', 'INCIDENCIA', 'ENTREGADO'] as const) {
       await expect(deliverCommercialMail({ ...shipment, state }, to, config, transport))
         .resolves.toEqual({ status: 'skipped' });
     }
@@ -83,6 +82,60 @@ describe('entrega local de correos comerciales', () => {
       }));
     const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
     await expect(deliverCommercialMail(order, to, config, transport)).rejects.toThrow('MAILPIT_TIMEOUT');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('entrega de correos comerciales con Brevo', () => {
+  const env = { MAIL_PROVIDER: 'brevo', BREVO_API_KEY: 'unit-test-only', BREVO_SENDER_EMAIL: 'marketplace@example.org' };
+  const recipients = {
+    PAGADO: 'comprador-1@example.org',
+    DESPACHADO: 'comprador-2@example.org',
+  };
+  const messageId = '<20261125.123@relay.domain.com>';
+
+  it.each([order, { ...shipment, state: 'DESPACHADO' }] as const)(
+    'envía el contenido de %j por HTTPS al buzón del comprador',
+    async (snapshot) => {
+      const fetchImpl = mockFetch().mockResolvedValue(Response.json({ messageId }, { status: 201 }));
+      const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
+      const to = recipients[snapshot.state];
+
+      await expect(deliverCommercialMail(snapshot, to, config, transport)).resolves.toEqual({
+        status: 'accepted', messageId, payloadVersion: 'v1',
+      });
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      const [endpoint, options] = fetchImpl.mock.calls[0];
+      expect(String(endpoint)).toBe('https://api.brevo.com/v3/smtp/email');
+      expect(options).toMatchObject({
+        method: 'POST', redirect: 'error',
+        headers: { 'api-key': 'unit-test-only', 'Content-Type': 'application/json' },
+      });
+      expect(JSON.parse(String(options?.body))).toMatchObject({
+        sender: { email: 'marketplace@example.org' }, to: [{ email: to }],
+        subject: expect.any(String), htmlContent: expect.stringContaining(orderUrl),
+        textContent: expect.stringContaining(orderUrl),
+      });
+    },
+  );
+
+  it('exige clave y remitente al configurar Brevo', () => {
+    expect(() => createConfiguredCommercialMailTransport({ ...env, BREVO_API_KEY: '' }))
+      .toThrow('BREVO_API_KEY_REQUIRED');
+    expect(() => createConfiguredCommercialMailTransport({
+      MAIL_PROVIDER: 'brevo', BREVO_API_KEY: 'unit-test-only', MAIL_FROM: 'marketplace@example.org',
+    }))
+      .toThrow('BREVO_SENDER_REQUIRED');
+  });
+
+  it.each([
+    [() => Response.json({ message: 'respuesta privada del proveedor' }, { status: 403 }), 'BREVO_HTTP_403'],
+    [() => Response.json({ messageId: 'invalid receipt' }, { status: 201 }), 'BREVO_INVALID_RESPONSE'],
+  ])('devuelve un error estable sin reintentar un envío incierto', async (response, code) => {
+    const fetchImpl = mockFetch().mockResolvedValue(response());
+    const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
+    await expect(deliverCommercialMail(order, recipients.PAGADO, config, transport)).rejects.toThrow(code);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

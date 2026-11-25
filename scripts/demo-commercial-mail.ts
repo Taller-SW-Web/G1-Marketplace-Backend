@@ -22,7 +22,9 @@ const cases = [
 
 async function main() {
   const transport = createConfiguredCommercialMailTransport(process.env);
-  const to = process.env.MAIL_DEMO_TO ?? 'qa-marketplace@example.invalid';
+  const to = process.env.MAIL_DEMO_TO?.trim() ??
+    (process.env.MAIL_PROVIDER === 'mailpit' ? 'qa-marketplace@example.invalid' : '');
+  if (!to) throw new Error('MAIL_DEMO_TO_REQUIRED');
   for (const snapshot of cases) {
     const result = await deliverCommercialMail(snapshot, to, config, transport);
     console.log(JSON.stringify({ environment: 'LOCAL_FIXTURE', state: snapshot.state, ...result }));

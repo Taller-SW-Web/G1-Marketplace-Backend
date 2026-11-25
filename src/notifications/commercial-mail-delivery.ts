@@ -9,7 +9,7 @@ export interface CommercialMailTransport {
 
 /**
  * The caller supplies an authorized snapshot of the same order from Sales.
- * The renderer validates PAGADO. Only the two agreed shipment states trigger delivery.
+ * The renderer validates PAGADO. H-05 triggers delivery at DESPACHADO.
  */
 export async function deliverCommercialMail(
   snapshot: EmailSnapshot,
@@ -17,7 +17,7 @@ export async function deliverCommercialMail(
   config: EmailConfiguration,
   transport: CommercialMailTransport,
 ) {
-  if (snapshot.type === 'SHIPMENT_UPDATE' && snapshot.state !== 'DESPACHADO' && snapshot.state !== 'ENTREGADO') {
+  if (snapshot.type === 'SHIPMENT_UPDATE' && snapshot.state !== 'DESPACHADO') {
     return { status: 'skipped' } as const;
   }
   const { subject, html, text, payloadVersion } = renderTransactionalEmail(snapshot, config);
