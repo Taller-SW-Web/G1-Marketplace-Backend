@@ -31,6 +31,8 @@ El script imprime identificadores de captura para los dos envíos y el resultado
 
 El transporte local limita las direcciones a `.invalid` y requiere un entorno distinto de producción. Una falla o un timeout se reportan al operador. Mailpit puede haber aceptado el mensaje antes de una pérdida de respuesta, por lo que el script evita reenvíos automáticos.
 
+Las pruebas simulan la consulta del detalle de Ventas y el sobre de H‑05. Cubren respuestas `CREADO` y `ANULADO`, lectura de otro pedido, consultas concurrentes del mismo `PAGADO`, repetición del mismo `eventId` de `DESPACHADO` y omisión de `ENTREGADO`. La deduplicación del ensayo vive en memoria por ejecución.
+
 ## Ensayo de entrega con Brevo
 
 El proveedor se selecciona con `MAIL_PROVIDER=brevo`. Usa `POST https://api.brevo.com/v3/smtp/email` por HTTPS y transmite el asunto, el HTML y el texto de la plantilla al comprador indicado. [API de Brevo](https://developers.brevo.com/reference/send-transac-email)
@@ -39,4 +41,4 @@ Brevo requiere `BREVO_SENDER_EMAIL` con el remitente verificado y `BREVO_API_KEY
 
 ## Integración pendiente
 
-Para C‑001, el integrador debe obtener de Ventas un snapshot autorizado del pedido que pasó a `PAGADO`. Para C‑002, el consumidor del inbox H‑05 debe resolver el comprador del pedido y entregar el snapshot de `DESPACHADO` que corresponde al evento. La proyección del inbox y la deduplicación de la entrega quedan pendientes junto con la prueba en el buzón real. [Inbox H‑05](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/357) · [Proyección #319](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/319) · [BE #162](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162)
+La señal de C‑001 es la consulta del detalle de Ventas que confirma `PAGADO` para el mismo pedido. El DTO de detalle actual no trae correo del comprador. Ambos flujos requieren resolver el destinatario autorizado y registrar de forma duradera la entrega mediante `NotificationDelivery`. C‑002 depende de proyectar el inbox H‑05 para obtener la actualización `DESPACHADO`. La prueba en el buzón real queda pendiente de autorizar en Brevo la IP de la prueba local. [Inbox H‑05](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/357) · [Proyección #319](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/319) · [BE #162](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162)

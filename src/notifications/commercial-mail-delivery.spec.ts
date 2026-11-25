@@ -1,3 +1,4 @@
+import { createFixtureMailRunner } from '../../scripts/demo-commercial-mail';
 import { deliverCommercialMail } from './commercial-mail-delivery';
 import { createConfiguredCommercialMailTransport } from './commercial-mail-transport';
 import type { EmailConfiguration, EmailSnapshot } from './email-template';
@@ -13,6 +14,49 @@ const order = {
 } as const satisfies EmailSnapshot;
 const shipment = { type: 'SHIPMENT_UPDATE', orderId: order.orderId, occurredAt: order.occurredAt } as const;
 const mockFetch = () => jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>();
+
+describe('disparadores acordados con Ventas en fixtures', () => {
+  const detail = {
+    pedidoId: order.orderId, estado: 'PAGADO', createdAt: order.occurredAt,
+    total: { currency: 'PEN', amount: 79.90 },
+  } as const;
+
+  it('envía C-001 una vez al consultar PAGADO para el mismo pedido', async () => {
+    const send = jest.fn().mockResolvedValue({ messageId: 'qa-order' });
+    const runner = createFixtureMailRunner(order.orderId, to, { send });
+    for (const estado of ['CREADO', 'ANULADO'] as const) {
+      await expect(runner.onOrderDetail({ ...detail, estado }, order.occurredAt)).resolves.toEqual({ status: 'skipped' });
+    }
+    await expect(runner.onOrderDetail({ ...detail, pedidoId: 'PED-2026-90002' }, order.occurredAt))
+      .resolves.toEqual({ status: 'skipped' });
+    const results = await Promise.all([
+      runner.onOrderDetail(detail, order.occurredAt),
+      runner.onOrderDetail(detail, order.occurredAt),
+    ]);
+    expect(results).toEqual([
+      { status: 'accepted', messageId: 'qa-order', payloadVersion: 'v1' },
+      { status: 'duplicate' },
+    ]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to, subject: expect.stringContaining(order.orderId) }));
+  });
+
+  it('envía C-002 para H-05 DESPACHADO, omite ENTREGADO y deduplica por evento', async () => {
+    const send = jest.fn().mockResolvedValue({ messageId: 'qa-shipment' });
+    const runner = createFixtureMailRunner(order.orderId, to, { send });
+    const event = {
+      eventId: '30ba2519-8e05-4d78-af35-4153d1a12f4c',
+      timestamp: order.occurredAt,
+      data: { orderId: order.orderId, publicStatus: 'DESPACHADO', estimatedDeliveryDate: '2026-11-25' },
+    };
+    await expect(runner.onShipmentEvent({ ...event, data: { ...event.data, publicStatus: 'ENTREGADO' } }))
+      .resolves.toEqual({ status: 'skipped' });
+    await expect(runner.onShipmentEvent(event)).resolves.toMatchObject({ status: 'accepted' });
+    await expect(runner.onShipmentEvent(event)).resolves.toEqual({ status: 'duplicate' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to, text: expect.stringContaining('Despachado') }));
+  });
+});
 
 describe('entrega local de correos comerciales', () => {
   it.each([
