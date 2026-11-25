@@ -4,13 +4,14 @@
 
 ## Comportamiento implementado
 
-- Inbox durable en PostgreSQL (tabla introducida por #314) con unicidad por ID de evento. Un duplicado de mismo ID y mismo fingerprint se confirma sin procesarlo otra vez; el mismo ID con tipo, versión o contenido distinto se envía a DLQ.
+- Inbox durable en PostgreSQL (tabla introducida por #314) con unicidad por ID de evento. Un duplicado del mismo ID y fingerprint se confirma sin volver a registrarlo; el mismo ID con tipo, versión o contenido distinto se envía a DLQ.
 - El consumidor usa ack manual. Sólo confirma el mensaje original después de confirmar la publicación persistente a una retry queue/DLQ o tras registrar/identificar el duplicado en la base.
 - Errores de validación/versión y conflicto de identidad son permanentes y van directamente a DLQ. Fallos al persistir se reintentan; al agotar el límite se envían a DLQ.
 - Las retry queues son durables y separadas por tipo y número de reintento. Cada una usa TTL y dead-letters de vuelta a `seguridad.usuarios` con la routing key original. El código declara las colas al habilitar el consumidor.
 - Configuración por entorno: `SECURITY_EVENTS_MAX_RETRIES`, `SECURITY_EVENTS_BACKOFF_BASE_MS`, `SECURITY_EVENTS_BACKOFF_MAX_MS` y `SECURITY_EVENTS_DLQ_QUEUE`. Valores iniciales locales: 3 reintentos, backoff exponencial 1 s / 2 s / 4 s y tope 30 s. Son configurables y deben coincidir con el acuerdo final publicado en SPECS antes de activar el entorno.
 - No se persiste el payload ni `usuarioId`; el inbox conserva sólo el ID, tipo, versión, fingerprint y fecha de recepción.
 - Las reacciones funcionales (invalidación de acceso y purga de datos) están especificadas por separado en [#316](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/316) y no se declaran cerradas por esta capa de confiabilidad.
+- La idempotencia aquí cubre recepción y registro del evento; no acredita ejecución idempotente de los efectos de dominio de #316.
 
 ## Validación local
 
