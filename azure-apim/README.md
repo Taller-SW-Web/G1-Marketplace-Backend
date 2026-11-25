@@ -94,7 +94,7 @@ Enviar `X-Correlation-Id` con un identificador de prueba aprobado. Confirmar en 
 ### D. Smoke QA manual
 En **Actions → CI-CD → Run workflow**, seleccionar la rama aprobada y `RUN_APIM_QA_SMOKE`. El job usa `APIM_QA_SUBSCRIPTION_KEY` desde Actions Secrets y ejecuta solo los dos GET anteriores (productos y wishlist). No muestra body ni clave; no despliega ni ejecuta carga. La ejecución requiere ventana/autorización QA y no sustituye la validación de todas las operaciones.
 
-**Último resultado observado:** run `45528575052` devolvió `404` en ambos GET; catálogo no alcanzó el `200` esperado y wishlist no alcanzó el `401` esperado. El `X-Correlation-Id` sí se reflejó, pero `X-Request-Id` no coincidió. No repetir hasta que el responsable APIM revise importación/routing y confirme la policy aplicada.
+**Última revalidación:** después de la corrección confirmada por el owner (policy en repo, commit `df137b1`), run `45536575477` obtuvo `503` en catálogo (esperado `200`), con ambos headers de correlación coincidentes, y `401` en wishlist (esperado `401`). El smoke queda **parcial, no aprobado**: la ruta ya no devolvió `404`, pero el catálogo sigue no disponible. El owner identificó el `503` como `CATALOG_UNAVAILABLE` de G6; el smoke no registra el body para verificar esa causa. Build/tests pasaron; no hubo deploy ni carga. La ejecución anterior `45528575052` sí había devuelto `404` en ambos GET y `X-Request-Id` no coincidía.
 
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.

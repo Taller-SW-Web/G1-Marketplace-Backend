@@ -132,6 +132,23 @@ evidence for all operations. Do not repeat it until the APIM owner reviews the
 imported operations, `/v1`→`/api/v1` rewrite, and applied policy revision. No
 response bodies or key values were logged; no load test or deployment ran.
 
+### Recheck after APIM correction — 25 Nov 2026 UTC
+
+After the APIM owner confirmed the route/rewrite and policy correction (repo
+commit `df137b1`), workflow run
+[45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477)
+sent the same two GETs once. Catalog products returned `503` (expected `200`);
+both response correlation headers matched the synthetic request ID. Wishlist
+without JWT returned `401` as expected. This no longer reproduced the earlier
+`404`s and confirms the tested correlation behavior, but the smoke remains
+**not fully passed** because catalog is unavailable. The owner separately
+reported that this `503` is the BFF/G6 `CATALOG_UNAVAILABLE` response after
+the request reaches Render; this workflow intentionally did not log response
+bodies, so that specific classification is owner-reported, not inferred from
+the smoke output. Build and tests passed; deploy, versioning, and image jobs
+were skipped. No response bodies or secret values were logged, and no load
+test or deployment ran.
+
 ## 24 November offline alignment
 
 The APIM owner confirmed `X-Correlation-Id` as the public header, its alias to

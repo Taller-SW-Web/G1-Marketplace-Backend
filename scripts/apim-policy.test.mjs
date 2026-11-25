@@ -96,5 +96,8 @@ test('APIM QA smoke is opt-in, bounded, read-only, and does not print secret or 
   assert.match(docs, /exactly two[\s\S]*GETs/u);
   assert.match(docs, /Real QA attempt — 25 Nov 2026 UTC[\s\S]*Both requests\s+returned `404`[\s\S]*failed REAL gateway check/u);
   assert.match(docs, /`X-Correlation-Id` matched[\s\S]*`X-Request-Id` did not/u);
+  assert.match(docs, /Recheck after APIM correction — 25 Nov 2026 UTC[\s\S]*returned `503`[\s\S]*returned `401` as expected/u);
+  assert.match(docs, /both response correlation headers matched[\s\S]*smoke remains\s+\*\*not fully passed\*\*/u);
   assert.match(runbook, /RUN_APIM_QA_SMOKE/u);
+  assert.match(runbook, /Última revalidación[\s\S]*`45536575477`[\s\S]*`503`[\s\S]*`401`/u);
 });
