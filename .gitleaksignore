@@ -1,0 +1,2 @@
+# Fixture sintético de la prueba HTTP local de G5; fingerprint auditado, no es una credencial real.
+62bea9f4d51b780ee10a1eeeaeec61fabf894a75:src/checkout/external/g5-sales.provider.spec.ts:generic-api-key:9
