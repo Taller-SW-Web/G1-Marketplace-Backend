@@ -1,6 +1,6 @@
 # H5-315 — confiabilidad del consumidor de eventos
 
-**Estado: implementación local en curso.** #315 cubre la extensión de confiabilidad del consumidor de #314. La evidencia REAL requiere el broker autorizado y un evento del publisher de Seguridad; no se conectó ni se desplegó en este corte.
+**Estado: implementación local; integración REAL pendiente.** La [issue #315](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/315) cubre la extensión de confiabilidad del consumer de [#314](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314). La evidencia REAL requiere el broker autorizado y un evento del publisher de Seguridad; no se conectó ni se desplegó en este corte.
 
 ## Comportamiento implementado
 
@@ -10,6 +10,7 @@
 - Las retry queues son durables y separadas por tipo y número de reintento. Cada una usa TTL y dead-letters de vuelta a `seguridad.usuarios` con la routing key original. El código declara las colas al habilitar el consumidor.
 - Configuración por entorno: `SECURITY_EVENTS_MAX_RETRIES`, `SECURITY_EVENTS_BACKOFF_BASE_MS`, `SECURITY_EVENTS_BACKOFF_MAX_MS` y `SECURITY_EVENTS_DLQ_QUEUE`. Valores iniciales locales: 3 reintentos, backoff exponencial 1 s / 2 s / 4 s y tope 30 s. Son configurables y deben coincidir con el acuerdo final publicado en SPECS antes de activar el entorno.
 - No se persiste el payload ni `usuarioId`; el inbox conserva sólo el ID, tipo, versión, fingerprint y fecha de recepción.
+- Las reacciones funcionales (invalidación de acceso y purga de datos) están especificadas por separado en [#316](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/316) y no se declaran cerradas por esta capa de confiabilidad.
 
 ## Validación local
 
