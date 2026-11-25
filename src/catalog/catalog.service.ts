@@ -27,31 +27,10 @@ export class CatalogService {
 
   get source(): CatalogSource { return this.provider.source; }
 
-  cacheControlFor(url: URL): string {
-    if (this.cacheTtlMs <= 0) return 'no-store';
-
-    let key: string;
-    switch (url.pathname) {
-      case '/api/v1/catalog/home':
-        key = this.homeCacheKey();
-        break;
-      case '/api/v1/catalog/filters':
-        key = this.filtersCacheKey();
-        break;
-      case '/api/v1/catalog/products':
-        key = this.searchCacheKey(parseQuery(url.searchParams));
-        break;
-      default:
-        return 'no-store';
-    }
-
-    const remainingMs = (this.cache.get(key)?.expiresAt ?? 0) - Date.now();
-    const remainingSeconds = Math.floor(remainingMs / 1000);
-    if (remainingSeconds < 1) return 'no-store';
-
-    // The shared cache can only use the remaining process-cache lifetime, not
-    // a fresh full TTL that would extend the total staleness window.
-    return `public, max-age=0, s-maxage=${remainingSeconds}, must-revalidate`;
+  cacheControlFor(_url: URL): string {
+    // The checked-in OpenAPI contract requires no-store. A process-local TTL
+    // never grants permission to enable HTTP/CDN caching.
+    return 'no-store';
   }
 
   filters(params: URLSearchParams, requestId: string) {

@@ -92,6 +92,8 @@ model Cart {
   checkoutOperations   CheckoutOperation[]
 
   @@index([mergedIntoCartId], map: "carts_merged_into_cart_idx")
+  // Partial active-cart unique indexes are defined in 0_init/migration.sql;
+  // Prisma schema syntax does not represent their WHERE predicates.
   @@map("carts")
 }
 

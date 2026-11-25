@@ -49,15 +49,13 @@ describe('Public catalog cache and compression (local MOCK)', () => {
 
   afterAll(async () => app?.close());
 
-  it('serves only successful public reads with the configured shared-cache TTL', async () => {
+  it('keeps successful public reads no-store while local process caching is configured', async () => {
     const first = await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
     const second = await request(app.getHttpServer()).get('/api/v1/catalog/home')
       .set('X-Request-Id', 'catalog-cache-hit').expect(200);
 
-    const maxAge = (header: string) => Number(/s-maxage=(\d+)/.exec(header)?.[1] ?? 0);
-    expect(first.headers['cache-control']).toMatch(/^public, max-age=0, s-maxage=(?:[1-9]|10), must-revalidate$/);
-    expect(second.headers['cache-control']).toMatch(/^public, max-age=0, s-maxage=\d+, must-revalidate$/);
-    expect(maxAge(second.headers['cache-control'])).toBeLessThanOrEqual(maxAge(first.headers['cache-control']));
+    expect(first.headers['cache-control']).toBe('no-store');
+    expect(second.headers['cache-control']).toBe('no-store');
     expect(second.headers['x-request-id']).toBe('catalog-cache-hit');
     expect(second.body).toEqual(first.body);
     expect(provider.home).toHaveBeenCalledTimes(1);

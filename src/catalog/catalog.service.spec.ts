@@ -35,21 +35,21 @@ describe('CatalogService public read cache', () => {
     expect(provider.home).toHaveBeenCalledTimes(1);
     expect(provider.home).toHaveBeenCalledWith('request-first');
     expect(service.cacheControlFor(new URL('http://localhost/api/v1/catalog/home')))
-      .toBe('public, max-age=0, s-maxage=1, must-revalidate');
+      .toBe('no-store');
 
     now += 1001;
     await service.home(new URLSearchParams(), 'request-after-expiry');
     expect(provider.home).toHaveBeenCalledTimes(2);
   });
 
-  it('limits shared-cache freshness to the process cache entry remaining TTL', async () => {
+  it('keeps the HTTP contract no-store while a local process cache is configured', async () => {
     const service = createService(3000);
     const url = new URL('http://localhost/api/v1/catalog/home');
     await service.home(new URLSearchParams(), 'request-one');
-    expect(service.cacheControlFor(url)).toBe('public, max-age=0, s-maxage=3, must-revalidate');
+    expect(service.cacheControlFor(url)).toBe('no-store');
 
     now += 1200;
-    expect(service.cacheControlFor(url)).toBe('public, max-age=0, s-maxage=1, must-revalidate');
+    expect(service.cacheControlFor(url)).toBe('no-store');
 
     now += 2000;
     expect(service.cacheControlFor(url)).toBe('no-store');
