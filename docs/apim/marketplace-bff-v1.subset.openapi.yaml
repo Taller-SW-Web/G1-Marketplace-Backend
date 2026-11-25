@@ -3,7 +3,7 @@ info:
   title: "Marketplace BFF APIM /v1 - contracted subset"
   version: "1.0.0"
   description: >-
-    Import candidate containing only the 33 documented /api/v1 operations from the five source contracts.
+    Import candidate containing only the 34 documented /api/v1 operations from the five source contracts.
     This is a contracted subset of the BFF, not the complete BFF contract. It has no backend server URL.
     It does not configure, import, or deploy an APIM API or backend.
 x-artifact-scope: "contracted-subset-of-bff-not-complete-contract"
@@ -948,6 +948,89 @@ paths:
             "application/problem+json":
               "schema":
                 "$ref": "#/components/schemas/Problem"
+  "/v1/orders/{orderId}/csat":
+    "post":
+      "operationId": "submitPostDeliveryCsat"
+      "tags": ["CSAT"]
+      "summary": "F-040: evaluación de pedido entregado del titular"
+      "description": "Desactivado por defecto. Requiere CSAT_ENABLED, CSAT_INTEGRATION_APPROVED y CSAT_PROMPT_APPROVED. Prompt propio SHOWN previamente autorizado; no crea ni muestra prompts. Conserva estado ante respuesta incierta, sin reintento automático. Cache-Control: no-store, private."
+      "security": [{"bearerAuth":[]}]
+      "parameters": [{"name":"orderId","in":"path","required":true,"schema":{"type":"string","maxLength":100,"pattern":"^PED-[0-9]{4}-[0-9]{5,}$"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/SubmitCsat"
+      "responses":
+        "201":
+          "description": "Ventas confirmó la evaluación; sin cuerpo. Prompt local SUBMITTED."
+        "400":
+          "description": "Solicitud inválida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_REQUEST"
+                "message": "Solicitud inválida"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "403":
+          "description": "Pedido ajeno"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_FORBIDDEN"
+                "message": "Pedido ajeno"
+        "404":
+          "description": "Pedido no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_NOT_AVAILABLE"
+                "message": "Pedido no disponible"
+        "409":
+          "description": "PROMPT_NOT_ELIGIBLE o CSAT_ALREADY_SUBMITTED. Sólo duplicado canónico confirmado por Ventas reconcilia el prompt."
+        "422":
+          "description": "Pedido no entregado"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_NOT_DELIVERED"
+                "message": "Pedido no entregado"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "CSAT_UNAVAILABLE":
+                  "value":
+                    "code": "CSAT_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "SALES_UNAVAILABLE":
+                  "value":
+                    "code": "SALES_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
   "/v1/carts/current/items":
     "post":
       "operationId": "addCartItem"
@@ -2387,6 +2470,24 @@ components:
           "minLength": 1
       "required": ["type","title","status","code","requestId"]
       "additionalProperties": false
+    "SubmitCsat":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["sentiment"]
+      "properties":
+        "sentiment":
+          "type": "string"
+          "enum": ["GOOD","REGULAR","BAD"]
+        "reasons":
+          "type": "array"
+          "maxItems": 10
+          "uniqueItems": true
+          "items":
+            "type": "string"
+            "pattern": "^[A-Z][A-Z0-9_]{0,49}$"
+        "comment":
+          "type": "string"
+          "maxLength": 1000
     "AddCartItemPayload":
       "type": "object"
       "additionalProperties": false
@@ -2515,7 +2616,7 @@ components:
               "pattern": "^[A-Z]{3}$"
         "availability":
           "type": "string"
-          "enum": ["AVAILABLE","OUT_OF_STOCK","UNAVAILABLE"]
+          "enum": ["AVAILABLE","OUT_OF_STOCK","UNDETERMINED","UNAVAILABLE"]
     "AddFromWishlistResult":
       "type": "object"
       "additionalProperties": false

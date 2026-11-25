@@ -14,7 +14,7 @@ assert.match(policy, /Candidate only for API scope marketplace-api with public s
 assert.match(policy, /confirmed origin-root serviceUrl documented in H5-308-IMPORT-V1\.md/u);
 
 const paths = [...openapi.matchAll(/^  "(\/v1[^"]+)":\s*$/gmu)].map((match) => match[1]);
-assert.equal(paths.length, 32, 'rewrite candidate should target the contracted /v1 path surface only');
+assert.equal(paths.length, 33, 'rewrite candidate should target the contracted /v1 path surface only');
 assert.ok(paths.every((path) => path === '/v1' || path.startsWith('/v1/')));
 assert.ok(!paths.includes('/v1/health'), '/v1/health must remain outside the contracted API');
 assert.ok(!paths.includes('/v1/docs') && !paths.some((path) => path.startsWith('/v1/docs/')), '/v1/docs must remain outside the contracted API');
@@ -28,7 +28,7 @@ assert.match(docs, /`GET \/v1\/wishlist`[\s\S]*requiere Bearer/u);
 assert.match(docs, /`GET \/v1\/carts\/current` permite sesión anónima/u);
 assert.match(docs, /no hay operación `\/v1\/health`[\s\S]*`\/api\/v1\/health`/u);
 assert.match(docs, /Si el `serviceUrl` cambia o ya incluye `\/api`, no aplicar el candidato/u);
-assert.match(docs, /not executed nor validated in an APIM gateway|no se ejecutó ni validó en un gateway APIM/iu);
+assert.match(docs, /esta PR no lo aplicó a Azure[\s\S]*no convierte este XML candidato en desplegado/iu);
 assert.doesNotMatch(policy, /https?:\/\//u, 'candidate must not invent a backend host');
 
 console.log(`Offline rewrite candidate checks passed for ${paths.length} OpenAPI paths; no APIM call performed.`);

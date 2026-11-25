@@ -25,8 +25,8 @@ assert.equal(
 
 const expectedOperations = expectedOperationKeys(result);
 const parsedRoutes = outputPathOperations(artifact);
-assert.equal(result.contractedOperations.length, 33, 'Deben existir exactamente 33 operaciones contratadas');
-assert.equal(parsedRoutes.operations.length, 33, 'El OpenAPI debe contener exactamente 33 operaciones');
+assert.equal(result.contractedOperations.length, 34, 'Deben existir exactamente 34 operaciones contratadas');
+assert.equal(parsedRoutes.operations.length, 34, 'El OpenAPI debe contener exactamente 34 operaciones');
 assert.deepEqual(parsedRoutes.operations, expectedOperations, 'Las rutas/metodos consolidados deben coincidir con las fuentes');
 assert.equal(new Set(parsedRoutes.paths).size, parsedRoutes.paths.length, 'No debe haber paths duplicados');
 assert.ok(parsedRoutes.paths.every((path) => path.startsWith('/v1/')), 'Todos los paths deben comenzar en /v1');

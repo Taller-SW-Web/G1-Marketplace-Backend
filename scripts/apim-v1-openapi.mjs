@@ -434,8 +434,8 @@ export function buildOpenApiArtifact() {
   }
 
   const contractedOperations = operationSources.filter(({ sourcePath }) => sourcePath.startsWith('/api/v1/'));
-  if (contractedOperations.length !== 33) {
-    throw new Error(`Se esperaban 33 operaciones bajo /api/v1 y se encontraron ${contractedOperations.length}`);
+  if (contractedOperations.length !== 34) {
+    throw new Error(`Se esperaban 34 operaciones bajo /api/v1 y se encontraron ${contractedOperations.length}`);
   }
   if (sourcePathsOutsideV1.length !== 1 || sourcePathsOutsideV1[0] !== 'GET /health') {
     throw new Error(`Cambió la superficie fuera de /api/v1: ${JSON.stringify(sourcePathsOutsideV1)}`);
@@ -469,7 +469,7 @@ export function buildOpenApiArtifact() {
     '  title: "Marketplace BFF APIM /v1 - contracted subset"',
     '  version: "1.0.0"',
     '  description: >-',
-    '    Import candidate containing only the 33 documented /api/v1 operations from the five source contracts.',
+    '    Import candidate containing only the 34 documented /api/v1 operations from the five source contracts.',
     '    This is a contracted subset of the BFF, not the complete BFF contract. It has no backend server URL.',
     '    It does not configure, import, or deploy an APIM API or backend.',
     'x-artifact-scope: "contracted-subset-of-bff-not-complete-contract"',

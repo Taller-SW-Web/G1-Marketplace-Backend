@@ -43,40 +43,34 @@ El responsable de APIM confirmó por escrito que la instancia ya existe y está 
    - **API URL suffix:** `v1`
    - **Web service URL (`serviceUrl`):** `https://g1-marketplace-backend.onrender.com` (origen, sin prefijo de ruta)
    - **Gateway público:** `https://apim-g1-marketplace-20.azure-api.net/v1`
-4. La importación/revisión y configuración son pasos pendientes de autorización; este runbook no acredita que se ejecutaron.
+4. La importación de este OpenAPI exacto de 34 operaciones no está acreditada por este runbook. El responsable informó que el routing/rewrite de `marketplace-api` se actualizó en el commit `df137b1` de la PR #359; esto no confirma que se importara este subset.
 
-El OpenAPI importado contiene solo 33 operaciones contratadas. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones importadas `/v1/...` a `/api/v1/...` y conserva query params.
+El OpenAPI candidato contiene solo 34 operaciones contratadas; la importación de ese archivo no queda acreditada por este runbook. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones contratadas `/v1/...` a `/api/v1/...` y conserva query params.
 
 ---
 
 ## 4. Aplicar la Política (`policies/api-policy.xml`)
 
+**No aplicar ni reemplazar la policy desde esta rama.** El archivo `azure-apim/policies/api-policy.xml` de esta PR no contiene la revisión `df137b1` reportada por el responsable APIM en la PR #359. Primero deben reconciliarse las ramas y confirmarse una sola policy canónica; cualquier cambio en Azure requiere autorización expresa. El rewrite candidato de `docs/apim/v1-backend-rewrite.policy.xml` es un artefacto distinto; no sustituir con él la policy canónica.
+
 1. En la lista de APIs, seleccionar **`G1 Marketplace Backend API`** (nivel de API $\rightarrow$ **All operations**; no usar *All APIs* porque `<rate-limit>` en plan Consumption solo aplica a nivel de API/Producto/Operación).
 2. En la sección **Inbound processing**, hacer clic en el ícono de código `</>` (Code editor).
-3. Reemplazar el contenido con el XML ubicado en [`azure-apim/policies/api-policy.xml`](./policies/api-policy.xml).
-4. Guardar los cambios (**Save**).
+3. Aplicar la versión acordada solo después de reconciliar las ramas y recibir autorización expresa; no sobrescribir la policy actual usando el XML de esta rama, que aún no incluye `df137b1`.
 
 ---
 
 ## 5. Pruebas de Validación y Evidencias
 
-*(En plan Consumption, `<rate-limit>` cuenta por clave de suscripción: obtener la `Primary key` en el menú izquierdo **Subscriptions** $\rightarrow$ `Built-in all-access subscription`).*
+El header de suscripción confirmado es `api-key`. Para el smoke de QA usar únicamente `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets; no copiar ni imprimir su valor. No utilizar `Ocp-Apim-Subscription-Key`, la suscripción all-access ni `/v1/health` como endpoint de prueba.
 
-### A. Prueba de Rate Limiting (Issue #309)
-Ejecutar una ráfaga de más de 60 peticiones en menos de un minuto:
-```powershell
-$KEY = "<TU_PRIMARY_KEY>"
-1..65 | ForEach-Object { curl.exe -s -o NUL -H "Ocp-Apim-Subscription-Key: $KEY" -w "Req $_ -> HTTP %{http_code}`n" "https://apim-g1-marketplace-20.azure-api.net/v1/health" }
-```
-* **Resultado esperado:** Las primeras 60 responden `200`, a partir de la 61 responde **`429 Too Many Requests`**.
+### A. Rate limiting (Issue #309)
+La prueba de más de 60 llamadas requiere autorización expresa y una ventana QA aprobada. Está pendiente; este runbook no contiene ni ejecuta una ráfaga. Debe apuntar a una operación contratada, por ejemplo `GET /v1/catalog/products?page=0&pageSize=10`; el status previo al límite depende de la disponibilidad del BFF.
 
-### B. Prueba de Validación JWT contra G7 (Issue #309)
-Hacer una petición a un endpoint protegido sin token o con token alterado:
-```powershell
-curl.exe -i -H "Ocp-Apim-Subscription-Key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/cart"
-```
-* **Resultado esperado:** Código **`401 Unauthorized`** con el mensaje:
-  `Acceso no autorizado: Token JWT invalido, expirado o ausente`.
+### B. Validación JWT contra G7
+Usar `GET /v1/wishlist` sin JWT con la suscripción QA. Resultado esperado: **401 Unauthorized**. La ruta `/v1/cart` no corresponde al caso contractual documentado para este smoke.
+
+### C. Rewrite y correlación
+El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica las 34 operaciones. No repetir hasta que el responsable de G6 confirme disponibilidad.
 
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
