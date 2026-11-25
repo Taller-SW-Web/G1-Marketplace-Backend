@@ -91,6 +91,9 @@ curl.exe -i -H "api-key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/
 ### C. Correlación
 Enviar `X-Correlation-Id` con un identificador de prueba aprobado. Confirmar en el backend que APIM lo refleja como `X-Request-Id` y que la respuesta pública conserva `X-Correlation-Id`. No reutilizar identificadores reales de usuarios.
 
+### D. Smoke QA manual
+En **Actions → CI-CD → Run workflow**, seleccionar la rama aprobada y `RUN_APIM_QA_SMOKE`. El job usa `APIM_QA_SUBSCRIPTION_KEY` desde Actions Secrets y ejecuta solo los dos GET anteriores (productos y wishlist). No muestra body ni clave; no despliega ni ejecuta carga. La ejecución requiere ventana/autorización QA y no sustituye la validación de todas las operaciones.
+
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
 > 2. Terminal mostrando la respuesta `HTTP 429` al superar la cuota.

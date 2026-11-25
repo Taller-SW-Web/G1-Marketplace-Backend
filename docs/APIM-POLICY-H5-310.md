@@ -108,12 +108,25 @@ active cache behavior or a duplicate policy artifact. These offline checks do
 not call Azure, validate APIM's policy expression runtime, or authorize
 deployment.
 
+## APIM QA smoke (manual, read-only)
+
+The `CI-CD` workflow has an opt-in `RUN_APIM_QA_SMOKE` dispatch input. It uses
+`APIM_QA_SUBSCRIPTION_KEY` from GitHub Actions Secrets and sends exactly two
+GETs to the non-production gateway: the contracted catalog products route
+(expect `200`, and compare response `X-Correlation-Id` / `X-Request-Id` with a
+synthetic request ID) and `/v1/wishlist` without JWT (expect `401`). It logs
+only status and boolean header-match results; it never logs response bodies or
+the subscription key. It does not send a burst, mutate data, or deploy. Run it
+only with explicit QA authorization and after the intended policy revision has
+been applied. A passing request validates only these cases, not all operations
+or the APIM policy language/runtime generally.
+
 ## 24 November offline alignment
 
 The APIM owner confirmed `X-Correlation-Id` as the public header, its alias to
 `X-Request-Id` for the BFF, the `api-key` subscription header, and three
 consumer subscriptions. The offline policy/test/runbook changes reflect those
-decisions. `npm run test:apim-policy` is a local check only; no APIM request,
-subscription-key use, load test, deployment, or cache change was performed.
-Catalog caching remains disabled (`no-store`, TTL 0); `AZURE_CREDENTIALS` is
-still pending.
+decisions. The APIM QA smoke is an explicit, bounded manual workflow; no
+rate/load test, deployment, or cache change is included. Catalog caching
+remains disabled (`no-store`, TTL 0); `AZURE_CREDENTIALS` is blocked by the
+tenant's directory permissions.

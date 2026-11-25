@@ -9,6 +9,8 @@ const policy = readFileSync(resolve(root, 'azure-apim/policies/api-policy.xml'),
 const catalog = JSON.parse(readFileSync(resolve(root, 'docs/contratos/openapi-catalogo-h4.json'), 'utf8'));
 const docs = readFileSync(resolve(root, 'docs/APIM-POLICY-H5-310.md'), 'utf8');
 const runbook = readFileSync(resolve(root, 'azure-apim/README.md'), 'utf8');
+const cicd = readFileSync(resolve(root, '.github/workflows/cicd.yml'), 'utf8');
+const qaSmoke = readFileSync(resolve(root, 'scripts/apim-qa-smoke.mjs'), 'utf8');
 
 test('canonical develop policy is reused instead of adding a duplicate policy', () => {
   assert.match(policy, /<cors\b/u);
@@ -80,4 +82,17 @@ test('subscription-key configuration remains external and contains no key value'
   assert.match(docs, /Values remain only in their approved secret\s+stores/u);
   assert.doesNotMatch(docs, /Blocked: APIM #307 pending/u);
   assert.doesNotMatch(docs, /(?:SharedAccessSignature|DefaultEndpointsProtocol|Bearer\s+[A-Za-z0-9._~-]{20,})/u);
+});
+
+test('APIM QA smoke is opt-in, bounded, read-only, and does not print secret or response data', () => {
+  assert.match(cicd, /workflow_dispatch:[\s\S]*apim_qa_smoke:[\s\S]*RUN_APIM_QA_SMOKE/u);
+  assert.match(cicd, /if: github\.event_name == 'workflow_dispatch'[\s\S]*apim_qa_smoke == 'RUN_APIM_QA_SMOKE'/u);
+  assert.match(cicd, /APIM_QA_SUBSCRIPTION_KEY: \$\{\{ secrets\.APIM_QA_SUBSCRIPTION_KEY \}\}/u);
+  assert.match(qaSmoke, /method: 'GET'/u);
+  assert.match(qaSmoke, /catalog\/products\?page=0&pageSize=10/u);
+  assert.match(qaSmoke, /path: 'wishlist'[\s\S]*expectedStatus: 401/u);
+  assert.match(qaSmoke, /AbortSignal\.timeout\(45_000\)/u);
+  assert.doesNotMatch(qaSmoke, /console\.(?:log|error)\([^\n]*(?:subscriptionKey|response\.text|response\.json)/u);
+  assert.match(docs, /exactly two[\s\S]*GETs/u);
+  assert.match(runbook, /RUN_APIM_QA_SMOKE/u);
 });
