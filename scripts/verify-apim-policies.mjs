@@ -4,6 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const subscriptionKey = process.env.APIM_SUBSCRIPTION_KEY?.trim();
 const runRateLimit = process.env.APIM_RUN_RATE_LIMIT === 'true';
+const cachePath = process.env.APIM_CACHE_PATH ?? '/docs/specs';
 const jwtRejection = 'Acceso no autorizado: Token JWT invalido, expirado o ausente';
 
 async function callApim(baseUrl, path, timeoutMs = 10_000) {
@@ -30,6 +31,7 @@ async function callApim(baseUrl, path, timeoutMs = 10_000) {
 
 async function main() {
   if (!subscriptionKey) throw new Error('Configura APIM_SUBSCRIPTION_KEY con una suscripción válida.');
+  if (!['/docs/specs', '/health'].includes(cachePath)) throw new Error('APIM_CACHE_PATH debe ser /docs/specs o /health.');
   const base = new URL(process.env.APIM_BASE_URL ?? 'https://apim-g1-marketplace-20.azure-api.net/v1');
   if (base.username || base.password || base.search || base.hash) throw new Error('APIM_BASE_URL debe contener solo el origen y la ruta de la API.');
   const baseUrl = base.href.replace(/\/$/, '');
@@ -48,15 +50,15 @@ async function main() {
   check('jwt', jwt.jwtRejected, jwt);
   check('trace', jwt.jwtRejected && jwt.correlationOut === jwt.correlationIn, jwt);
 
-  const attempts = [await call('/docs/specs')];
+  const attempts = [await call(cachePath)];
   for (let i = 1; i < 4 && attempts.at(-1).status === 200; i += 1) {
     await delay(250);
-    const sample = await call('/docs/specs');
+    const sample = await call(cachePath);
     attempts.push(sample);
     if (sample.cacheStatus === 'HIT') break;
   }
   check('cache', attempts.length >= 2 && attempts.every(({ status }) => status === 200)
-    && attempts.at(-1).cacheStatus === 'HIT', { path: '/docs/specs', attempts });
+    && attempts.at(-1).cacheStatus === 'HIT', { path: cachePath, attempts });
 
   if (runRateLimit) {
     let ok200 = 0;

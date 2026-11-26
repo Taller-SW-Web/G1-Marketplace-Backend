@@ -22,5 +22,5 @@ jobs:
       - name: Verify deployed APIM policies
         env:
           APIM_SUBSCRIPTION_KEY: ${{ secrets.APIM_QA_SUBSCRIPTION_KEY }}
-          APIM_RUN_RATE_LIMIT: 'true'
+          APIM_CACHE_PATH: /health
         run: node scripts/verify-apim-policies.mjs
