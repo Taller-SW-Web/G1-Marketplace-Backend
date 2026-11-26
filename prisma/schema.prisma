@@ -61,12 +61,14 @@ enum NotificationDeliveryState {
 
 // Shared, transient BFF sessions. No passwords or plaintext provider tokens.
 model AuthSession {
-  id        String   @id @db.Char(64)
-  encrypted String   @db.Text
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String   @id @db.Char(64)
+  customerId String?  @map("customer_id") @db.Uuid
+  encrypted  String   @db.Text
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([expiresAt], map: "auth_sessions_expiry_idx")
+  @@index([customerId], map: "auth_sessions_customer_idx")
   @@map("auth_sessions")
 }
 
@@ -228,4 +230,15 @@ model SecurityUserEventInbox {
 
   @@index([receivedAt], map: "security_user_event_inbox_received_idx")
   @@map("security_user_event_inbox")
+}
+
+model SecurityUserState {
+  userId        String    @id @map("user_id") @db.Uuid
+  status        String    @db.VarChar(32)
+  invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(6)
+  lastEventId   String    @map("last_event_id") @db.VarChar(255)
+  lastEventType String    @map("last_event_type") @db.VarChar(100)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("security_user_states")
 }
