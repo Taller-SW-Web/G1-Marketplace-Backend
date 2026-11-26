@@ -194,3 +194,15 @@ model NotificationDelivery {
   @@index([externalOrderId, createdAt(sort: Desc)], map: "notification_deliveries_order_idx")
   @@map("notification_deliveries")
 }
+
+// Durable receipt for Sales shipment webhooks. A unique eventId makes retries
+// safe; the full contract payload is retained for later processing/audit.
+model ShipmentEventInbox {
+  eventId    String   @id @map("event_id") @db.VarChar(255)
+  orderId    String   @map("order_id") @db.VarChar(20)
+  payload    Json     @db.JsonB
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@index([orderId, receivedAt(sort: Desc)], map: "shipment_event_inbox_order_received_idx")
+  @@map("shipment_event_inbox")
+}

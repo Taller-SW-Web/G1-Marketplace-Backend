@@ -44,3 +44,7 @@ services:
         value: "false"
       - key: VENTAS_BASE_URL
         value: https://g5-api-gateway.onrender.com
+      - key: VENTAS_WEBHOOK_HEADER
+        value: x-webhook-token
+      - key: VENTAS_WEBHOOK_TOKEN
+        sync: false

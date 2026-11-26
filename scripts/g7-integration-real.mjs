@@ -3,13 +3,20 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
+import { createInterface } from 'node:readline/promises';
+import { Writable } from 'node:stream';
 
 const contract = 'G7 OpenAPI 1.0.0 @ 1b8f2e35448075a6c396b70fdd4ec1d5b1aa9201';
 const issues = [25, 29, 33, 37, 41, 115];
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const maxRequests = 25;
-const rows = [];
-let requests = 0;
+const publicCodes = new Set([
+  'VALIDACION', 'CORREO_NO_DISPONIBLE', 'POLITICA_INCUMPLIDA', 'ENLACE_EXPIRADO',
+  'ENLACE_YA_USADO', 'CREDENCIALES_INVALIDAS', 'CODIGO_INVALIDO', 'OTP_EXPIRADO',
+  'OTP_INTENTOS_AGOTADOS', 'REFRESCO_INVALIDO', 'TOKEN_INVALIDO', 'PASSWORD_CADUCADA',
+  'TOKEN_RECUPERACION_INVALIDO', 'TOKEN_RECUPERACION_EXPIRADO', 'SCOPE_INSUFICIENTE',
+  'NO_ENCONTRADO', 'DEMASIADAS_SOLICITUDES', 'NO_DISPONIBLE',
+]);
 
 class ConfigurationError extends Error {}
 
@@ -45,6 +52,7 @@ function configure() {
     NEW_PASSWORD: 'SoloFixture-001!', OTHER_USER_ID: '22222222-2222-2222-8222-222222222222',
     MFA_EMAIL: 'mfa-fixture@example.invalid', MFA_PASSWORD: 'SoloFixture-002!', MFA_OTP: '000000',
   };
+  const manualMail = !mock && process.env.G7_MANUAL_MAIL === '1';
   let environment = 'Prism local';
   let providerSha = null;
   const credentials = {};
@@ -58,33 +66,71 @@ function configure() {
       throw new ConfigurationError('REAL requiere verificación TLS habilitada.');
     }
     environment = required('G7_TEST_ENVIRONMENT');
-    if (!['sandbox', 'staging'].includes(environment)) throw new ConfigurationError('Entorno REAL: sandbox o staging.');
-    providerSha = required('G7_PROVIDER_SHA');
-    if (!/^[0-9a-f]{40}$/i.test(providerSha)) throw new ConfigurationError('G7_PROVIDER_SHA debe ser un SHA completo.');
-    for (const name of Object.keys(synthetic)) {
-      if (name.startsWith('MFA_')) continue;
-      credentials[name] = required('G7_' + name);
+    if (manualMail) {
+      if (environment !== 'authorized-test' || url.origin !== 'https://g7-auth-service.onrender.com') {
+        throw new ConfigurationError('La ronda con correo manual requiere authorized-test y el host G7 autorizado.');
+      }
+      if (!process.stdin.isTTY || !process.stderr.isTTY) {
+        throw new ConfigurationError('La ronda con correo manual necesita un terminal interactivo sin grabación.');
+      }
+      providerSha = process.env.G7_PROVIDER_SHA || null;
+      for (const name of ['TEST_EMAIL', 'TEST_PASSWORD', 'REGISTER_EMAIL', 'REGISTER_PASSWORD',
+        'REGISTER_NAME', 'REGISTER_SURNAME', 'REGISTER_PHONE', 'MFA_EMAIL', 'MFA_PASSWORD', 'NEW_PASSWORD']) {
+        credentials[name] = required('G7_' + name);
+      }
+      for (const name of ['UNKNOWN_EMAIL', 'OTHER_USER_ID', 'EXPIRED_VERIFY_TOKEN', 'EXPIRED_RESET_TOKEN']) {
+        credentials[name] = process.env['G7_' + name]?.trim() || undefined;
+      }
+      if (credentials.NEW_PASSWORD === credentials.TEST_PASSWORD) {
+        throw new ConfigurationError('La contraseña nueva debe ser distinta de la inicial.');
+      }
+    } else {
+      if (!['sandbox', 'staging'].includes(environment)) throw new ConfigurationError('Entorno REAL: sandbox o staging.');
+      providerSha = required('G7_PROVIDER_SHA');
+      for (const name of Object.keys(synthetic)) {
+        if (name.startsWith('MFA_')) continue;
+        credentials[name] = required('G7_' + name);
+      }
+      const mfaNames = ['MFA_EMAIL', 'MFA_PASSWORD', 'MFA_OTP'];
+      if (mfaNames.some((name) => process.env['G7_' + name])) {
+        for (const name of mfaNames) credentials[name] = required('G7_' + name);
+      }
     }
-    const mfaNames = ['MFA_EMAIL', 'MFA_PASSWORD', 'MFA_OTP'];
-    if (mfaNames.some((name) => process.env['G7_' + name])) {
-      for (const name of mfaNames) credentials[name] = required('G7_' + name);
+    if (providerSha && !/^[0-9a-f]{40}$/i.test(providerSha)) {
+      throw new ConfigurationError('G7_PROVIDER_SHA debe ser un SHA completo.');
     }
   }
 
-  const emails = ['TEST_EMAIL', 'REGISTER_EMAIL', 'UNKNOWN_EMAIL', 'RESET_EMAIL', ...(credentials.MFA_EMAIL ? ['MFA_EMAIL'] : [])];
+  const emails = ['TEST_EMAIL', 'REGISTER_EMAIL', 'UNKNOWN_EMAIL', 'RESET_EMAIL', 'MFA_EMAIL']
+    .filter((name) => credentials[name]);
   if (new Set(emails.map((name) => credentials[name].toLowerCase())).size !== emails.length ||
     emails.some((name) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials[name])) ||
-    !uuid.test(credentials.OTHER_USER_ID) ||
-    credentials.VERIFY_TOKEN === credentials.EXPIRED_VERIFY_TOKEN ||
-    credentials.RESET_TOKEN === credentials.EXPIRED_RESET_TOKEN ||
+    (credentials.OTHER_USER_ID && !uuid.test(credentials.OTHER_USER_ID)) ||
+    (credentials.VERIFY_TOKEN && credentials.VERIFY_TOKEN === credentials.EXPIRED_VERIFY_TOKEN) ||
+    (credentials.RESET_TOKEN && credentials.RESET_TOKEN === credentials.EXPIRED_RESET_TOKEN) ||
     (credentials.MFA_OTP && !/^\d{6}$/.test(credentials.MFA_OTP))) {
     throw new ConfigurationError('Usa fixtures distintos de G7 y revisa los formatos de correo, usuario y OTP.');
   }
-  return { mode: mock ? 'MOCK' : 'REAL', mock, base: url.origin + path, environment, providerSha, credentials };
+  return { mode: mock ? 'MOCK' : 'REAL', mock, manualMail, base: url.origin + path, environment, providerSha, credentials };
 }
 
-function skip(issue, test, reason) {
-  rows.push({ issue, test, result: 'SKIP', reason });
+async function readMailSecret(instruction) {
+  const silent = new Writable({ write(_chunk, _encoding, done) { done(); } });
+  const terminal = createInterface({ input: process.stdin, output: silent, terminal: true, historySize: 0 });
+  try {
+    process.stderr.write(instruction + ' (entrada oculta; Enter sin valor omite): ');
+    return (await terminal.question('')).trim();
+  } finally {
+    terminal.close();
+    process.stderr.write('\n');
+  }
+}
+
+function retryAfter(value) {
+  if (/^\d{1,9}$/.test(value ?? '')) return { seconds: Number(value) };
+  const date = Date.parse(value ?? '');
+  if (Number.isFinite(date)) return { untilUtc: new Date(date).toISOString() };
+  return null;
 }
 
 function session(body, role = 'CLIENTE') {
@@ -120,161 +166,206 @@ function problem(code) {
   return (body) => body?.code === code;
 }
 
-async function run(config) {
-  const { credentials: c, mock } = config;
-  async function check(issue, test, route, {
-    path = route, body, token, status, example, verify = () => true, shortDeadline = false,
-  }) {
-    if (++requests > maxRequests) throw new Error('Límite interno de solicitudes.');
-    const trace = randomUUID();
-    const headers = { 'X-Request-Id': trace, Accept: 'application/json, application/problem+json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (token) headers.Authorization = 'Bearer ' + token;
-    if (mock) headers.Prefer = ['code=' + status, example && 'example=' + example].filter(Boolean).join(', ');
-    const signal = AbortSignal.timeout(shortDeadline ? 1 : 15_000);
-    const evidence = {
-      issue, test, method: body === undefined ? 'GET' : 'POST', route,
-      requestFields: Object.keys(body ?? {}), bearer: Boolean(token), trace,
-      expected: shortDeadline ? 'CLIENT_TIMEOUT' : status,
-    };
-    const start = performance.now();
-    let data;
-    try {
-      const response = await fetch(config.base + path, {
-        method: evidence.method, headers, body: body === undefined ? undefined : JSON.stringify(body),
-        redirect: 'error', signal,
-      });
-      evidence.httpStatus = response.status;
-      evidence.traceEchoed = response.headers.get('x-request-id') === trace;
-      const raw = await response.text();
-      data = raw === '' ? undefined : JSON.parse(raw);
-      evidence.response = data === undefined ? 'empty' : 'json';
-      if (response.status !== status || !verify(data)) evidence.result = 'FAIL';
-      else evidence.result = shortDeadline ? 'INCONCLUSIVE' : 'PASS';
-    } catch (error) {
-      const timedOut = signal.aborted && (error === signal.reason || error?.name === 'AbortError');
-      evidence.response = timedOut ? 'CLIENT_TIMEOUT' : 'TRANSPORT_OR_RESPONSE_ERROR';
-      evidence.result = timedOut && shortDeadline ? 'PASS' : 'FAIL';
-    } finally {
-      evidence.ms = Math.round(performance.now() - start);
-      rows.push(evidence);
-    }
-    return evidence.result === 'PASS' ? data : undefined;
+export async function run(config, { readSecret = readMailSecret, request = fetch } = {}) {
+  const { credentials: c, mock, manualMail } = config;
+  const rows = [];
+  let requests = 0;
+  let stopped = false;
+  function skip(issue, test, reason) {
+    rows.push({ issue, test, result: 'SKIP', reason });
   }
-
-  const registration = {
-    correo: c.REGISTER_EMAIL, contrasena: c.REGISTER_PASSWORD, nombres: c.REGISTER_NAME,
-    apellidos: c.REGISTER_SURNAME, celular: c.REGISTER_PHONE, aceptaTerminos: true, canalOrigen: 'MARKETPLACE',
-  };
-  const registered = await check(25, 'Registro pendiente sin sesión', '/auth/registro',
-    { body: registration, status: 201, example: 'creada', verify: pendingRegistration });
-  if (registered) {
-    await check(25, 'Registro repetido de la misma fixture', '/auth/registro',
-      { body: registration, status: 409, example: 'correoNoDisponible', verify: problem('CORREO_NO_DISPONIBLE') });
-  } else skip(25, 'Registro repetido de la misma fixture', 'El alta anterior no quedó confirmada.');
-  await check(25, 'Confirmación con fixture de correo', '/auth/verificar-correo',
-    { body: { token: c.VERIFY_TOKEN }, status: 204, verify: empty });
-  await check(25, 'Enlace de correo vencido', '/auth/verificar-correo',
-    { body: { token: c.EXPIRED_VERIFY_TOKEN }, status: 410, example: 'expirado', verify: problem('ENLACE_EXPIRADO') });
-
-  const login = await check(29, 'Login CLIENTE sin MFA', '/auth/login',
-    { body: { correo: c.TEST_EMAIL, contrasena: c.TEST_PASSWORD }, status: 200, example: 'sinMfa', verify: session });
-  await check(29, 'Credencial sintética inválida una sola vez', '/auth/login', {
-    body: { correo: c.TEST_EMAIL, contrasena: randomUUID() }, status: 401, example: 'credencialesInvalidas',
-    verify: problem('CREDENCIALES_INVALIDAS'),
-  });
-  if (c.MFA_EMAIL) {
-    const challenge = await check(29, 'Login requiere desafío MFA sin sesión', '/auth/login', {
-      body: { correo: c.MFA_EMAIL, contrasena: c.MFA_PASSWORD }, status: 200, example: 'conMfa',
-      verify: mfaChallenge,
-    });
-    if (challenge) {
-      const requested = await check(29, 'Solicitar OTP', '/auth/otp/solicitar', {
-        body: { challengeToken: challenge.challengeToken }, status: 202, example: 'enviado',
-        verify: otpRequested,
-      });
-      if (requested) {
-        const mfa = await check(29, 'Verificar OTP de fixture', '/auth/otp/verificar', {
-          body: { challengeToken: challenge.challengeToken, codigo: c.MFA_OTP },
-          status: 200, example: 'verificado',
-          // El ejemplo fijo de OTP de Prism pertenece a VENDEDOR. En REAL se exige CLIENTE.
-          verify: (data) => session(data, mock ? 'VENDEDOR' : 'CLIENTE'),
+  async function execute() {
+    async function check(issue, test, route, {
+      path = route, body, token, status, example, verify = () => true, shortDeadline = false,
+    }) {
+      if (++requests > maxRequests) throw new Error('Límite interno de solicitudes.');
+      const trace = randomUUID();
+      const headers = { 'X-Request-Id': trace, Accept: 'application/json, application/problem+json' };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = 'Bearer ' + token;
+      if (mock) headers.Prefer = ['code=' + status, example && 'example=' + example].filter(Boolean).join(', ');
+      const signal = AbortSignal.timeout(shortDeadline ? 1 : 15_000);
+      const evidence = {
+        issue, test, method: body === undefined ? 'GET' : 'POST', route,
+        requestFields: Object.keys(body ?? {}), bearer: Boolean(token), trace,
+        expected: shortDeadline ? 'CLIENT_TIMEOUT' : status,
+      };
+      evidence.at = new Date().toISOString();
+      const start = performance.now();
+      let data;
+      try {
+        const response = await request(config.base + path, {
+          method: evidence.method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+          redirect: 'error', signal,
         });
-        if (mfa) await check(29, 'Cerrar sesión MFA de prueba', '/auth/logout', {
-          body: { refreshToken: mfa.refreshToken }, token: mfa.accessToken, status: 204, verify: empty,
-        });
-      } else skip(29, 'Verificar OTP de fixture', 'La solicitud OTP no cumplió el contrato.');
-    } else skip(29, 'Solicitar y verificar OTP', 'No se obtuvo un desafío válido.');
-  } else skip(29, 'MFA por correo', 'G7 debe proveer una fixture de OTP determinista para automatizar este paso.');
+        evidence.httpStatus = response.status;
+        if (response.status === 429) evidence.retryAfter = retryAfter(response.headers.get('retry-after'));
+        evidence.traceEchoed = response.headers.get('x-request-id') === trace;
+        const raw = await response.text();
+        data = raw === '' ? undefined : JSON.parse(raw);
+        evidence.response = data === undefined ? 'empty' : 'json';
+        if (publicCodes.has(data?.code)) evidence.errorCode = data.code;
+        if (response.status !== status || !verify(data)) evidence.result = 'FAIL';
+        else evidence.result = shortDeadline ? 'INCONCLUSIVE' : 'PASS';
+      } catch (error) {
+        const timedOut = signal.aborted && (error === signal.reason || error?.name === 'AbortError');
+        evidence.response = timedOut ? 'CLIENT_TIMEOUT' : 'TRANSPORT_OR_RESPONSE_ERROR';
+        evidence.result = timedOut && shortDeadline ? 'PASS' : 'FAIL';
+      } finally {
+        evidence.ms = Math.round(performance.now() - start);
+        rows.push(evidence);
+      }
+      if (evidence.httpStatus === 429) {
+        stopped = true;
+        throw new Error('Rate limit');
+      }
+      return evidence.result === 'PASS' ? data : undefined;
+    }
 
-  await check(37, 'Recuperación de la cuenta de prueba', '/password/recuperar',
-    { body: { correo: c.TEST_EMAIL }, status: 202, verify: empty });
-  await check(37, 'Recuperación neutra para correo sintético desconocido', '/password/recuperar',
-    { body: { correo: c.UNKNOWN_EMAIL }, status: 202, verify: empty });
-
-  await check(41, 'Restablecer con token de una fixture separada', '/password/restablecer',
-    { body: { token: c.RESET_TOKEN, nuevaContrasena: c.NEW_PASSWORD }, status: 204, verify: empty });
-  // 204 es un resultado sin cuerpo. Distinguirlo del fallo mediante la fila de evidencia.
-  if (rows.at(-1).result === 'PASS') {
-    await check(41, 'Reutilizar una vez el token consumido', '/password/restablecer', {
-      body: { token: c.RESET_TOKEN, nuevaContrasena: c.NEW_PASSWORD }, status: 401, example: 'tokenInvalido',
-      verify: problem('TOKEN_RECUPERACION_INVALIDO'),
-    });
-    const resetLogin = await check(41, 'Ingresar con la nueva contraseña', '/auth/login', {
-      body: { correo: c.RESET_EMAIL, contrasena: c.NEW_PASSWORD }, status: 200, example: 'sinMfa', verify: session,
-    });
-    if (resetLogin) await check(41, 'Cerrar sesión de la fixture restablecida', '/auth/logout', {
-      body: { refreshToken: resetLogin.refreshToken }, token: resetLogin.accessToken, status: 204, verify: empty,
-    });
-  } else skip(41, 'Reutilizar una vez el token consumido', 'El restablecimiento anterior no quedó confirmado.');
-  await check(41, 'Rechazar token de recuperación genuinamente vencido', '/password/restablecer', {
-    body: { token: c.EXPIRED_RESET_TOKEN, nuevaContrasena: c.NEW_PASSWORD }, status: 410, example: 'tokenExpirado',
-    verify: problem('TOKEN_RECUPERACION_EXPIRADO'),
-  });
-
-  if (login && login.usuario.id.toLowerCase() !== c.OTHER_USER_ID.toLowerCase()) {
-    const route = '/usuarios/{id}/direcciones';
-    const ownPath = '/usuarios/' + login.usuario.id + '/direcciones';
-    const syntheticAddress = {
-      id: randomUUID(), etiqueta: 'Fixture de integración', direccion: 'Dirección sintética G7',
-      departamento: 'Lima', provincia: 'Lima', distrito: 'Lima',
+    const registration = {
+      correo: c.REGISTER_EMAIL, contrasena: c.REGISTER_PASSWORD, nombres: c.REGISTER_NAME,
+      apellidos: c.REGISTER_SURNAME, celular: c.REGISTER_PHONE, aceptaTerminos: true, canalOrigen: 'MARKETPLACE',
     };
-    const created = await check(115, 'Registrar dirección sintética del titular', route, {
-      path: ownPath, body: syntheticAddress, token: login.accessToken,
-      status: 201, verify: (data) => uuid.test(data?.id ?? '') && typeof data?.direccion === 'string',
-    });
-    await check(115, 'Listar direcciones del titular', route, {
-      path: ownPath, token: login.accessToken, status: 200, example: 'dosDirecciones',
-      verify: (data) => Array.isArray(data?.direcciones) &&
-        (mock || Boolean(created && data.direcciones.some((address) => address?.id === created.id))),
-    });
-    await check(115, 'Rechazar lectura de otra fixture autorizada', route, {
-      path: '/usuarios/' + c.OTHER_USER_ID + '/direcciones', token: login.accessToken, status: 403, verify: problem('SCOPE_INSUFICIENTE'),
-    });
-  } else skip(115, 'Alta, lectura y titularidad de direcciones', 'Falta sesión CLIENTE o la segunda fixture coincide.');
+    const registered = await check(25, 'Registro pendiente sin sesión', '/auth/registro',
+      { body: registration, status: 201, example: 'creada', verify: pendingRegistration });
+    if (registered) {
+      await check(25, 'Registro repetido de la misma fixture', '/auth/registro',
+        { body: registration, status: 409, example: 'correoNoDisponible', verify: problem('CORREO_NO_DISPONIBLE') });
+    } else skip(25, 'Registro repetido de la misma fixture', 'El alta anterior no quedó confirmada.');
+    const verifyToken = manualMail
+      ? registered && await readSecret('Pega solo el token de verificación del correo de registro')
+      : c.VERIFY_TOKEN;
+    if (verifyToken) await check(25, 'Confirmación con token de correo', '/auth/verificar-correo',
+      { body: { token: verifyToken }, status: 204, verify: empty });
+    else skip(25, 'Confirmación de correo', 'El registro no quedó confirmado o no se ingresó el token.');
+    if (c.EXPIRED_VERIFY_TOKEN) await check(25, 'Enlace de correo vencido', '/auth/verificar-correo',
+      { body: { token: c.EXPIRED_VERIFY_TOKEN }, status: 410, example: 'expirado', verify: problem('ENLACE_EXPIRADO') });
+    else skip(25, 'Enlace de correo vencido', 'G7 no entregó un token genuinamente vencido.');
 
-  if (login) {
-    await check(33, 'Logout de la propia sesión de prueba', '/auth/logout', {
-      body: { refreshToken: login.refreshToken }, token: login.accessToken, status: 204, verify: empty,
+    const login = await check(29, 'Login CLIENTE sin MFA', '/auth/login',
+      { body: { correo: c.TEST_EMAIL, contrasena: c.TEST_PASSWORD }, status: 200, example: 'sinMfa', verify: session });
+    await check(29, 'Credencial sintética inválida una sola vez', '/auth/login', {
+      body: { correo: c.TEST_EMAIL, contrasena: randomUUID() }, status: 401, example: 'credencialesInvalidas',
+      verify: problem('CREDENCIALES_INVALIDAS'),
     });
-    if (rows.at(-1).result === 'PASS') {
-      await check(33, 'Refresh anterior rechazado tras logout', '/auth/refresh', {
-        body: { refreshToken: login.refreshToken }, status: 401, example: 'reusoDetectado', verify: problem('REFRESCO_INVALIDO'),
+    if (c.MFA_EMAIL) {
+      const challenge = await check(29, 'Login requiere desafío MFA sin sesión', '/auth/login', {
+        body: { correo: c.MFA_EMAIL, contrasena: c.MFA_PASSWORD }, status: 200, example: 'conMfa',
+        verify: mfaChallenge,
       });
-    } else skip(33, 'Refresh anterior rechazado tras logout', 'El logout previo no quedó confirmado.');
-  } else skip(33, 'Logout y revocación del refresh', 'No se obtuvo sesión CLIENTE.');
+      if (challenge) {
+        const requested = await check(29, 'Solicitar OTP', '/auth/otp/solicitar', {
+          body: { challengeToken: challenge.challengeToken }, status: 202, example: 'enviado',
+          verify: otpRequested,
+        });
+        if (requested) {
+          const otp = manualMail ? await readSecret('Introduce el OTP de seis dígitos del correo MFA') : c.MFA_OTP;
+          const mfa = /^\d{6}$/.test(otp ?? '') ? await check(29, 'Verificar OTP', '/auth/otp/verificar', {
+            body: { challengeToken: challenge.challengeToken, codigo: otp },
+            status: 200, example: 'verificado',
+            // El ejemplo fijo de OTP de Prism pertenece a VENDEDOR. En REAL se exige CLIENTE.
+            verify: (data) => session(data, mock ? 'VENDEDOR' : 'CLIENTE'),
+          }) : undefined;
+          if (!/^\d{6}$/.test(otp ?? '')) skip(29, 'Verificar OTP', 'Código omitido o sin seis dígitos.');
+          if (mfa) await check(29, 'Cerrar sesión MFA de prueba', '/auth/logout', {
+            body: { refreshToken: mfa.refreshToken }, token: mfa.accessToken, status: 204, verify: empty,
+          });
+        } else skip(29, 'Verificar OTP de fixture', 'La solicitud OTP no cumplió el contrato.');
+      } else skip(29, 'Solicitar y verificar OTP', 'No se obtuvo un desafío válido.');
+    } else skip(29, 'MFA por correo', 'G7 debe proveer una fixture de OTP determinista para automatizar este paso.');
 
-  await check('transporte', 'Deadline del cliente sobre una lectura aprobada', '/password/politica',
-    { status: 200, shortDeadline: true });
-  await check('transporte', 'Un retest de lectura con plazo normal', '/password/politica',
-    { status: 200, verify: (data) => Number.isInteger(data?.longitudMinima) });
+    if (login) {
+      const route = '/usuarios/{id}/direcciones';
+      const ownPath = '/usuarios/' + login.usuario.id + '/direcciones';
+      const syntheticAddress = {
+        id: randomUUID(), etiqueta: 'Fixture de integración', direccion: 'Dirección sintética G7',
+        departamento: 'Lima', provincia: 'Lima', distrito: 'Lima',
+      };
+      const created = await check(115, 'Registrar dirección sintética del titular', route, {
+        path: ownPath, body: syntheticAddress, token: login.accessToken,
+        status: 201, verify: (data) => uuid.test(data?.id ?? '') && typeof data?.direccion === 'string',
+      });
+      await check(115, 'Listar direcciones del titular', route, {
+        path: ownPath, token: login.accessToken, status: 200, example: 'dosDirecciones',
+        verify: (data) => Array.isArray(data?.direcciones) &&
+          (mock || Boolean(created && data.direcciones.some((address) => address?.id === created.id))),
+      });
+      if (c.OTHER_USER_ID && login.usuario.id.toLowerCase() !== c.OTHER_USER_ID.toLowerCase()) {
+        await check(115, 'Rechazar lectura de otra fixture autorizada', route, {
+          path: '/usuarios/' + c.OTHER_USER_ID + '/direcciones', token: login.accessToken, status: 403,
+          verify: problem('SCOPE_INSUFICIENTE'),
+        });
+      } else skip(115, 'Lectura de otra fixture', 'Falta un ID distinto de cuenta de prueba autorizado por G7.');
+    } else skip(115, 'Alta, lectura y titularidad de direcciones', 'Falta sesión CLIENTE.');
+
+    if (login) {
+      await check(33, 'Logout de la propia sesión de prueba', '/auth/logout', {
+        body: { refreshToken: login.refreshToken }, token: login.accessToken, status: 204, verify: empty,
+      });
+      if (rows.at(-1).result === 'PASS') {
+        await check(33, 'Refresh anterior rechazado tras logout', '/auth/refresh', {
+          body: { refreshToken: login.refreshToken }, status: 401, example: 'reusoDetectado', verify: problem('REFRESCO_INVALIDO'),
+        });
+      } else skip(33, 'Refresh anterior rechazado tras logout', 'El logout previo no quedó confirmado.');
+    } else skip(33, 'Logout y revocación del refresh', 'No se obtuvo sesión CLIENTE.');
+
+    await check(37, 'Recuperación de la cuenta de prueba', '/password/recuperar',
+      { body: { correo: c.TEST_EMAIL }, status: 202, verify: empty });
+    const recoveryAccepted = rows.at(-1).result === 'PASS';
+    if (c.UNKNOWN_EMAIL) await check(37, 'Recuperación neutra para correo sintético desconocido', '/password/recuperar',
+      { body: { correo: c.UNKNOWN_EMAIL }, status: 202, verify: empty });
+    else skip(37, 'Recuperación neutra', 'Falta una dirección desconocida de prueba acordada.');
+
+    const resetToken = manualMail
+      ? recoveryAccepted && await readSecret('Pega solo el token del correo de recuperación de la cuenta sin MFA')
+      : c.RESET_TOKEN;
+    if (resetToken) {
+      await check(41, 'Restablecer con token de recuperación', '/password/restablecer',
+        { body: { token: resetToken, nuevaContrasena: c.NEW_PASSWORD }, status: 204, verify: empty });
+      if (rows.at(-1).result === 'PASS') {
+        await check(41, 'Reutilizar una vez el token consumido', '/password/restablecer', {
+          body: { token: resetToken, nuevaContrasena: c.NEW_PASSWORD }, status: 401, example: 'tokenInvalido',
+          verify: problem('TOKEN_RECUPERACION_INVALIDO'),
+        });
+        const resetLogin = await check(41, 'Ingresar con la nueva contraseña', '/auth/login', {
+          body: { correo: manualMail ? c.TEST_EMAIL : c.RESET_EMAIL, contrasena: c.NEW_PASSWORD },
+          status: 200, example: 'sinMfa', verify: session,
+        });
+        if (resetLogin) await check(41, 'Cerrar sesión de la cuenta restablecida', '/auth/logout', {
+          body: { refreshToken: resetLogin.refreshToken }, token: resetLogin.accessToken, status: 204, verify: empty,
+        });
+      } else skip(41, 'Token consumido y nuevo ingreso', 'El restablecimiento no quedó confirmado.');
+    } else skip(41, 'Restablecimiento y nuevo ingreso', 'No se ingresó el token del correo de recuperación.');
+    if (c.EXPIRED_RESET_TOKEN) await check(41, 'Rechazar token de recuperación genuinamente vencido', '/password/restablecer', {
+      body: { token: c.EXPIRED_RESET_TOKEN, nuevaContrasena: c.NEW_PASSWORD }, status: 410, example: 'tokenExpirado',
+      verify: problem('TOKEN_RECUPERACION_EXPIRADO'),
+    });
+    else skip(41, 'Token de recuperación vencido', 'G7 no entregó un token genuinamente vencido.');
+
+    if (manualMail) skip('transporte', 'Timeout inducido', 'La ronda autorizada es funcional.');
+    else {
+      await check('transporte', 'Deadline del cliente sobre una lectura aprobada', '/password/politica',
+        { status: 200, shortDeadline: true });
+      await check('transporte', 'Un retest de lectura con plazo normal', '/password/politica',
+        { status: 200, verify: (data) => Number.isInteger(data?.longitudMinima) });
+    }
+  }
+  try {
+    await execute();
+  } catch (error) {
+    if (!stopped) throw error;
+    for (const issue of issues) {
+      skip(issue, 'Resto de la ronda', 'Detenida por 429; consultar Retry-After en la petición rechazada.');
+    }
+  }
+  return { rows, requests, stopped };
 }
 
 async function main() {
   const cfg = configure();
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   const startedAt = new Date().toISOString();
-  await run(cfg);
+  const { rows, requests, stopped } = await run(cfg);
   const summary = Object.fromEntries(issues.map((issue) => [issue, {
     passed: rows.filter((row) => row.issue === issue && row.result === 'PASS').length,
     failed: rows.filter((row) => row.issue === issue && row.result === 'FAIL').length,
@@ -285,14 +376,18 @@ async function main() {
   await mkdir(folder, { recursive: true });
   await writeFile(file, JSON.stringify({
     mode: cfg.mode, environment: cfg.environment, contract, providerSha: cfg.providerSha, commit: sha,
-    startedAt, scope: 'G7 directo. El plazo simula un timeout en el cliente, no un fallo del proveedor.',
-    requests, summary, cases: rows,
+    startedAt, scope: cfg.manualMail ? 'G7 directo: ronda funcional, sin timeout inducido.'
+      : 'G7 directo. El plazo simula un timeout en el cliente, no un fallo del proveedor.',
+    requests, stopped, summary, cases: rows,
   }, null, 2) + '\n', { flag: 'wx' });
   const failed = rows.filter((row) => row.result === 'FAIL').length;
   const skipped = rows.filter((row) => row.result === 'SKIP').length;
   const inconclusive = rows.filter((row) => row.result === 'INCONCLUSIVE').length;
   console.log(cfg.mode + ': ' + requests + ' solicitudes, ' + failed + ' fallos, ' + skipped +
     ' omitidos, ' + inconclusive + ' inconclusos. ' + file);
+  if (stopped) {
+    console.error('Ronda detenida por HTTP 429. Consultar Retry-After en el reporte y no reanudar sin nueva coordinación.');
+  }
   if (failed) process.exitCode = 1;
   else if (skipped || inconclusive) process.exitCode = 2;
 }

@@ -1,6 +1,6 @@
 {
   "name": "g1-marketplace-backend",
-  "version": "1.12.0",
+  "version": "1.15.0",
   "description": "Backend Marketplace Multicanal - NestJS & Prisma ORM",
   "main": "dist/main.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "test:unit": "jest --runInBand",
     "test:pinned-spec:offline": "jest --runInBand --runTestsByPath test/g5-pinned-openapi.spec.ts",
     "test:g5:sales-adapter:offline": "jest --runInBand --runTestsByPath src/checkout/external/g5-sales.provider.spec.ts",
+    "test:ventas:webhook:postgres": "node scripts/test-shipment-webhook-postgres.mjs",
     "test:integration": "ts-node scripts/integration-test.ts",
     "test:diego:isolated": "node scripts/test-diego-isolated.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
