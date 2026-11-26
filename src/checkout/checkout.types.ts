@@ -17,6 +17,10 @@ export interface DeliveryAddress {
 export interface QuoteLine {
   sku: string;
   quantity: number;
+  /** Trusted catalog/quote metadata, when supplied by the pricing provider. */
+  productId?: string;
+  description?: string;
+  unitPrice?: Money;
 }
 
 export interface CheckoutQuote {
@@ -33,6 +37,7 @@ export interface CheckoutQuote {
     type: 'COUPON';
     id: string;
     discount: Money;
+    code?: string;
   };
 }
 
@@ -46,7 +51,7 @@ export interface CheckoutContact {
 
 export interface SalesOrder {
   pedidoId: string;
-  estado: 'CREADO' | 'PAGADO' | 'ANULADO';
+  estado: 'CREADO' | 'PAGADO' | 'EN_PREPARACION' | 'DESPACHADO' | 'ENTREGADO' | 'ANULADO';
   total: Money;
   createdAt: string;
   failureCode?: string;

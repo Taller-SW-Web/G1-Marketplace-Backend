@@ -16,6 +16,7 @@ import {
   CheckoutQuote,
   DeliveryAddress,
   QuoteLine,
+  Money,
   SalesOrder,
 } from './checkout.types';
 import { MarketplaceGateway } from './external/marketplace.gateway';
@@ -25,10 +26,17 @@ import { QuotesService } from './quotes.service';
 const IDEMPOTENCY_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SALES_ORDER_ID = /^PED-\d{4}-\d{5}$/;
+const G5_POLL_INTERVAL_MS = 2500;
+const G5_POLL_MAX_MS = 60_000;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 interface ApiResult<T> {
   status: number;
   data: T;
+  retryAfterSeconds?: number;
 }
 
 interface PreparedContext {
@@ -38,6 +46,12 @@ interface PreparedContext {
   expiresAt: number;
   total: CheckoutQuote['total'];
   lines: QuoteLine[];
+  quoteSnapshot?: {
+    subtotal: Money;
+    discount: Money;
+    shipping: CheckoutQuote['shipping'];
+    selectedBenefit?: CheckoutQuote['selectedBenefit'];
+  };
   revalidatedAt?: string;
 }
 
@@ -104,7 +118,7 @@ export class CheckoutService {
         addressId: address.addressId,
         cartVersion: cart.version,
         lines,
-      });
+      }, customerId);
     } catch (error) {
       this.throwProviderError(error, 'QUOTE_UNAVAILABLE');
     }
@@ -131,7 +145,7 @@ export class CheckoutService {
 
     let nextQuote: CheckoutQuote;
     try {
-      nextQuote = await this.gateway.applyBenefit(currentQuote, couponCode);
+      nextQuote = await this.gateway.applyBenefit(currentQuote, couponCode, customerId);
     } catch (error) {
       this.throwProviderError(error, 'BENEFITS_UNAVAILABLE');
     }
@@ -256,7 +270,7 @@ export class CheckoutService {
 
     let revalidation: { available: boolean; revalidatedAt: string };
     try {
-      revalidation = await this.gateway.revalidate(context.lines);
+      revalidation = await this.gateway.revalidate(context.lines, customerId, context.quoteId);
     } catch (error) {
       // Preserve PREPARING so the same idempotency key can retry after provider recovery.
       this.throwProviderError(error, 'REVALIDATION_UNAVAILABLE');
@@ -319,9 +333,10 @@ export class CheckoutService {
 
   async createOrder(
     customerId: string,
-    input: { checkoutOperationId: string; contact: CheckoutContactDto },
+    input: { checkoutOperationId: string; contact: CheckoutContactDto; paymentMethod?: string; deliveryRecipient?: string },
     idempotencyKey: string | undefined,
     sessionHash?: string,
+    accessToken?: string,
   ): Promise<ApiResult<CheckoutOperationView>> {
     this.assertIdempotencyKey(idempotencyKey, true);
     let operation = await this.prisma.checkoutOperation.findFirst({
@@ -332,11 +347,23 @@ export class CheckoutService {
       throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
     }
     const context = this.readPreparedContext(operation);
+    let paymentMethod = input.paymentMethod;
+
+    if (this.gateway.usesG5Sales?.()) {
+      try {
+        paymentMethod = this.gateway.g5OrderPaymentMethod?.(customerId, context?.quoteId, paymentMethod) ?? paymentMethod;
+      } catch (error) {
+        this.throwProviderError(error, 'SALES_UNAVAILABLE');
+      }
+      this.assertG5OrderContext(context, { ...input, paymentMethod });
+    }
 
     const requestFingerprint = this.fingerprint({
       checkoutOperationId: operation.id,
       idempotencyKey,
       contact: input.contact,
+      paymentMethod: paymentMethod ?? null,
+      deliveryRecipient: input.deliveryRecipient ?? null,
     });
     const hasOrderSubmission = Boolean(
       operation.orderIdempotencyKey ||
@@ -383,7 +410,21 @@ export class CheckoutService {
     }
     if (operation.state === CheckoutOperationState.SUCCEEDED) {
       if (!operation.externalOrderId) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
-      return this.refreshOrder(operation);
+      try {
+        const order = await this.gateway.getOrder(operation.externalOrderId, accessToken);
+        return {
+          status: 200,
+          data: {
+            ...this.operationView(operation),
+            orderId: order.pedidoId,
+            orderState: order.estado,
+            total: order.total,
+            createdAt: order.createdAt,
+          },
+        };
+      } catch (error) {
+        this.throwProviderError(error, 'SALES_UNAVAILABLE');
+      }
     }
     if (
       operation.state !== CheckoutOperationState.PREPARED &&
@@ -437,14 +478,25 @@ export class CheckoutService {
           idempotencyKey: operation.orderIdempotencyKey ?? operation.id,
           contact: input.contact,
           total: context!.total,
+          quote: context!,
+          paymentMethod,
+          deliveryRecipient: input.deliveryRecipient,
+          customerAccessToken: accessToken,
         });
       } catch (error) {
         this.throwProviderError(error, 'ORDER_CREATION_PENDING');
       }
       this.assertValidSalesOrder(createdOrder);
+      // M1 has no lookup-by-idempotency endpoint. Persist the returned ID as soon
+      // as the idempotent POST succeeds, so subsequent status reads use the
+      // customer's token rather than trying an invented recovery route.
+      operation = await this.prisma.checkoutOperation.update({
+        where: { id: operation.id },
+        data: { externalOrderId: createdOrder.pedidoId },
+      });
     }
 
-    const result = await this.refreshOrder(operation);
+    const result = await this.refreshOrder(operation, accessToken);
     return result;
   }
 
@@ -452,6 +504,7 @@ export class CheckoutService {
     customerId: string,
     operationId: string,
     sessionHash?: string,
+    accessToken?: string,
   ): Promise<ApiResult<CheckoutOperationStatusView>> {
     const operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: operationId, customerId },
@@ -465,8 +518,12 @@ export class CheckoutService {
       this.fail(409, 'ORDER_NOT_SUBMITTED');
     }
     if (operation.state === CheckoutOperationState.SUBMITTED) {
-      const result = await this.refreshOrder(operation);
-      return { status: result.status, data: this.operationStatusView(result.data) };
+      const result = await this.refreshOrder(operation, accessToken);
+      return {
+        status: result.status,
+        data: this.operationStatusView(result.data),
+        ...(result.retryAfterSeconds !== undefined ? { retryAfterSeconds: result.retryAfterSeconds } : {}),
+      };
     }
     if (operation.state === CheckoutOperationState.FAILED) {
       this.fail(409, operation.failureCode ?? 'ORDER_NOT_COMPLETED');
@@ -475,7 +532,7 @@ export class CheckoutService {
       operation.externalOrderId && operation.state === CheckoutOperationState.SUCCEEDED
     ) {
       try {
-        const order = await this.gateway.getOrder(operation.externalOrderId);
+        const order = await this.gateway.getOrder(operation.externalOrderId, accessToken);
         return {
           status: 200,
           data: this.operationStatusView({
@@ -511,7 +568,7 @@ export class CheckoutService {
     };
   }
 
-  private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>): Promise<ApiResult<CheckoutOperationView>> {
+  private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>, accessToken?: string): Promise<ApiResult<CheckoutOperationView>> {
     if (!operation.externalOrderId && !operation.orderIdempotencyKey) {
       return {
         status: 202,
@@ -522,9 +579,18 @@ export class CheckoutService {
     let order: SalesOrder;
     try {
       order = operation.externalOrderId
-        ? await this.gateway.getOrder(operation.externalOrderId)
+        ? this.gateway.usesG5Sales?.()
+          ? await this.pollG5Order(operation.externalOrderId, accessToken)
+          : await this.gateway.getOrder(operation.externalOrderId, accessToken)
         : await this.gateway.getOrderByIdempotencyKey(operation.orderIdempotencyKey!, operation.customerId);
-    } catch {
+    } catch (error) {
+      if (error instanceof ProviderError && error.status === 429) {
+        return {
+          status: 429,
+          data: this.operationView(operation),
+          ...(error.retryAfterSeconds !== undefined ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+        };
+      }
       // The provider may be temporarily unreachable; never infer PAGADO from a timeout.
       return {
         status: 202,
@@ -652,6 +718,12 @@ export class CheckoutService {
       expiresAt: Date.parse(quote.expiresAt),
       total: quote.total,
       lines: quote.lines,
+      quoteSnapshot: {
+        subtotal: quote.subtotal,
+        discount: quote.discount,
+        shipping: quote.shipping,
+        ...(quote.selectedBenefit ? { selectedBenefit: quote.selectedBenefit } : {}),
+      },
     };
   }
 
@@ -664,6 +736,7 @@ export class CheckoutService {
       preparedTotalAmount: context.total.amount,
       preparedTotalCurrency: context.total.currency,
       preparedLines: context.lines as unknown as Prisma.InputJsonValue,
+      preparedQuoteSnapshot: context.quoteSnapshot as unknown as Prisma.InputJsonValue,
     };
   }
 
@@ -675,6 +748,7 @@ export class CheckoutService {
     preparedTotalAmount?: Prisma.Decimal | number | null;
     preparedTotalCurrency?: string | null;
     preparedLines?: Prisma.JsonValue | null;
+    preparedQuoteSnapshot?: Prisma.JsonValue | null;
     revalidatedAt?: Date | null;
   }): PreparedContext | null {
     const lines = operation.preparedLines;
@@ -693,7 +767,12 @@ export class CheckoutService {
       !lines.every((line) => typeof line === 'object' && line !== null &&
         'sku' in line && typeof line.sku === 'string' && line.sku.trim().length > 0 &&
         'quantity' in line && typeof line.quantity === 'number' &&
-        Number.isInteger(line.quantity) && line.quantity > 0)
+        Number.isInteger(line.quantity) && line.quantity > 0 &&
+        (!('productId' in line) || typeof line.productId === 'string') &&
+        (!('description' in line) || typeof line.description === 'string') &&
+        (!('unitPrice' in line) || (typeof line.unitPrice === 'object' && line.unitPrice !== null &&
+          'amount' in line.unitPrice && typeof line.unitPrice.amount === 'number' && Number.isFinite(line.unitPrice.amount) &&
+          'currency' in line.unitPrice && line.unitPrice.currency === 'PEN')))
     ) return null;
     return {
       quoteId: operation.preparedQuoteId,
@@ -704,12 +783,106 @@ export class CheckoutService {
         amount: totalAmount,
         currency: operation.preparedTotalCurrency,
       },
-      lines: lines.map((line) => ({
-        sku: (line as { sku: string }).sku,
-        quantity: (line as { quantity: number }).quantity,
-      })),
+      lines: lines.map((line) => {
+        const value = line as Record<string, unknown>;
+        return {
+          sku: value.sku as string,
+          quantity: value.quantity as number,
+          ...(typeof value.productId === 'string' ? { productId: value.productId } : {}),
+          ...(typeof value.description === 'string' ? { description: value.description } : {}),
+          ...(typeof value.unitPrice === 'object' && value.unitPrice !== null
+            ? { unitPrice: value.unitPrice as unknown as Money } : {}),
+        };
+      }),
+      ...this.readQuoteSnapshot(operation.preparedQuoteSnapshot),
       ...(operation.revalidatedAt ? { revalidatedAt: operation.revalidatedAt.toISOString() } : {}),
     };
+  }
+
+  private async pollG5Order(orderId: string, accessToken?: string): Promise<SalesOrder> {
+    const deadline = Date.now() + G5_POLL_MAX_MS;
+    let lastOrder: SalesOrder | undefined;
+    while (Date.now() < deadline) {
+      try {
+        lastOrder = await this.gateway.getOrder(orderId, accessToken);
+        if (Date.now() > deadline) throw new ProviderError(504, 'SALES_STATUS_TIMEOUT');
+      } catch (error) {
+        if (!(error instanceof ProviderError) || error.status !== 429) throw error;
+        const remaining = deadline - Date.now();
+        const retryMs = error.retryAfterSeconds === undefined
+          ? G5_POLL_INTERVAL_MS : Math.max(G5_POLL_INTERVAL_MS, error.retryAfterSeconds * 1000);
+        if (retryMs > remaining) throw error;
+        await wait(retryMs);
+        continue;
+      }
+      if (lastOrder.estado === 'PAGADO' || lastOrder.estado === 'ANULADO') return lastOrder;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await wait(Math.min(G5_POLL_INTERVAL_MS, remaining));
+    }
+    if (!lastOrder) throw new ProviderError(503, 'SALES_UNAVAILABLE');
+    return lastOrder;
+  }
+
+  private readQuoteSnapshot(value: Prisma.JsonValue | null | undefined): Pick<PreparedContext, 'quoteSnapshot'> {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+    const snapshot = value as Record<string, unknown>;
+    const money = (candidate: unknown): candidate is Money => typeof candidate === 'object' && candidate !== null &&
+      'amount' in candidate && typeof candidate.amount === 'number' && Number.isFinite(candidate.amount) && candidate.amount >= 0 &&
+      'currency' in candidate && candidate.currency === 'PEN';
+    const shipping = snapshot.shipping;
+    if (!money(snapshot.subtotal) || !money(snapshot.discount) || typeof shipping !== 'object' || shipping === null ||
+        !('amount' in shipping) || typeof shipping.amount !== 'number' || !Number.isFinite(shipping.amount) || shipping.amount < 0 ||
+        !('currency' in shipping) || shipping.currency !== 'PEN' ||
+        !('estimatedDays' in shipping) || typeof shipping.estimatedDays !== 'number' ||
+        !Number.isFinite(shipping.estimatedDays) || shipping.estimatedDays < 0) {
+      return {};
+    }
+    const selectedBenefit = snapshot.selectedBenefit;
+    if (selectedBenefit !== undefined && selectedBenefit !== null &&
+        (typeof selectedBenefit !== 'object' || Array.isArray(selectedBenefit) ||
+          !('type' in selectedBenefit) || selectedBenefit.type !== 'COUPON' ||
+          !('id' in selectedBenefit) || typeof selectedBenefit.id !== 'string' ||
+          !('discount' in selectedBenefit) || !money(selectedBenefit.discount))) return {};
+    if (selectedBenefit && 'code' in selectedBenefit && typeof selectedBenefit.code !== 'string') return {};
+    return {
+      quoteSnapshot: {
+        subtotal: snapshot.subtotal,
+        discount: snapshot.discount,
+        shipping: shipping as CheckoutQuote['shipping'],
+        ...(selectedBenefit ? { selectedBenefit: selectedBenefit as CheckoutQuote['selectedBenefit'] } : {}),
+      },
+    };
+  }
+
+  private assertG5OrderContext(
+    context: PreparedContext | null,
+    input: { contact: CheckoutContactDto; paymentMethod?: string },
+  ): void {
+    const fallbackEnabled = this.gateway.usesG5ContractProductFallback?.() ?? false;
+    const hasContractFallback = fallbackEnabled && context?.lines.length === 1 &&
+      context.lines[0].sku === 'SKU-AUR-01' && context.lines[0].quantity === 1 &&
+      context.quoteSnapshot?.subtotal.amount === 129.9;
+    const hasCatalogSnapshot = Boolean(context?.lines.length && context.lines.every((line) =>
+      typeof line.productId === 'string' && line.productId.trim() && line.unitPrice?.currency === 'PEN' &&
+      Number.isFinite(line.unitPrice.amount) && line.unitPrice.amount >= 0));
+    const snapshot = context?.quoteSnapshot;
+    const itemSubtotalCents = context?.lines.reduce((sum, line) =>
+      sum + Math.round((line.unitPrice?.amount ?? 0) * line.quantity * 100), 0);
+    const expectedTotalCents = snapshot
+      ? Math.round((snapshot.subtotal.amount - snapshot.discount.amount + snapshot.shipping.amount) * 100)
+      : -1;
+    const financialsConsistent = Boolean(context && snapshot &&
+      (!hasCatalogSnapshot || itemSubtotalCents === Math.round(snapshot.subtotal.amount * 100)) &&
+      Math.round(context.total.amount * 100) === expectedTotalCents &&
+      context.total.currency === snapshot.subtotal.currency && snapshot.subtotal.currency === snapshot.shipping.currency &&
+      (snapshot.discount.amount === 0 || (snapshot.selectedBenefit?.code?.trim() &&
+        snapshot.selectedBenefit.discount.amount === snapshot.discount.amount &&
+        snapshot.selectedBenefit.discount.currency === snapshot.discount.currency)));
+    if (!context || !snapshot || (!hasCatalogSnapshot && !hasContractFallback) || !financialsConsistent ||
+        !input.paymentMethod?.trim()) {
+      this.fail(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+    }
   }
 
   private preparationFingerprint(
@@ -773,7 +946,7 @@ export class CheckoutService {
     if (
       !order ||
       typeof order.pedidoId !== 'string' || !SALES_ORDER_ID.test(order.pedidoId) ||
-      !['CREADO', 'PAGADO', 'ANULADO'].includes(order.estado) ||
+      !['CREADO', 'PAGADO', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'ANULADO'].includes(order.estado) ||
       !Number.isFinite(order.total?.amount) || order.total.amount < 0 ||
       order.total.currency !== 'PEN' ||
       typeof order.createdAt !== 'string' || !Number.isFinite(Date.parse(order.createdAt))
@@ -869,6 +1042,11 @@ export class CheckoutService {
     if (fallbackCode === 'ORDER_CREATION_PENDING' && error.status >= 500) {
       this.fail(409, 'ORDER_CREATION_PENDING');
     }
+    if (error.status === 429) {
+      this.fail(429, 'SALES_RATE_LIMITED', error.retryAfterSeconds === undefined ? {} : {
+        retryAfterSeconds: error.retryAfterSeconds,
+      });
+    }
     if (fallbackCode === 'ADDRESS_SERVICE_UNAVAILABLE') {
       if (error.status === 400) this.fail(400, 'ADDRESS_VALIDATION_ERROR');
       if (error.status === 401) this.fail(401, 'UNAUTHENTICATED');
@@ -886,6 +1064,12 @@ export class CheckoutService {
       REVALIDATION_UNAVAILABLE: { status: 503, code: 'REVALIDATION_UNAVAILABLE' },
       REVALIDATION_TIMEOUT: { status: 503, code: 'REVALIDATION_UNAVAILABLE' },
       SALES_UNAVAILABLE: { status: 503, code: 'SALES_UNAVAILABLE' },
+      SALES_AUTH_UNAVAILABLE: { status: 503, code: 'SALES_UNAVAILABLE' },
+      SALES_AUTHENTICATION_FAILED: { status: 401, code: 'UNAUTHENTICATED' },
+      SALES_ACCESS_DENIED: { status: 403, code: 'ORDERS_ACCESS_DENIED' },
+      SALES_ORDER_NOT_FOUND: { status: 404, code: 'ORDER_NOT_FOUND' },
+      SALES_ORDER_CONTEXT_INCOMPLETE: { status: 409, code: 'SALES_ORDER_CONTEXT_INCOMPLETE' },
+      SALES_ADDRESS_UNAVAILABLE: { status: 409, code: 'SALES_ADDRESS_UNAVAILABLE' },
       SALES_TIMEOUT: { status: 409, code: 'ORDER_CREATION_PENDING' },
       SALES_STATUS_TIMEOUT: { status: 503, code: 'SALES_UNAVAILABLE' },
       IDEMPOTENCY_KEY_REUSED: { status: 409, code: 'IDEMPOTENCY_KEY_REUSED' },
@@ -898,7 +1082,7 @@ export class CheckoutService {
     this.fail(503, fallbackCode);
   }
 
-  private fail(status: number, code: string): never {
-    throw new HttpException({ error: { code } }, status);
+  private fail(status: number, code: string, details: Record<string, unknown> = {}): never {
+    throw new HttpException({ error: { code, ...details } }, status);
   }
 }

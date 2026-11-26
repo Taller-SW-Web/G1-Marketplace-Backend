@@ -1,3 +1,28 @@
+## [1.18.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.17.0...v1.18.0) (2026-11-26)
+
+### Features
+
+* **orders:** filter history on the Ventas contract ([5118873](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/5118873ce24195eec35d1b76ef81a0fabec06340))
+* **orders:** project dispatch after authorizing the buyer ([5d13c30](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/5d13c30c1885f25ce4ec8c7e689af0a19a15d89f))
+
+## [1.17.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.16.0...v1.17.0) (2026-11-26)
+
+### Features
+
+* **checkout:** isolate G5 trial quote and stock fixtures ([4d880d6](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/4d880d6f9a65d357cdd5bc47b1e9d9034e6df7c7))
+* **checkout:** prepare gated G5 sales integration ([359a840](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/359a840d85f5f146cf0ee37ad5d2de9af33cdab4))
+
+## [1.16.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.15.0...v1.16.0) (2026-11-26)
+
+### Features
+
+* **h5-295:** add gated G5 order adapters ([62bea9f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/62bea9f4d51b780ee10a1eeeaeec61fabf894a75))
+
+### Bug Fixes
+
+* normalize pinned G5 snapshots across line endings ([b70c953](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b70c953977070e66e90bfb0440165e6a48bcc369))
+* **security:** narrow synthetic G5 fixture finding ([066df83](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/066df83ffbd0c1cc5d548b2387731683520fab3c))
+
 ## [1.15.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.14.0...v1.15.0) (2026-11-26)
 
 ### Features

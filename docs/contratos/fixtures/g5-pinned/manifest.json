@@ -1,0 +1,25 @@
+{
+  "repository": "Taller-SW-Web/G5-Ventas-Postventas-Backend",
+  "commit": "95325de5b9b1db44fcfb92e945256b604f0a86f7",
+  "purpose": "Pinned-spec/offline surface validation only; not a G1 compatibility or end-to-end contract claim.",
+  "retrieval": "Public raw GitHub source files fetched read-only at the exact commit; no business API or sandbox traffic.",
+  "sanitization": "Local YAML files are sanitized pinned OpenAPI extracts: all servers, example, and examples keys were removed recursively; literal personal example/contact values and individual names in ownership labels were removed. sourceSha256 is the exact upstream raw-file hash for provenance; snapshotSha256 is the local sanitized file hash used by tests.",
+  "services": {
+    "M1": {
+      "version": "1.10.0",
+      "repositoryPath": "servicio-ventas/src/main/resources/static/openapi/ventas.yaml",
+      "sourceUrl": "https://raw.githubusercontent.com/Taller-SW-Web/G5-Ventas-Postventas-Backend/95325de5b9b1db44fcfb92e945256b604f0a86f7/servicio-ventas/src/main/resources/static/openapi/ventas.yaml",
+      "snapshot": "ventas.yaml",
+      "sourceSha256": "53F6BF94DE1CE848CB80C684A1BF980BE34CD0EA94ECD9C4BB13FD814FA92879",
+      "snapshotSha256": "32E36D1BB7FE818AAF58632F75E696DD4177407F4B2E950715A745F350A1B074"
+    },
+    "M2": {
+      "version": "1.6.0",
+      "repositoryPath": "servicio-postventa/src/main/resources/static/openapi/postventa.yaml",
+      "sourceUrl": "https://raw.githubusercontent.com/Taller-SW-Web/G5-Ventas-Postventas-Backend/95325de5b9b1db44fcfb92e945256b604f0a86f7/servicio-postventa/src/main/resources/static/openapi/postventa.yaml",
+      "snapshot": "postventa.yaml",
+      "sourceSha256": "974CC62629B2CA1FA0EA51632C39D022977ECEEC52AF833152C8DE1837D9B706",
+      "snapshotSha256": "BD8C96CDB530F5F41FE2B5AE49FF753467AFDF6707E5CFE8AFD543A8E038493A"
+    }
+  }
+}

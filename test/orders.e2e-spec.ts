@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { OrdersModule } from '../src/orders/orders.module';
+import { AuthGuard } from '../src/security/auth.guard';
 
 async function createApp(env: Record<string, string>): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
@@ -15,9 +16,24 @@ async function createApp(env: Record<string, string>): Promise<INestApplication>
       }),
       OrdersModule,
     ],
-  }).compile();
+  })
+    .overrideGuard(AuthGuard)
+    .useValue({ canActivate: (context: { switchToHttp(): { getRequest(): { headers: Record<string, string>; user?: { sub: string } } } }) => {
+      const request = context.switchToHttp().getRequest();
+      const bearer = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+      const sub = bearer === 'test-B' ? 'customer-demo-002'
+        : bearer === 'test-empty' ? 'customer-demo-empty'
+        : bearer === 'test-invalid' ? 'real-customer-id' : 'customer-demo-001';
+      request.user = { sub };
+      return true;
+    } })
+    .compile();
 
   const app = moduleRef.createNestApplication();
+  app.use((request: { headers: Record<string, string> }, _response: unknown, next: () => void) => {
+    request.headers.authorization ??= 'Bearer test-A';
+    next();
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -37,7 +53,6 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       app = await createApp({
         NODE_ENV: 'development',
         ORDERS_SOURCE: 'mock',
-        ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-001',
       });
     });
 
@@ -70,7 +85,7 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       });
     });
 
-    it('does not leak ownership data nor orders of another customer', async () => {
+    it('uses the authenticated customer and does not return another customer\'s orders', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/orders/me')
         .expect(200);
@@ -79,6 +94,27 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       expect(serialized).not.toContain('ownerCustomerId');
       expect(serialized).not.toContain('customer-demo');
       expect(serialized).not.toContain('PED-MOCK-003');
+
+      const responseB = await request(app.getHttpServer())
+        .get('/api/v1/orders/me')
+        .set('Authorization', 'Bearer test-B')
+        .expect(200);
+      expect(responseB.body.data.map((o: { orderId: string }) => o.orderId)).toEqual(['PED-MOCK-003']);
+      expect(responseB.body.data.map((o: { orderId: string }) => o.orderId)).not.toContain('PED-MOCK-001');
+    });
+
+    it('uses the customer token for detail and denies another customer the order', async () => {
+      const own = await request(app.getHttpServer())
+        .get('/api/v1/orders/PED-MOCK-001')
+        .set('Authorization', 'Bearer test-A')
+        .expect(200);
+      expect(own.headers['cache-control']).toBe('no-store');
+      expect(own.body).toMatchObject({ orderId: 'PED-MOCK-001', state: 'PAGADO' });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/orders/PED-MOCK-001')
+        .set('Authorization', 'Bearer test-B')
+        .expect(403);
     });
 
     it('paginates with page and pageSize', async () => {
@@ -134,12 +170,12 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       const app = await createApp({
         NODE_ENV: 'development',
         ORDERS_SOURCE: 'mock',
-        ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-empty',
       });
 
       try {
         const response = await request(app.getHttpServer())
           .get('/api/v1/orders/me')
+          .set('Authorization', 'Bearer test-empty')
           .expect(200);
         expect(response.body).toEqual({
           data: [],
@@ -170,7 +206,6 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       const app = await createApp({
         NODE_ENV: 'production',
         ORDERS_SOURCE: 'mock',
-        ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-001',
       });
       try {
         const response = await request(app.getHttpServer())
@@ -187,11 +222,11 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       const app = await createApp({
         NODE_ENV: 'development',
         ORDERS_SOURCE: 'mock',
-        ORDERS_MOCK_CUSTOMER_ID: 'real-customer-id',
       });
       try {
         const response = await request(app.getHttpServer())
           .get('/api/v1/orders/me')
+          .set('Authorization', 'Bearer test-invalid')
           .expect(503);
         expect(response.body).toEqual({ error: { code: 'MOCK_CUSTOMER_NOT_CONFIGURED' } });
       } finally {
