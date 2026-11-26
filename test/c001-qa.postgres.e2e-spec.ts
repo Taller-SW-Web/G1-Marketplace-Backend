@@ -121,6 +121,13 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
     });
   });
 
+  it('keeps external order IDs forbidden before submission', async () => {
+    await expect(prisma.checkoutOperation.update({
+      where: { id: operationId },
+      data: { state: CheckoutOperationState.PREPARED },
+    })).rejects.toThrow('checkout_operations_result_chk');
+  });
+
   it('rejects unpaid or mismatched Sales orders and does not queue them', async () => {
     const operation = { id: operationId, customerId, externalOrderId: orderId };
     for (const other of [
