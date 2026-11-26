@@ -46,7 +46,17 @@ export class ShipmentWebhookService {
       throw new BadRequestException({ error: { code: 'INVALID_SHIPMENT_EVENT' } });
     }
 
-    const result = await this.sink.accept(event);
+    const result = await this.sink.accept(event).catch((error: unknown) => {
+      if (error instanceof ServiceUnavailableException) {
+        this.logger.warn(JSON.stringify({
+          event: 'shipment_webhook_persistence_failed',
+          correlationId,
+          eventId: event.eventId,
+          code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE',
+        }));
+      }
+      throw error;
+    });
     this.logger.log(JSON.stringify({
       event: 'shipment_webhook_processed',
       correlationId,

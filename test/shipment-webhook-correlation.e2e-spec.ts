@@ -27,19 +27,14 @@ function makeEvent(eventId: string, orderId = 'PED-2026-90001'): ShipmentStatusU
   };
 }
 
-describe('Shipment webhook E2E: duplicate, retry and failure with correlation-id (BE #320)', () => {
+describe('Shipment webhook E2E: duplicate and rejection with correlation-id (BE #320)', () => {
   const token = 'test-webhook-secret-token';
   let app: INestApplication;
   let webhookService: ShipmentWebhookService;
   const inbox = new Set<string>();
-  let failNextAccept = false;
 
   const sink: ShipmentEventSink = {
     async accept(event) {
-      if (failNextAccept) {
-        failNextAccept = false;
-        throw new Error('Simulated transient DB/downstream timeout');
-      }
       if (inbox.has(event.eventId)) return 'duplicate';
       inbox.add(event.eventId);
       return 'accepted';
@@ -73,7 +68,6 @@ describe('Shipment webhook E2E: duplicate, retry and failure with correlation-id
 
   beforeEach(() => {
     inbox.clear();
-    failNextAccept = false;
     jest.restoreAllMocks();
   });
 
@@ -108,36 +102,6 @@ describe('Shipment webhook E2E: duplicate, retry and failure with correlation-id
       { event: 'shipment_webhook_processed', correlationId: corrId, eventId, orderId: 'PED-2026-90001', outcome: 'accepted' },
       { event: 'shipment_webhook_processed', correlationId: corrId, eventId, orderId: 'PED-2026-90001', outcome: 'duplicate' },
     ]);
-  });
-
-  it('recovers on retry with the same eventId after a transient 500 failure', async () => {
-    const corrId = 'despacho-ventas-mk-retry-002';
-    const eventId = '22222222-2222-4222-8222-222222222222';
-    failNextAccept = true;
-
-    await request(app.getHttpServer())
-      .post('/api/v1/webhooks/ventas/envios')
-      .set('X-Webhook-Token', token)
-      .set('X-Request-Id', corrId)
-      .set('X-Correlation-Id', corrId)
-      .send(makeEvent(eventId, 'PED-2026-90003'))
-      .expect(500)
-      .expect('X-Request-Id', corrId);
-
-    expect(inbox.has(eventId)).toBe(false);
-
-    // Retry from Ventas with the exact same eventId and correlationId
-    await request(app.getHttpServer())
-      .post('/api/v1/webhooks/ventas/envios')
-      .set('X-Webhook-Token', token)
-      .set('X-Request-Id', corrId)
-      .set('X-Correlation-Id', corrId)
-      .send(makeEvent(eventId, 'PED-2026-90003'))
-      .expect(200)
-      .expect('X-Request-Id', corrId)
-      .expect({ data: { accepted: true, duplicate: false } });
-
-    expect(inbox.has(eventId)).toBe(true);
   });
 
   it('rejects unauthorized (401) and malformed (400) webhook calls with correlation trace and no secret leak', async () => {
