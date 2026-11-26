@@ -140,6 +140,7 @@ model CheckoutOperation {
   preparedTotalAmount Decimal?              @map("prepared_total_amount") @db.Decimal(12, 2)
   preparedTotalCurrency String?             @map("prepared_total_currency") @db.Char(3)
   preparedLines      Json?                  @map("prepared_lines") @db.JsonB
+  preparedQuoteSnapshot Json?                @map("prepared_quote_snapshot") @db.JsonB
   revalidatedAt      DateTime?               @map("revalidated_at") @db.Timestamptz(6)
   orderIdempotencyKey String?                @map("order_idempotency_key") @db.VarChar(255)
   externalOrderId    String?                @map("external_order_id") @db.VarChar(100)
@@ -201,7 +202,19 @@ model ShipmentEventInbox {
   orderId    String   @map("order_id") @db.VarChar(20)
   payload    Json     @db.JsonB
   receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+  mailNotice ShipmentMailNotice?
 
   @@index([orderId, receivedAt(sort: Desc)], map: "shipment_event_inbox_order_received_idx")
   @@map("shipment_event_inbox")
+}
+
+// Pending C-002 handoff. The source event has no recipient data.
+model ShipmentMailNotice {
+  eventId  String             @id @map("event_id") @db.VarChar(255)
+  queuedAt DateTime           @default(now()) @map("queued_at") @db.Timestamptz(6)
+  sentAt   DateTime?          @map("sent_at") @db.Timestamptz(6)
+  event    ShipmentEventInbox @relation(fields: [eventId], references: [eventId], onDelete: Restrict)
+
+  @@index([sentAt, queuedAt], map: "shipment_mail_notice_pending_idx")
+  @@map("shipment_mail_notice")
 }

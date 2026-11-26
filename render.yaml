@@ -30,6 +30,20 @@ services:
         sync: false
       - key: AUTH_JWKS_URL
         sync: false
+      - key: G7_API_URL
+        sync: false
+      - key: G7_SERVICE_CLIENT_ID
+        sync: false
+      - key: G7_SERVICE_CLIENT_SECRET
+        sync: false
+      - key: CHECKOUT_SALES_SOURCE
+        value: mock
+      - key: G5_SALES_INTEGRATION_APPROVED
+        value: "false"
+      - key: G5_CONTRACT_PRODUCT_FALLBACK_ENABLED
+        value: "false"
+      - key: VENTAS_BASE_URL
+        value: https://g5-api-gateway.onrender.com
       - key: VENTAS_WEBHOOK_HEADER
         value: x-webhook-token
       - key: VENTAS_WEBHOOK_TOKEN

@@ -22,19 +22,13 @@
 - El endpoint responde 200 únicamente después de insertar el evento. Reintentos con el mismo UUID responden 200 con `duplicate=true` y no crean otra fila. Un fallo de escritura responde 503, para que Ventas pueda reintentar.
 - Un pedido desconocido sigue siendo persistido y recibe 200; la bandeja no depende de una fila de pedido ni de la disponibilidad de módulos posteriores.
 
-## Proyección y reproceso — pendiente (#319)
+## Proyección y aviso pendiente de envío (#319)
 
-El inbox es el registro durable de entrada; no se proyecta todavía el estado a seguimiento F-032 ni se dispara el correo F-035. La proyección/reprocesador queda en #319, leyendo este inbox; no se asigna aquí responsable ni fecha que no estén confirmados. El correo continúa condicionado a G-MAIL.
+El endpoint `GET /api/v1/orders/{orderId}/tracking` reutiliza la consulta de #366 con el bearer del comprador. G5 debe autorizar el pedido antes de consultar el inbox. Luego se construye el seguimiento con el estado del resumen y los eventos `DESPACHADO` y `ENTREGADO` del inbox. Los errores 403 y 404 se devuelven sin datos de seguimiento. Mientras el pedido aún no tenga seguimiento, devuelve 202.
 
-Hasta que exista ese consumidor, no borrar ni editar filas del inbox. Para revisar y preparar un replay se ordenan todas las filas por `received_at, event_id`:
+La migración `20261126000100_shipment_mail_notice` encola C-002 al guardar un `DESPACHADO`, incluso si nadie consulta el seguimiento. También agrega los `DESPACHADO` que ya existían en el inbox. Una fila por `event_id` referencia al evento original y queda pendiente mientras `sent_at` sea nulo. La cola guarda la referencia al evento, sin destinatario. El consumidor de correo debe resolver el destinatario a partir de una fuente autorizada, enviar por el transporte de #352 y registrar el envío confirmado. Encolar C-002 todavía no acredita entrega de correo.
 
-```sql
-SELECT event_id, order_id, payload, received_at
-FROM shipment_event_inbox
-ORDER BY received_at ASC, event_id ASC;
-```
-
-La tabla aún no tiene marca/checkpoint de procesamiento. El consumidor de #319 debe añadir un checkpoint/outbox de proyección y hacer idempotentes F-032 y F-035 por `eventId`; así podrá reintentar fallos y reproducir desde el inicio sin pedir a Ventas que reenvíe eventos ni duplicar efectos. No hay hoy un comando de reproceso ejecutable ni se afirma que el seguimiento/correo ya estén actualizados.
+Para comprobar si un evento se encoló, consultar `shipment_mail_notice` por `event_id`. La proyección siempre se reconstruye al consultar el pedido y el inbox conserva el evento original.
 
 No habilitar los siete eventos de Ventas hasta tener aprobación de Diego/Andrés, despliegue autorizado en staging y una prueba 2xx con la cabecera acordada. La activación corresponde a Ventas después de esa evidencia.
 
