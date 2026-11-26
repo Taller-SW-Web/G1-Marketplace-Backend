@@ -1,3 +1,14 @@
+## [1.15.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.14.0...v1.15.0) (2026-11-26)
+
+### Features
+
+* **h5-sales:** add fail-closed shipment webhook ([0d9c08f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0d9c08f4ab755d2c656610a30997f9a894299b8e))
+* **webhook:** persist shipment event inbox ([cbbbea3](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/cbbbea3faaa5591076167bd5c9dd4e29e8ccd3f9))
+
+### Bug Fixes
+
+* **webhook:** align H-05 contract and test inbox ([a91cbe7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a91cbe71f7c0e3517307f6629db8ac31fb02ff81))
+
 ## [1.14.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.13.0...v1.14.0) (2026-11-26)
 
 ### Features
