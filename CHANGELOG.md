@@ -1,3 +1,10 @@
+## [1.18.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.17.0...v1.18.0) (2026-11-26)
+
+### Features
+
+* **orders:** filter history on the Ventas contract ([5118873](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/5118873ce24195eec35d1b76ef81a0fabec06340))
+* **orders:** project dispatch after authorizing the buyer ([5d13c30](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/5d13c30c1885f25ce4ec8c7e689af0a19a15d89f))
+
 ## [1.17.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.16.0...v1.17.0) (2026-11-26)
 
 ### Features
