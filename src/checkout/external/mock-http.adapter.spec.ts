@@ -201,4 +201,95 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     expect(get).not.toHaveBeenCalled();
     expect(post).not.toHaveBeenCalled();
   });
+
+  it('maps only trusted checkout quote and address data to the G5 M1 request', async () => {
+    Object.assign(values, {
+      USE_MOCKS: false,
+      CHECKOUT_SALES_SOURCE: 'g5',
+      G5_SALES_INTEGRATION_APPROVED: 'true',
+      AUTH_ENABLED: 'true',
+      G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false',
+    });
+    const g5Sales = {
+      createOrder: jest.fn().mockResolvedValue({
+        pedidoId: 'PED-2026-00001', estado: 'CREADO', total: { amount: 139.9, currency: 'PEN' },
+        createdAt: '2026-11-24T10:15:00.000Z',
+      }),
+      getOrder: jest.fn(),
+    };
+    const realGateway = new MarketplaceGateway(http, {
+      get: (key: string, fallback?: unknown) => values[key] ?? fallback,
+    } as unknown as ConfigService, g5Sales as never);
+    jest.spyOn(realGateway, 'listAddresses').mockResolvedValue([{
+      addressId: 'ADR-1', street: 'Av. Test 12', district: 'Miraflores', province: 'Lima', department: 'Lima',
+      reference: 'Puerta azul',
+    }]);
+
+    await realGateway.createOrder({
+      customerId: '11111111-1111-4111-8111-111111111111',
+      checkoutOperationId: '22222222-2222-4222-8222-222222222222',
+      idempotencyKey: '33333333-3333-4333-8333-333333333333',
+      contact: {
+        fullName: 'Synthetic Buyer', documentType: 'DNI', documentNumber: '12345678',
+        phone: '900000000', email: 'buyer@example.invalid',
+      },
+      total: { amount: 139.9, currency: 'PEN' },
+      quote: {
+        addressId: 'ADR-1',
+        lines: [{ sku: 'SKU-AUR-01', quantity: 1, productId: 'PROD-101', description: 'Audífonos',
+          unitPrice: { amount: 129.9, currency: 'PEN' } }],
+        quoteSnapshot: {
+          subtotal: { amount: 129.9, currency: 'PEN' }, discount: { amount: 0, currency: 'PEN' },
+          shipping: { amount: 10, currency: 'PEN', estimatedDays: 2 },
+        },
+      },
+      paymentMethod: 'SIMULADO', customerAccessToken: 'synthetic-customer-token',
+    });
+
+    expect(g5Sales.createOrder).toHaveBeenCalledWith({
+      canal: 'MARKETPLACE',
+      contacto: {
+        clienteId: '11111111-1111-4111-8111-111111111111', nombreCompleto: 'Synthetic Buyer',
+        tipoDocumento: 'DNI', numeroDocumento: '12345678', telefono: '900000000', email: 'buyer@example.invalid',
+      },
+      items: [{ productoId: 'PROD-101', sku: 'SKU-AUR-01', cantidad: 1, precioUnitario: 129.9, descripcion: 'Audífonos' }],
+      envio: {
+        modalidad: 'DOMICILIO', costo: 10, destinatario: 'Synthetic Buyer', departamento: 'Lima', provincia: 'Lima',
+        distrito: 'Miraflores', direccion: 'Av. Test 12', referencia: 'Puerta azul',
+      },
+      pago: { metodoPago: 'SIMULADO', moneda: 'PEN', subtotal: 129.9, descuentoCupon: 0, costoEnvio: 10, total: 139.9 },
+    }, '33333333-3333-4333-8333-333333333333');
+    expect(JSON.stringify(g5Sales.createOrder.mock.calls[0])).not.toContain('synthetic-customer-token');
+  });
+
+  it('uses the documented G5 sample product only behind the explicit fallback flag and matching quote', async () => {
+    Object.assign(values, {
+      USE_MOCKS: false,
+      CHECKOUT_SALES_SOURCE: 'g5',
+      G5_SALES_INTEGRATION_APPROVED: 'true',
+      AUTH_ENABLED: 'true',
+      G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'true',
+    });
+    const g5Sales = { createOrder: jest.fn().mockResolvedValue({}), getOrder: jest.fn() };
+    const realGateway = new MarketplaceGateway(http, {
+      get: (key: string, fallback?: unknown) => values[key] ?? fallback,
+    } as unknown as ConfigService, g5Sales as never);
+    jest.spyOn(realGateway, 'listAddresses').mockResolvedValue([{
+      addressId: 'ADR-1', street: 'Av. Test 12', district: 'Miraflores', province: 'Lima', department: 'Lima',
+    }]);
+    await realGateway.createOrder({
+      customerId: '11111111-1111-4111-8111-111111111111', checkoutOperationId: '22222222-2222-4222-8222-222222222222',
+      idempotencyKey: '33333333-3333-4333-8333-333333333333',
+      contact: { fullName: 'Synthetic Buyer', documentType: 'DNI', documentNumber: '12345678', phone: '900000000', email: 'buyer@example.invalid' },
+      total: { amount: 139.9, currency: 'PEN' }, customerAccessToken: 'synthetic-customer-token', paymentMethod: 'SIMULADO',
+      quote: { addressId: 'ADR-1', lines: [{ sku: 'SKU-AUR-01', quantity: 1 }], quoteSnapshot: {
+        subtotal: { amount: 129.9, currency: 'PEN' }, discount: { amount: 0, currency: 'PEN' },
+        shipping: { amount: 10, currency: 'PEN', estimatedDays: 2 },
+      } },
+    });
+    expect(g5Sales.createOrder.mock.calls[0][0].items).toEqual([{
+      productoId: 'PROD-101', sku: 'SKU-AUR-01', cantidad: 1, precioUnitario: 129.9,
+      descripcion: 'Audífonos Inalámbricos Bluetooth',
+    }]);
+  });
 });

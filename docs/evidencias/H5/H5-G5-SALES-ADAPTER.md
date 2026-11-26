@@ -1,5 +1,7 @@
 # H5 — adaptador local G5 Ventas
 
+> Esta página documenta el baseline de `#344`. El estado de la preparación conectada al Checkout en la rama nueva está en [H5-G5-CHECKOUT-PREPARE.md](H5-G5-CHECKOUT-PREPARE.md); prevalece para esa rama y no constituye aprobación live.
+
 ## Baseline y prueba
 
 - Fuente M1: `docs/contratos/fixtures/g5-pinned/ventas.yaml`, OpenAPI 1.10.0, commit `95325de5b9b1db44fcfb92e945256b604f0a86f7`.

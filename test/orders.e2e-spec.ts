@@ -103,6 +103,20 @@ describe('F-028 GET /api/v1/orders/me (e2e, MOCK)', () => {
       expect(responseB.body.data.map((o: { orderId: string }) => o.orderId)).not.toContain('PED-MOCK-001');
     });
 
+    it('uses the customer token for detail and denies another customer the order', async () => {
+      const own = await request(app.getHttpServer())
+        .get('/api/v1/orders/PED-MOCK-001')
+        .set('Authorization', 'Bearer test-A')
+        .expect(200);
+      expect(own.headers['cache-control']).toBe('no-store');
+      expect(own.body).toMatchObject({ orderId: 'PED-MOCK-001', state: 'PAGADO' });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/orders/PED-MOCK-001')
+        .set('Authorization', 'Bearer test-B')
+        .expect(403);
+    });
+
     it('paginates with page and pageSize', async () => {
       const first = await request(app.getHttpServer())
         .get('/api/v1/orders/me?page=0&pageSize=1')

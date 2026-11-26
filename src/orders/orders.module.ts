@@ -39,6 +39,9 @@ import { G7IntegrationModule } from '../auth/g7-integration.module';
               error: { code: 'ORDERS_INTEGRATION_UNAVAILABLE' },
             });
           },
+          getForCustomer: async () => {
+            throw new ServiceUnavailableException({ error: { code: 'ORDERS_INTEGRATION_UNAVAILABLE' } });
+          },
         };
       },
     },

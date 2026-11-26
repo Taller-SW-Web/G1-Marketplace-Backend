@@ -1,5 +1,5 @@
 import { HttpService as NestHttpService } from '@nestjs/axios';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
 import { G5OrdersProvider } from './g5-orders.provider';
@@ -8,6 +8,7 @@ describe('G5OrdersProvider', () => {
   const values: Record<string, unknown> = {
     VENTAS_BASE_URL: 'https://ventas.example.test',
     G5_SALES_INTEGRATION_APPROVED: 'true',
+    AUTH_ENABLED: 'true',
     USE_MOCKS: false,
     NODE_ENV: 'production',
     HTTP_TIMEOUT_MS: 1500,
@@ -50,6 +51,53 @@ describe('G5OrdersProvider', () => {
       expect((error as ForbiddenException).getResponse()).toEqual({ error: { code: 'ORDERS_ACCESS_DENIED' } });
       expect(JSON.stringify((error as ForbiddenException).getResponse())).not.toContain('secret');
     }
+  });
+
+  it('uses the authenticated customer token for detail and preserves G5 owner-isolation 403', async () => {
+    const failure = Object.assign(new Error('provider denied'), { response: { status: 403, data: { token: 'secret' } } });
+    http.get.mockReturnValue(throwError(() => failure));
+    await expect(provider.getForCustomer('PED-2026-00001', 'user-token-B', 'customer-b'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(http.get).toHaveBeenCalledWith('https://ventas.example.test/api/v1/pedidos/PED-2026-00001', expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer user-token-B' }),
+      maxRedirects: 0,
+    }));
+  });
+
+  it('maps the order detail without exposing the provider PII snapshot', async () => {
+    http.get.mockReturnValue(of({ status: 200, data: {
+      pedidoId: 'PED-2026-00001', estado: 'PAGADO', fechaCreacion: '2026-11-24T15:00:00Z',
+      contacto: { nombreCompleto: 'Synthetic Buyer', numeroDocumento: 'secret-pii' },
+      pago: { total: 129.9, moneda: 'PEN' },
+    } }));
+    const result = await provider.getForCustomer('PED-2026-00001', 'user-token-A', 'customer-a');
+    expect(result).toEqual({
+      orderId: 'PED-2026-00001', state: 'PAGADO', total: { amount: 129.9, currency: 'PEN' },
+      createdAt: '2026-11-24T15:00:00Z',
+    });
+    expect(JSON.stringify(result)).not.toContain('secret-pii');
+  });
+
+  it('waits for Retry-After before retrying a rate-limited customer read', async () => {
+    const limited = Object.assign(new Error('rate limited'), { response: {
+      status: 429, headers: { 'retry-after': '0' }, data: {},
+    } });
+    http.get.mockReturnValueOnce(throwError(() => limited)).mockReturnValueOnce(of({ status: 200, data: {
+      items: [], total: 0, page: 1, pageSize: 10,
+    } }));
+    await expect(provider.listForCustomer('customer-a', { page: 0, pageSize: 10 }, 'user-token-A'))
+      .resolves.toMatchObject({ data: [], page: { totalElements: 0 } });
+    expect(http.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns retry guidance when Retry-After exceeds the one-minute polling budget', async () => {
+    const limited = Object.assign(new Error('rate limited'), { response: {
+      status: 429, headers: { 'retry-after': '120' }, data: {},
+    } });
+    http.get.mockReturnValue(throwError(() => limited));
+    await expect(provider.getForCustomer('PED-2026-00001', 'user-token-A', 'customer-a'))
+      .rejects.toMatchObject({ constructor: HttpException, status: 429 });
+    expect(http.get).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed without explicit integration approval or the user token', async () => {

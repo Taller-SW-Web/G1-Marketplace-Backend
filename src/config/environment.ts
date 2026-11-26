@@ -87,6 +87,30 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
   }
   if (authEnabled === 'true' && httpTimeoutMs > 5000) throw new Error('G7 session flow requires HTTP_TIMEOUT_MS <= 5000');
+  const checkoutSalesSource = String(config.CHECKOUT_SALES_SOURCE ?? 'mock');
+  if (!['mock', 'g5'].includes(checkoutSalesSource)) throw new Error('CHECKOUT_SALES_SOURCE must be mock or g5');
+  const g5Approved = String(config.G5_SALES_INTEGRATION_APPROVED ?? 'false');
+  const g5ProductFallback = String(config.G5_CONTRACT_PRODUCT_FALLBACK_ENABLED ?? 'false');
+  if (!['true', 'false'].includes(g5Approved) || !['true', 'false'].includes(g5ProductFallback)) {
+    throw new Error('G5 integration flags must be true or false');
+  }
+  if (g5ProductFallback === 'true' && checkoutSalesSource !== 'g5') {
+    throw new Error('G5 contract product fallback requires CHECKOUT_SALES_SOURCE=g5');
+  }
+  if (checkoutSalesSource === 'g5') {
+    if (authEnabled !== 'true' || useMocks === 'true' || g5Approved !== 'true' || addressSource !== 'g7') {
+      throw new Error('G5 checkout requires AUTH_ENABLED=true, USE_MOCKS=false, G7 addresses and explicit approval');
+    }
+    if (typeof config.G7_SERVICE_CLIENT_ID !== 'string' || !/^[A-Za-z0-9._-]{1,100}$/u.test(config.G7_SERVICE_CLIENT_ID) ||
+        typeof config.G7_SERVICE_CLIENT_SECRET !== 'string' || config.G7_SERVICE_CLIENT_SECRET.length < 32 ||
+        config.G7_SERVICE_CLIENT_SECRET.length > 1024 || /[\r\n\0]/u.test(config.G7_SERVICE_CLIENT_SECRET)) {
+      throw new Error('G7 service credentials are required from the private secret manager');
+    }
+    let salesUrl: URL;
+    try { salesUrl = new URL(String(config.VENTAS_BASE_URL)); } catch { throw new Error('VENTAS_BASE_URL is required for G5 checkout'); }
+    if (salesUrl.protocol !== 'https:' || salesUrl.username || salesUrl.password || salesUrl.pathname !== '/' ||
+        salesUrl.search || salesUrl.hash) throw new Error('VENTAS_BASE_URL must be an HTTPS origin');
+  }
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'real', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock, real or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
@@ -103,6 +127,8 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    CHECKOUT_SALES_SOURCE: checkoutSalesSource, G5_SALES_INTEGRATION_APPROVED: g5Approved,
+    G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: g5ProductFallback,
     ORDERS_SOURCE: ordersSource,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),

@@ -49,6 +49,8 @@ describe('CheckoutService', () => {
     | 'createOrder'
     | 'getOrder'
     | 'getOrderByIdempotencyKey'
+    | 'usesG5Sales'
+    | 'usesG5ContractProductFallback'
   >>;
   let service: CheckoutService;
   let quotes: QuotesService;
@@ -109,6 +111,8 @@ describe('CheckoutService', () => {
         total: { amount: 355, currency: 'PEN' },
         createdAt: new Date().toISOString(),
       }),
+      usesG5Sales: jest.fn().mockReturnValue(false),
+      usesG5ContractProductFallback: jest.fn().mockReturnValue(false),
     };
     quotes = new QuotesService();
     service = new CheckoutService(
@@ -442,6 +446,11 @@ describe('CheckoutService', () => {
     expect(prisma.checkoutOperation.create.mock.calls[0][0].data).toHaveProperty(
       'preparedTotalAmount',
     );
+    expect(prisma.checkoutOperation.create.mock.calls[0][0].data.preparedQuoteSnapshot).toMatchObject({
+      subtotal: quote.subtotal,
+      discount: quote.discount,
+      shipping: quote.shipping,
+    });
   });
 
   it('claims the anonymous session cart for the authenticated MOCK checkout before quoting', async () => {
@@ -645,7 +654,7 @@ describe('CheckoutService', () => {
     expect(retried.revalidatedAt).toEqual(expect.any(String));
   });
 
-  it('keeps an order SUBMITTED while Sales reports CREADO and stores no contact data', async () => {
+  it('keeps an order SUBMITTED while Sales reports CREADO and persists its ID without contact data', async () => {
     const operation = baseOperation();
     prisma.checkoutOperation.findFirst.mockImplementation(async ({ where }) =>
       where.id ? operation : null,
@@ -697,11 +706,9 @@ describe('CheckoutService', () => {
       orderState: 'CREADO',
       orderId: 'PED-2026-00001',
     });
-    expect(operation.externalOrderId).toBeNull();
-    expect(gateway.getOrderByIdempotencyKey).toHaveBeenCalledWith(
-      '66666666-6666-4666-8666-666666666666',
-      customerId,
-    );
+    expect(operation.externalOrderId).toBe('PED-2026-00001');
+    expect(gateway.getOrder).toHaveBeenCalledWith('PED-2026-00001', undefined);
+    expect(gateway.getOrderByIdempotencyKey).not.toHaveBeenCalled();
     expect(gateway.createOrder).toHaveBeenCalledWith(expect.objectContaining({
       idempotencyKey: '66666666-6666-4666-8666-666666666666',
     }));
@@ -954,6 +961,44 @@ describe('CheckoutService', () => {
     expect(gateway.getOrder).not.toHaveBeenCalled();
   });
 
+  it('replays a succeeded request with the same key and reads detail using the customer token', async () => {
+    const key = '77777777-7777-4777-8777-777777777777';
+    const contact = {
+      fullName: 'Ana Perez', documentType: 'DNI' as const, documentNumber: '12345678',
+      phone: '999999999', email: 'ana@example.test',
+    };
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.SUCCEEDED,
+      externalOrderId: 'PED-2026-00006',
+      orderIdempotencyKey: key,
+      requestFingerprint: createHash('sha256').update(JSON.stringify({
+        checkoutOperationId: operationId,
+        idempotencyKey: key,
+        contact,
+        paymentMethod: null,
+        deliveryRecipient: null,
+      })).digest('hex'),
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    gateway.getOrder.mockResolvedValue({
+      pedidoId: 'PED-2026-00006', estado: 'PAGADO', total: { amount: 355, currency: 'PEN' },
+      createdAt: '2026-11-24T10:00:00Z',
+    });
+
+    const result = await service.createOrder(
+      customerId,
+      { checkoutOperationId: operationId, contact },
+      key,
+      undefined,
+      'synthetic-customer-jwt',
+    );
+
+    expect(result.status).toBe(200);
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+    expect(gateway.getOrder).toHaveBeenCalledWith('PED-2026-00006', 'synthetic-customer-jwt');
+  });
+
   it('closes an operation only when the provider query returns PAGADO', async () => {
     const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED };
     operation.externalOrderId = 'PED-2026-00002';
@@ -982,6 +1027,113 @@ describe('CheckoutService', () => {
       },
     });
     expect(result.data).not.toHaveProperty('orderState');
+  });
+
+  it('blocks G5 creation before claiming an operation when trusted product pricing metadata is missing', async () => {
+    const operation = baseOperation();
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+    gateway.usesG5Sales.mockReturnValue(true);
+
+    await expect(service.createOrder(
+      customerId,
+      {
+        checkoutOperationId: operationId,
+        paymentMethod: 'SIMULADO',
+        contact: {
+          fullName: 'Ana Perez', documentType: 'DNI', documentNumber: '12345678',
+          phone: '999999999', email: 'ana@example.test',
+        },
+      },
+      '66666666-6666-4666-8666-666666666666',
+      undefined,
+      'synthetic-customer-token',
+    )).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'SALES_ORDER_CONTEXT_INCOMPLETE' } },
+    });
+
+    expect(prisma.checkoutOperation.updateMany).not.toHaveBeenCalled();
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('polls G5 detail with the customer JWT every 2.5 seconds until PAGADO', async () => {
+    jest.useFakeTimers();
+    try {
+      const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED, externalOrderId: 'PED-2026-00002' };
+      prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+      prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
+        Object.assign(operation, data);
+        return operation;
+      });
+      gateway.usesG5Sales.mockReturnValue(true);
+      gateway.getOrder
+        .mockResolvedValueOnce({ pedidoId: 'PED-2026-00002', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00Z' })
+        .mockResolvedValueOnce({ pedidoId: 'PED-2026-00002', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00Z' })
+        .mockResolvedValueOnce({ pedidoId: 'PED-2026-00002', estado: 'PAGADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00Z' });
+
+      const pending = service.getOperation(customerId, operationId, undefined, 'synthetic-customer-jwt');
+      await jest.advanceTimersByTimeAsync(5000);
+      const result = await pending;
+
+      expect(result.status).toBe(200);
+      expect(result.data).toMatchObject({ state: 'SUCCEEDED', order: { state: 'PAGADO' } });
+      expect(gateway.getOrder).toHaveBeenCalledTimes(3);
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(1, 'PED-2026-00002', 'synthetic-customer-jwt');
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(2, 'PED-2026-00002', 'synthetic-customer-jwt');
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(3, 'PED-2026-00002', 'synthetic-customer-jwt');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('honors G5 Retry-After during bounded status polling', async () => {
+    jest.useFakeTimers();
+    try {
+      const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED, externalOrderId: 'PED-2026-00003' };
+      prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+      prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
+        Object.assign(operation, data);
+        return operation;
+      });
+      gateway.usesG5Sales.mockReturnValue(true);
+      gateway.getOrder
+        .mockRejectedValueOnce(new ProviderError(429, 'SALES_RATE_LIMITED', 5))
+        .mockResolvedValueOnce({ pedidoId: 'PED-2026-00003', estado: 'PAGADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00Z' });
+
+      const pending = service.getOperation(customerId, operationId, undefined, 'synthetic-customer-jwt');
+      await jest.advanceTimersByTimeAsync(5000);
+      const result = await pending;
+
+      expect(result.status).toBe(200);
+      expect(gateway.getOrder).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not confirm PAGADO when the provider response arrives after the one-minute limit', async () => {
+    jest.useFakeTimers();
+    try {
+      const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED, externalOrderId: 'PED-2026-00004' };
+      prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+      gateway.usesG5Sales.mockReturnValue(true);
+      gateway.getOrder.mockImplementation(() => new Promise((resolve) => {
+        setTimeout(() => resolve({
+          pedidoId: 'PED-2026-00004', estado: 'PAGADO', total: { amount: 355, currency: 'PEN' },
+          createdAt: '2026-11-24T10:00:00Z',
+        }), 60_001);
+      }));
+
+      const pending = service.getOperation(customerId, operationId, undefined, 'synthetic-customer-jwt');
+      await jest.advanceTimersByTimeAsync(60_001);
+      const result = await pending;
+
+      expect(result.status).toBe(202);
+      expect(result.data.state).toBe('SUBMITTED');
+      expect(prisma.checkoutOperation.update).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('returns the published nested order in a neutral 202 while Sales reports CREADO', async () => {

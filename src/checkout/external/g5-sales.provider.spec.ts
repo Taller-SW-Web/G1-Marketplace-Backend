@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { G5SalesProvider, type G5CreateOrderRequest } from './g5-sales.provider';
 
 const syntheticToken = 'synthetic-test-only-service-token';
+const customerToken = 'synthetic-test-only-customer-token';
 const idempotencyKey = '00000000-0000-4000-8000-000000000001';
 const payload: G5CreateOrderRequest = {
   canal: 'MARKETPLACE',
@@ -35,6 +36,8 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   let baseUrl: string;
   let postStatus = 201;
   let getStatus = 200;
+  let getRetryAfter: string | undefined;
+  let getRequests = 0;
   let responseBody: unknown;
   let lastRequest: { method?: string; url?: string; authorization?: string | string[]; idempotencyKey?: string | string[]; body?: unknown } = {};
   const created = new Map<string, string>();
@@ -55,7 +58,11 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
           body,
         };
         if (request.method === 'GET') {
-          response.writeHead(getStatus, { 'content-type': 'application/json' });
+          getRequests += 1;
+          response.writeHead(getStatus, {
+            'content-type': 'application/json',
+            ...(getRetryAfter ? { 'retry-after': getRetryAfter } : {}),
+          });
           response.end(JSON.stringify(responseBody));
           return;
         }
@@ -83,6 +90,8 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   beforeEach(() => {
     postStatus = 201;
     getStatus = 200;
+    getRetryAfter = undefined;
+    getRequests = 0;
     responseBody = {
       pedidoId: 'PED-2026-00001',
       estado: 'CREADO',
@@ -98,15 +107,18 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   function provider(overrides: Record<string, unknown> = {}) {
     const values: Record<string, unknown> = {
       VENTAS_BASE_URL: baseUrl,
-      VENTAS_SERVICE_TOKEN: syntheticToken,
       G5_SALES_INTEGRATION_APPROVED: 'true',
+      CHECKOUT_SALES_SOURCE: 'g5',
+      AUTH_ENABLED: 'true',
       USE_MOCKS: false,
       NODE_ENV: 'test',
       HTTP_TIMEOUT_MS: 1000,
       ...overrides,
     };
     const config = { get: (key: string, fallback?: unknown) => values[key] ?? fallback };
-    return new G5SalesProvider(new HttpService(axios.create()), config as ConfigService);
+    return new G5SalesProvider(new HttpService(axios.create()), config as ConfigService, {
+      getAccessToken: jest.fn().mockResolvedValue(syntheticToken),
+    } as never);
   }
 
   it('posts the pinned M1 request verbatim with the same Idempotency-Key and maps 201/200 responses', async () => {
@@ -135,12 +147,14 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       pago: { total: 215, moneda: 'PEN', metodoPago: 'SIMULADO' },
       fechaCreacion: '2026-11-24T10:15:00.000Z',
     };
-    const result = await provider().getOrder('PED-2026-00001');
-    expect(result).toEqual({
+    const customerOrder = await provider().getOrder('PED-2026-00001', customerToken);
+    expect(customerOrder).toEqual({
       pedidoId: 'PED-2026-00001', estado: 'EN_PREPARACION', total: { amount: 215, currency: 'PEN' },
       createdAt: '2026-11-24T10:15:00.000Z',
     });
-    expect(lastRequest).toMatchObject({ method: 'GET', url: '/api/v1/pedidos/PED-2026-00001' });
+    expect(lastRequest).toMatchObject({
+      method: 'GET', url: '/api/v1/pedidos/PED-2026-00001', authorization: `Bearer ${customerToken}`,
+    });
   });
 
   it('maps idempotency conflict and hides provider authorization errors', async () => {
@@ -152,9 +166,18 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
 
     getStatus = 403;
     responseBody = { codigo: 'ACCESO_DENEGADO', mensaje: syntheticToken };
-    await expect(provider().getOrder('PED-2026-00001')).rejects.toMatchObject({
-      status: 503, code: 'SALES_UNAVAILABLE',
+    await expect(provider().getOrder('PED-2026-00001', customerToken)).rejects.toMatchObject({
+      status: 403, code: 'SALES_ACCESS_DENIED',
     });
+  });
+
+  it('returns G5 Retry-After to the bounded checkout poller without sleeping inside a request', async () => {
+    getStatus = 429;
+    getRetryAfter = '5';
+    await expect(provider().getOrder('PED-2026-00001', customerToken)).rejects.toMatchObject({
+      status: 429, code: 'SALES_RATE_LIMITED', retryAfterSeconds: 5,
+    });
+    expect(getRequests).toBe(1);
   });
 
   it('fails closed unless explicitly enabled and does not invent an idempotency lookup route', async () => {
