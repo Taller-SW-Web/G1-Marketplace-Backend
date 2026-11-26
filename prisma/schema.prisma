@@ -140,6 +140,7 @@ model CheckoutOperation {
   preparedTotalAmount Decimal?              @map("prepared_total_amount") @db.Decimal(12, 2)
   preparedTotalCurrency String?             @map("prepared_total_currency") @db.Char(3)
   preparedLines      Json?                  @map("prepared_lines") @db.JsonB
+  preparedQuoteSnapshot Json?                @map("prepared_quote_snapshot") @db.JsonB
   revalidatedAt      DateTime?               @map("revalidated_at") @db.Timestamptz(6)
   orderIdempotencyKey String?                @map("order_idempotency_key") @db.VarChar(255)
   externalOrderId    String?                @map("external_order_id") @db.VarChar(100)

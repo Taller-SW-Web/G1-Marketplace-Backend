@@ -1,9 +1,10 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import { ProviderError } from './provider-error';
+import { G7SalesTokenProvider } from './g7-sales-token.provider';
 
 export type G5OrderState = 'CREADO' | 'PAGADO' | 'EN_PREPARACION' | 'DESPACHADO' | 'ENTREGADO' | 'ANULADO';
 
@@ -56,6 +57,7 @@ const ORDER_STATES = new Set<G5OrderState>([
   'CREADO', 'PAGADO', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'ANULADO',
 ]);
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const MAX_TOKEN_LENGTH = 8192;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -64,18 +66,23 @@ export class G5SalesProvider {
   constructor(
     private readonly http: HttpService,
     private readonly config: ConfigService,
+    @Optional() private readonly serviceTokens?: G7SalesTokenProvider,
   ) {}
 
   async createOrder(input: G5CreateOrderRequest, idempotencyKey: string): Promise<G5SalesOrder> {
     if (!UUID_V4.test(idempotencyKey)) throw new ProviderError(400, 'IDEMPOTENCY_KEY_INVALID');
     if (!isCreateOrderRequest(input)) throw new ProviderError(400, 'SALES_REQUEST_INVALID');
-    const response = await this.request('post', '/api/v1/pedidos', input, { 'Idempotency-Key': idempotencyKey });
+    this.assertIntegrationReady();
+    if (!this.serviceTokens) throw new ProviderError(503, 'SALES_AUTH_UNAVAILABLE');
+    const token = await this.serviceTokens.getAccessToken();
+    const response = await this.request('post', '/api/v1/pedidos', token, input, { 'Idempotency-Key': idempotencyKey });
     return mapCreateOrder(response);
   }
 
-  async getOrder(orderId: string): Promise<G5SalesOrder> {
+  async getOrder(orderId: string, customerAccessToken: string): Promise<G5SalesOrder> {
     if (!orderId.trim() || orderId.length > 100) throw new ProviderError(400, 'ORDER_ID_INVALID');
-    const response = await this.request('get', `/api/v1/pedidos/${encodeURIComponent(orderId)}`);
+    if (!isBearerToken(customerAccessToken)) throw new ProviderError(401, 'CUSTOMER_TOKEN_REQUIRED');
+    const response = await this.request('get', `/api/v1/pedidos/${encodeURIComponent(orderId)}`, customerAccessToken);
     return mapOrderDetail(response);
   }
 
@@ -87,37 +94,29 @@ export class G5SalesProvider {
   private async request(
     method: 'get' | 'post',
     path: string,
+    bearerToken: string,
     body?: G5CreateOrderRequest,
     extraHeaders: Record<string, string> = {},
   ): Promise<unknown> {
+    this.assertIntegrationReady();
     const baseUrl = this.config.get<string>('VENTAS_BASE_URL');
-    const token = this.config.get<string>('VENTAS_SERVICE_TOKEN');
-    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
-    const approved = this.config.get<string>('G5_SALES_INTEGRATION_APPROVED') === 'true';
-    const mocks = this.config.get<boolean>('USE_MOCKS', false);
-    const production = this.config.get<string>('NODE_ENV') === 'production';
     let base: URL;
     try {
       base = new URL(baseUrl ?? '');
     } catch {
       throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
     }
-    const localHttp = !production && base.protocol === 'http:' &&
-      ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
-    if (!approved || mocks || !token || !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
-        (base.protocol !== 'https:' && !localHttp) || base.username || base.password || base.pathname !== '/' || base.search || base.hash) {
-      throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
-    }
+    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
 
     const url = new URL(path, base);
     try {
       const response = method === 'get'
         ? await firstValueFrom(this.http.get<unknown>(url.href, {
-            headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, ...extraHeaders },
+            headers: { Accept: 'application/json', Authorization: `Bearer ${bearerToken}`, ...extraHeaders },
             timeout: timeoutMs, maxRedirects: 0, proxy: false,
           }))
         : await firstValueFrom(this.http.post<unknown>(url.href, body, {
-            headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...extraHeaders },
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`, ...extraHeaders },
             timeout: timeoutMs, maxRedirects: 0, proxy: false,
           }));
       if (method === 'get' && response.status !== 200) {
@@ -131,7 +130,14 @@ export class G5SalesProvider {
       if (error instanceof ProviderError) throw error;
       const axiosError = error as AxiosError<unknown>;
       const status = axiosError.response?.status;
+      if (status === 429) {
+        // Let the checkout poller enforce its 60-second budget and wait on the
+        // provider's Retry-After. The same idempotency key makes POST retries safe.
+        throw new ProviderError(429, 'SALES_RATE_LIMITED', readRetryAfter(axiosError.response?.headers?.['retry-after']));
+      }
       const providerCode = readProviderCode(axiosError.response?.data);
+      if (status === 401) throw new ProviderError(401, 'SALES_AUTHENTICATION_FAILED');
+      if (status === 403) throw new ProviderError(403, 'SALES_ACCESS_DENIED');
       if (status === 404 && method === 'get') throw new ProviderError(404, 'SALES_ORDER_NOT_FOUND');
       if (status === 409 && providerCode === 'IDEMPOTENCY_KEY_REUSED') {
         throw new ProviderError(409, 'IDEMPOTENCY_KEY_REUSED');
@@ -143,6 +149,35 @@ export class G5SalesProvider {
       throw new ProviderError(timedOut ? 504 : 503, timedOut ? 'SALES_TIMEOUT' : 'SALES_UNAVAILABLE');
     }
   }
+
+  private assertIntegrationReady(): void {
+    const approved = this.config.get<string>('G5_SALES_INTEGRATION_APPROVED') === 'true';
+    const checkoutEnabled = this.config.get<string>('CHECKOUT_SALES_SOURCE') === 'g5';
+    const authenticated = this.config.get<string>('AUTH_ENABLED') === 'true';
+    const mocks = this.config.get<boolean>('USE_MOCKS', false);
+    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    const baseUrl = this.config.get<string>('VENTAS_BASE_URL');
+    let base: URL;
+    try { base = new URL(baseUrl ?? ''); } catch { throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED'); }
+    const localHttp = !production && base.protocol === 'http:' &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
+    if (!approved || !checkoutEnabled || !authenticated || mocks || !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
+        (base.protocol !== 'https:' && !localHttp) || base.username || base.password || base.pathname !== '/' || base.search || base.hash) {
+      throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
+    }
+  }
+}
+
+function isBearerToken(value: string): boolean {
+  return typeof value === 'string' && /^[A-Za-z0-9._~-]{1,8192}$/u.test(value);
+}
+
+function readRetryAfter(value: unknown): number | undefined {
+  const text = Array.isArray(value) ? value[0] : value;
+  if (typeof text !== 'string') return undefined;
+  const seconds = /^\d{1,6}$/u.test(text) ? Number(text) : Math.ceil((Date.parse(text) - Date.now()) / 1000);
+  return Number.isInteger(seconds) && seconds >= 0 && seconds <= 86400 ? seconds : undefined;
 }
 
 function readProviderCode(value: unknown): string | undefined {

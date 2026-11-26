@@ -1,7 +1,9 @@
 import {
   Controller,
+  HttpException,
   UnauthorizedException,
   Get,
+  Param,
   Query,
   Res,
   Req,
@@ -41,6 +43,41 @@ export class OrdersController {
     const value = Array.isArray(authorization) ? authorization[0] : authorization;
     const token = typeof value === 'string' ? /^Bearer\s+([^\s]+)$/i.exec(value)?.[1] : undefined;
     if (!request.user?.sub || !token) throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
-    return this.orders.listMyOrders(request.user.sub, query, token);
+    try {
+      return await this.orders.listMyOrders(request.user.sub, query, token);
+    } catch (error) {
+      this.setRetryAfter(response, error);
+      throw error;
+    }
+  }
+
+  @Get(':orderId')
+  async getOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('orderId') orderId: string,
+    @Res({ passthrough: true }) response: ResponseHeaders,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    const authorization = request.headers.authorization;
+    const value = Array.isArray(authorization) ? authorization[0] : authorization;
+    const token = typeof value === 'string' ? /^Bearer\s+([^\s]+)$/i.exec(value)?.[1] : undefined;
+    if (!request.user?.sub || !token) throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
+    try {
+      return await this.orders.getOrderForCustomer(request.user.sub, orderId, token);
+    } catch (error) {
+      this.setRetryAfter(response, error);
+      throw error;
+    }
+  }
+
+  private setRetryAfter(response: ResponseHeaders, error: unknown): void {
+    if (!(error instanceof HttpException)) return;
+    const body = error.getResponse();
+    if (typeof body !== 'object' || body === null || !('error' in body) ||
+        typeof body.error !== 'object' || body.error === null || !('retryAfterSeconds' in body.error)) return;
+    const seconds = body.error.retryAfterSeconds;
+    if (typeof seconds === 'number' && Number.isInteger(seconds) && seconds >= 0 && seconds <= 86400) {
+      response.setHeader('Retry-After', String(seconds));
+    }
   }
 }

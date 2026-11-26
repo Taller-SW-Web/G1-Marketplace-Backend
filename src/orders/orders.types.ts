@@ -33,6 +33,7 @@ export interface OrdersProvider {
     query: ListOrdersQuery,
     accessToken?: string,
   ): Promise<OrdersHistoryResponse>;
+  getForCustomer(orderId: string, accessToken?: string, customerId?: string): Promise<OrderSummary>;
 }
 
 export const ORDERS_PROVIDER = Symbol('ORDERS_PROVIDER');

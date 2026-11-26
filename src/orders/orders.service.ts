@@ -42,4 +42,19 @@ export class OrdersService {
 
     return this.provider.listForCustomer(customerId, query, accessToken);
   }
+
+  async getOrderForCustomer(customerId: string, orderId: string, accessToken: string) {
+    const source = this.config.get<string>('ORDERS_SOURCE', 'unconfigured');
+    const environment = this.config.get<string>('NODE_ENV', 'development');
+    if (source === 'real' && environment !== 'test') {
+      return this.provider.getForCustomer(orderId, accessToken, customerId);
+    }
+    if (source !== 'mock' || environment === 'production') {
+      throw new ServiceUnavailableException({ error: { code: 'ORDERS_INTEGRATION_UNAVAILABLE' } });
+    }
+    if (!(MOCK_CUSTOMER_IDS as readonly string[]).includes(customerId)) {
+      throw new ServiceUnavailableException({ error: { code: 'MOCK_CUSTOMER_NOT_CONFIGURED' } });
+    }
+    return this.provider.getForCustomer(orderId, accessToken, customerId);
+  }
 }

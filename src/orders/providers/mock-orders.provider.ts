@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MOCK_ORDERS } from '../fixtures/orders.fixture';
 import {
   ListOrdersQuery,
@@ -33,6 +33,18 @@ export class MockOrdersProvider implements OrdersProvider {
         totalElements: customerOrders.length,
         totalPages: Math.ceil(customerOrders.length / query.pageSize),
       },
+    };
+  }
+
+  async getForCustomer(orderId: string, _accessToken?: string, customerId?: string) {
+    const order = MOCK_ORDERS.find((candidate) => candidate.orderId === orderId);
+    if (!order) throw new NotFoundException({ error: { code: 'ORDER_NOT_FOUND' } });
+    if (order.ownerCustomerId !== customerId) throw new ForbiddenException({ error: { code: 'ORDERS_ACCESS_DENIED' } });
+    return {
+      orderId: order.orderId,
+      state: order.state,
+      total: order.total,
+      createdAt: order.createdAt,
     };
   }
 }
