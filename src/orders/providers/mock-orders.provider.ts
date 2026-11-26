@@ -6,6 +6,10 @@ import {
   OrdersProvider,
 } from '../orders.types';
 
+const peruDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit',
+});
+
 @Injectable()
 export class MockOrdersProvider implements OrdersProvider {
   async listForCustomer(
@@ -14,7 +18,12 @@ export class MockOrdersProvider implements OrdersProvider {
     _accessToken?: string,
   ): Promise<OrdersHistoryResponse> {
     const customerOrders = MOCK_ORDERS
-      .filter((order) => order.ownerCustomerId === customerId)
+      .filter((order) => {
+        if (order.ownerCustomerId !== customerId || (query.state && order.state !== query.state)) return false;
+        if (!query.from && !query.to) return true;
+        const date = peruDate.format(new Date(order.createdAt));
+        return (!query.from || date >= query.from) && (!query.to || date <= query.to);
+      })
       .map((order) => ({
         orderId: order.orderId,
         state: order.state,

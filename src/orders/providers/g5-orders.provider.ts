@@ -3,6 +3,7 @@ import { HttpException, Injectable, ServiceUnavailableException, UnauthorizedExc
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
+import { ApiError } from '../../http/api-error';
 import { OrdersHistoryResponse, OrdersProvider, ListOrdersQuery } from '../orders.types';
 
 type G5Order = {
@@ -32,7 +33,13 @@ export class G5OrdersProvider implements OrdersProvider {
     const page = query.page + 1;
     try {
       const response = await this.get<unknown>(new URL('/api/v1/pedidos/me', base).href, {
-        params: { page, pageSize: query.pageSize },
+        params: {
+          page,
+          pageSize: query.pageSize,
+          ...(query.state ? { estado: query.state } : {}),
+          ...(query.from ? { desde: query.from } : {}),
+          ...(query.to ? { hasta: query.to } : {}),
+        },
         headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
         timeout: this.config.get<number>('HTTP_TIMEOUT_MS', 3000),
         maxRedirects: 0,
@@ -51,7 +58,11 @@ export class G5OrdersProvider implements OrdersProvider {
     } catch (error) {
       if (error instanceof ServiceUnavailableException || error instanceof UnauthorizedException || error instanceof ForbiddenException ||
           error instanceof HttpException && error.getStatus() === 429) throw error;
-      const status = (error as AxiosError).response?.status;
+      const { status, data } = (error as AxiosError).response ?? {};
+      if (status === 400 && isRecord(data) && typeof data.codigo === 'string' &&
+          ['RANGO_FECHAS_INVALIDO', 'FORMATO_INVALIDO', 'PAGINACION_INVALIDA'].includes(data.codigo)) {
+        throw new ApiError(400, data.codigo, 'Revisa los filtros de tus pedidos.');
+      }
       if (status === 401) throw new UnauthorizedException({ error: { code: 'ORDERS_AUTHENTICATION_FAILED' } });
       if (status === 403) throw new ForbiddenException({ error: { code: 'ORDERS_ACCESS_DENIED' } });
       throw this.unavailable();
