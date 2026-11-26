@@ -1,3 +1,53 @@
+## [1.12.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.11.0...v1.12.0) (2026-11-24)
+
+### Features
+
+* **ci:** agregar gates SAST/Gitleaks/SCA, Dependabot y keep-alive H5 ([f053bd2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/f053bd2fca2cc48e19ea1950e7ce97e6c49c9d5c))
+* **ci:** agregar quality gate de cobertura Jest para TASK-H5-CICD-007 ([e794f8f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/e794f8fb984b82eb78a6582a7945708b1a2be0a0))
+
+### Bug Fixes
+
+* **ci:** atender observaciones de review en OSV gate, licencias, cobertura y keep-alive ([0b33210](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0b332109e38022e568455b86b1364dc019e55471))
+* **ci:** auditar falsos positivos de prueba en .gitleaksignore y acotar Semgrep a src/ ([78ff7a7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/78ff7a766bbfb8ff731541452235517283be91fe))
+* **security:** especificar authTagLength de 16 bytes en AES-256-GCM en SessionStore ([2f9fd70](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/2f9fd70160f7503fbe116c58b267a1fd192d699f))
+
+## [1.11.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.2...v1.11.0) (2026-11-24)
+
+### Features
+
+* **csat:** registrar evaluacion autorizada con gates y pruebas aisladas ([1ce075e](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/1ce075e07a60989ce742837193cae7272eec20ca))
+* **h4:** integrar favoritos y CSAT con gates ([0a52051](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0a520517d596c419d3653c2c12abc9bb2449a442))
+* **wishlist:** integrar catalogo publico G6 ([c00229c](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c00229c9ccc59f06b5bc42fd84196117ae8e3b84))
+* **wishlist:** integrar pricing e inventario G6 rc3 ([09100f9](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/09100f96bb56b7f963a9ecb92ed364788e8627fd))
+* **wishlist:** preparar G6 y reforzar aislamiento de favoritos ([8017739](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/801773949deaef8da249ca32a10d7a353943188e))
+
+### Bug Fixes
+
+* **checkout:** evitar completion anterior a creation ([7faefbe](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/7faefbe4d20f916436f04af52768a50373c21948))
+* **ci:** scope H4 verification and validate PostgreSQL constraints ([a262f78](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a262f78cd386257da086c5e3a44dc4765967002a))
+* **csat:** rechazar campos nulos y probar respuestas inciertas ([723d30f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/723d30f51f8ecff345afe3e253dda76722d4f413)), closes [#195](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/195) [#198](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/198)
+* **f039:** sacar catalogo de la transaccion ([f8065da](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/f8065da2e1a0be3dfc9fba4b3d7086c1507d5922))
+* **test:** diagnose unavailable Docker before isolated checks ([87edc10](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/87edc101e531db9ebe6821c2790ce7882a19a4dc))
+* **wishlist:** acotar consultas G6 y rechazar SKU invalidos ([b917273](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b917273699e2f97e3ee1c61a6db194d7f9394736)), closes [#175](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/175) [#180](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/180) [#183](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/183) [#190](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/190) [#193](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/193)
+
+## [1.10.2](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.1...v1.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** usar OriginalUrl.Path para rutas publicas en api-policy.xml ([c910900](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/c9109000942660e13b304f73e8b3dd94f2d2ed24))
+
+## [1.10.1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.10.0...v1.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **apim:** corregir comillas en atributo condition de api-policy.xml ([140f678](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/140f67827fd608bc16686c3bed59afcbc613aa72))
+
+## [1.10.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.9.0...v1.10.0) (2026-11-23)
+
+### Features
+
+* **apim:** agregar politicas APIM como codigo y workflow de despliegue ([aa3e30d](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/aa3e30db7d8d475c005d3778401fdc405989b74f))
+
 ## [1.9.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.8.4...v1.9.0) (2026-11-23)
 
 ### Features

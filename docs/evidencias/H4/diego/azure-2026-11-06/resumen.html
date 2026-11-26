@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Cierre Azure G6 — Wishlist</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 48px; color: #172033; background: #f5f7fb; }
+    main { max-width: 1050px; margin: auto; background: white; padding: 38px 44px; border-radius: 16px; box-shadow: 0 8px 30px #20305018; }
+    h1 { margin-top: 0; color: #123e76; }
+    .pass { display: inline-block; padding: 7px 13px; border-radius: 999px; background: #daf5e5; color: #126b3c; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+    th, td { text-align: left; padding: 13px; border-bottom: 1px solid #dbe2ef; }
+    th { color: #40506a; background: #f1f5fa; }
+    code { color: #133d70; }
+    .note { margin-top: 24px; padding: 16px; border-left: 5px solid #f3a712; background: #fff8e8; }
+  </style>
+</head>
+<body><main>
+  <h1>Pruebas de calidad — Azure G6 / Wishlist</h1>
+  <p><strong>Ejecución:</strong> 6 de noviembre de 2026, 11:28:52 a. m. (Perú)</p>
+  <p><span class="pass">PASS — antes de la 1:00 p. m.</span></p>
+  <table>
+    <tr><th>Prueba</th><th>Resultado</th></tr>
+    <tr><td>Gateway <code>GET /health</code></td><td>HTTP 200 · 0.279 s</td></tr>
+    <tr><td>Detalle de producto publicado</td><td>HTTP 200 · 0.825 s</td></tr>
+    <tr><td>Producto</td><td>Nike Academy · <code>2ee6399e-2333-5916-847b-f6d2a0f03527</code></td></tr>
+    <tr><td>SKU resuelto</td><td><code>NIK-ACADEMY-HV4386-05</code></td></tr>
+    <tr><td>Adaptador G1</td><td>PASS · <code>public-read-only</code></td></tr>
+    <tr><td>Authorization</td><td>No enviada</td></tr>
+  </table>
+  <div class="note"><strong>Alcance:</strong> acredita Catálogo/elegibilidad para F-036 y F-038. Pricing, Inventory, cantidad y <code>fulfillment_ref</code> permanecen pendientes de G6 para F-037/F-039.</div>
+</main></body>
+</html>

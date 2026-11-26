@@ -1,0 +1,32 @@
+{
+  "functions": 40,
+  "case_rows": 419,
+  "literal_criteria": 179,
+  "local_tests": 179,
+  "real_executions": 0,
+  "eligible_to_close": false,
+  "runs": [
+    {
+      "run": "backend-local",
+      "passed": 58,
+      "failed": 0,
+      "pending": 0,
+      "success": true
+    },
+    {
+      "run": "frontend-componentes",
+      "passed": 50,
+      "failed": 0,
+      "pending": 0,
+      "success": true
+    },
+    {
+      "run": "frontend-servidor",
+      "passed": 71,
+      "failed": 0,
+      "pending": 0,
+      "success": true
+    }
+  ],
+  "source_revision": "46005a488bef751ba76d9496193eb2ddbb04453e"
+}
