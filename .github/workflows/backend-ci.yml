@@ -36,3 +36,35 @@ jobs:
         run: |
           npm run docs:openapi
           git diff --exit-code -- docs/contratos/openapi-h3.json
+
+  shipment-webhook-postgres:
+    name: H-05 inbox integration (PostgreSQL 16 disposable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: h5_test
+          POSTGRES_PASSWORD: h5_local_test_only
+          POSTGRES_DB: marketplace_h5_webhook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U h5_test -d marketplace_h5_webhook_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/not_connected
+      TEST_DATABASE_URL: postgresql://h5_test:h5_local_test_only@127.0.0.1:5432/marketplace_h5_webhook_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run prisma:generate
+      - run: npm run test:ventas:webhook:postgres
