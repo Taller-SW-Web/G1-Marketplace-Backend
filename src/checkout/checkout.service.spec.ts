@@ -139,7 +139,7 @@ describe('CheckoutService', () => {
       addressId: 'ADR-1',
       cartVersion: cart.version,
       lines: cart.items.map(({ sku, quantity }) => ({ sku, quantity })),
-    });
+    }, customerId);
     expect(gateway.listAddresses).toHaveBeenCalledWith(customerId, 'valid-test-token');
     expect(quotes.get(customerId, 'Q-1')).toEqual(quote);
 
@@ -211,7 +211,7 @@ describe('CheckoutService', () => {
 
     const result = await service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' });
 
-    expect(gateway.applyBenefit).toHaveBeenCalledWith(quote, 'SAVE20');
+    expect(gateway.applyBenefit).toHaveBeenCalledWith(quote, 'SAVE20', customerId);
     expect(result).toBe(discountedQuote);
     expect(quotes.get(customerId, 'Q-1')).toBeUndefined();
     expect(quotes.get(customerId, 'Q-DISCOUNTED')).toBe(discountedQuote);
@@ -289,7 +289,7 @@ describe('CheckoutService', () => {
 
     const result = await service.applyBenefit(customerId, { quoteId: 'Q-DISCOUNTED' });
 
-    expect(gateway.applyBenefit).toHaveBeenCalledWith(discountedQuote, undefined);
+    expect(gateway.applyBenefit).toHaveBeenCalledWith(discountedQuote, undefined, customerId);
     expect(result).toBe(baseQuote);
     expect(result.discount.amount).toBe(0);
     expect(result.selectedBenefit).toBeUndefined();
@@ -437,7 +437,7 @@ describe('CheckoutService', () => {
       '33333333-3333-7333-8333-333333333333',
     );
 
-    expect(gateway.revalidate).toHaveBeenCalledWith(quote.lines);
+    expect(gateway.revalidate).toHaveBeenCalledWith(quote.lines, customerId, quote.quoteId);
     expect(result).toMatchObject({
       checkoutOperationId: operationId,
       state: 'PREPARED',
@@ -479,7 +479,7 @@ describe('CheckoutService', () => {
     expect(gateway.createQuote).toHaveBeenCalledWith(expect.objectContaining({
       lines: [{ sku: 'AERO-42-BLK', quantity: 2 }],
       cartVersion: 8,
-    }));
+    }), customerId);
   });
 
   it('does not finish preparation against a quote replaced during revalidation', async () => {

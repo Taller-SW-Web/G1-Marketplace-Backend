@@ -262,6 +262,53 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     expect(JSON.stringify(g5Sales.createOrder.mock.calls[0])).not.toContain('synthetic-customer-token');
   });
 
+  it('isolates the G5 trial fixture to one buyer, SKU, payment method and window with global mocks off', async () => {
+    const buyer = '11111111-1111-4111-8111-111111111111';
+    const fixture = {
+      customerId: buyer, sku: 'SKU-TEST', productId: 'PROD-TEST', unitPriceCents: 1945,
+      shippingCents: 250, paymentMethod: 'SIMULADO', expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    Object.assign(values, {
+      NODE_ENV: 'production', USE_MOCKS: false, CHECKOUT_SALES_SOURCE: 'g5',
+      CHECKOUT_G5_TEST_FIXTURE: JSON.stringify(fixture),
+    });
+    const g5 = { createOrder: jest.fn().mockResolvedValue({ pedidoId: 'PED-2026-00001' }) };
+    const liveGateway = new MarketplaceGateway(http, {
+      get: (key: string, fallback?: unknown) => values[key] ?? fallback,
+    } as unknown as ConfigService, g5 as never);
+    const address = { addressId: 'ADR-1', street: 'Av. Test 12', district: 'Miraflores', province: 'Lima', department: 'Lima' };
+    jest.spyOn(liveGateway, 'listAddresses').mockResolvedValue([address]);
+    const post = jest.spyOn(http, 'post');
+    const input = { address, addressId: address.addressId, cartVersion: 2, lines: [{ sku: fixture.sku, quantity: 1 }] };
+    await expect(liveGateway.createQuote(input, 'another-buyer')).rejects.toMatchObject({ status: 403 });
+    await expect(liveGateway.createQuote({ ...input, lines: [{ sku: fixture.sku, quantity: 2 }] }, buyer)).rejects.toMatchObject({ status: 409 });
+    const quote = await liveGateway.createQuote(input, buyer);
+    expect(quote.quoteId).toMatch(/^Q-G5-MOCK-/);
+    expect(quote.total).toEqual({ amount: 21.95, currency: 'PEN' });
+    await expect(liveGateway.applyBenefit(quote, 'SAVE20', buyer)).rejects.toMatchObject({ status: 422 });
+    await expect(liveGateway.revalidate(quote.lines, buyer, quote.quoteId)).resolves.toMatchObject({ available: true });
+    const order = {
+      customerId: buyer, checkoutOperationId: '22222222-2222-4222-8222-222222222222',
+      idempotencyKey: '33333333-3333-4333-8333-333333333333',
+      contact: { fullName: 'Synthetic Buyer', documentType: 'DNI' as const, documentNumber: '12345678', phone: '900000000', email: 'buyer@example.invalid' },
+      total: quote.total, customerAccessToken: 'synthetic-customer-token', quote: { ...quote, quoteSnapshot: quote },
+    };
+    await expect(liveGateway.createOrder({ ...order, paymentMethod: 'UNAPPROVED' })).rejects.toMatchObject({ status: 409 });
+    await expect(liveGateway.createOrder({ ...order, customerId: 'another-buyer' })).rejects.toMatchObject({ status: 403 });
+    await liveGateway.createOrder(order);
+    expect(g5.createOrder).toHaveBeenCalledTimes(1);
+    expect(g5.createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      items: [{ productoId: fixture.productId, sku: fixture.sku, cantidad: 1, precioUnitario: 19.45 }],
+      pago: expect.objectContaining({ metodoPago: fixture.paymentMethod, total: 21.95 }),
+    }), order.idempotencyKey);
+    values.CHECKOUT_G5_TEST_FIXTURE = JSON.stringify({ ...fixture, expiresAt: new Date(Date.now() - 1_000).toISOString() });
+    await expect(liveGateway.createOrder(order)).rejects.toMatchObject({ status: 403 });
+    values.CHECKOUT_G5_TEST_FIXTURE = '';
+    await expect(liveGateway.createOrder(order)).rejects.toMatchObject({ status: 409 });
+    expect(g5.createOrder).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('uses the documented G5 sample product only behind the explicit fallback flag and matching quote', async () => {
     Object.assign(values, {
       USE_MOCKS: false,

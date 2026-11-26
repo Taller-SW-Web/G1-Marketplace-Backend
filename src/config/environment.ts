@@ -1,3 +1,5 @@
+import { G5_FIXTURE_ENV, parseG5CheckoutFixture } from './checkout-g5-fixture';
+
 export function validateEnvironment(config: Record<string, unknown>): Record<string, unknown> {
   for (const flag of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
     if (!['true', 'false'].includes(String(config[flag] ?? 'false'))) throw new Error(`${flag} must be true or false`);
@@ -96,6 +98,10 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   }
   if (g5ProductFallback === 'true' && checkoutSalesSource !== 'g5') {
     throw new Error('G5 contract product fallback requires CHECKOUT_SALES_SOURCE=g5');
+  }
+  const g5TestFixture = parseG5CheckoutFixture(config[G5_FIXTURE_ENV]);
+  if (g5TestFixture && (checkoutSalesSource !== 'g5' || g5ProductFallback === 'true')) {
+    throw new Error(`${G5_FIXTURE_ENV} requires G5 checkout without the contract product fallback`);
   }
   if (checkoutSalesSource === 'g5') {
     if (authEnabled !== 'true' || useMocks === 'true' || g5Approved !== 'true' || addressSource !== 'g7') {

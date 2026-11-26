@@ -91,6 +91,17 @@ describe('Environment boundaries', () => {
     expect(() => validateEnvironment({ ...g5, CHECKOUT_ADDRESS_SOURCE: 'fixture' })).toThrow();
     expect(() => validateEnvironment({ ...g5, G7_SERVICE_CLIENT_SECRET: '' })).toThrow();
     expect(() => validateEnvironment({ ...g5, VENTAS_BASE_URL: 'http://g5.example' })).toThrow();
+    const fixture = {
+      customerId: '11111111-1111-4111-8111-111111111111', sku: 'SKU-TEST', productId: 'PROD-TEST',
+      unitPriceCents: 1500, shippingCents: 0, paymentMethod: 'SIMULADO', expiresAt: '2030-01-01T18:00:00.000Z',
+    };
+    const trial = { ...g5, NODE_ENV: 'production', CHECKOUT_G5_TEST_FIXTURE: JSON.stringify(fixture) };
+    expect(validateEnvironment(trial)).toMatchObject({ USE_MOCKS: false, CHECKOUT_SALES_SOURCE: 'g5' });
+    expect(() => validateEnvironment({ ...trial, USE_MOCKS: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...trial, CHECKOUT_SALES_SOURCE: 'mock' })).toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
+    expect(() => validateEnvironment({ ...trial, G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'true' })).toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
+    expect(() => validateEnvironment({ ...trial, CHECKOUT_G5_TEST_FIXTURE: JSON.stringify({ ...fixture, unitPriceCents: -1 }) }))
+      .toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
   });
   it('rejects mixing real G7 sessions with mock identity', () => {
     expect(() => validateEnvironment({ ...g7, H3_AUTH_MOCK: 'true' })).toThrow();

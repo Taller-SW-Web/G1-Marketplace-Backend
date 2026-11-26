@@ -18,11 +18,13 @@ import {
 } from '../checkout.types';
 import { CreateDeliveryAddressDto } from '../dto/delivery-address.dto';
 import { record } from '../../auth/g7.client';
+import { G5CheckoutFixture, G5_FIXTURE_ENV, parseG5CheckoutFixture } from '../../config/checkout-g5-fixture';
 import { ProviderError } from './provider-error';
 import { G5SalesProvider, G5CreateOrderRequest } from './g5-sales.provider';
 
 const PRISM_ADDRESS_BASE = 'http://localhost:4010';
 const FIXTURE_ADDRESS_BASE = 'http://security.mock';
+const G5_FIXTURE_QUOTE_PREFIX = 'Q-G5-MOCK-';
 
 interface Envelope<T> {
   data: T;
@@ -115,21 +117,80 @@ export class MarketplaceGateway {
     }
   }
 
-  createQuote(input: {
+  async createQuote(input: {
     address: DeliveryAddress;
     addressId: string;
     cartVersion: number;
     lines: QuoteLine[];
-  }): Promise<CheckoutQuote> {
+  }, customerId?: string): Promise<CheckoutQuote> {
+    const fixture = this.checkoutFixture(customerId);
+    if (fixture) {
+      this.assertFixtureLines(input.lines, fixture);
+      const money = (cents: number): Money => ({ amount: cents / 100, currency: 'PEN' });
+      return {
+        quoteId: `${this.fixtureQuotePrefix(fixture)}${randomUUID()}`,
+        expiresAt: new Date(Math.min(Date.now() + 300_000, Date.parse(fixture.expiresAt))).toISOString(),
+        subtotal: money(fixture.unitPriceCents), discount: money(0),
+        shipping: { ...money(fixture.shippingCents), estimatedDays: 2 },
+        total: money(fixture.unitPriceCents + fixture.shippingCents),
+        lines: [{ sku: fixture.sku, quantity: 1, productId: fixture.productId, unitPrice: money(fixture.unitPriceCents) }],
+        addressId: input.addressId, cartVersion: input.cartVersion,
+      };
+    }
     return this.request('post', 'http://catalog.mock/checkout-quotes', input);
   }
 
-  applyBenefit(quote: CheckoutQuote, couponCode?: string): Promise<CheckoutQuote> {
+  async applyBenefit(quote: CheckoutQuote, couponCode?: string, customerId?: string): Promise<CheckoutQuote> {
+    const fixture = this.checkoutFixture(customerId);
+    if (fixture || quote.quoteId.startsWith(G5_FIXTURE_QUOTE_PREFIX)) {
+      this.g5OrderPaymentMethod(customerId, quote.quoteId);
+      if (couponCode) throw new ProviderError(422, 'COUPON_NOT_APPLICABLE');
+      return quote;
+    }
     return this.request('post', 'http://benefits.mock/apply', { quote, couponCode });
   }
 
-  revalidate(lines: QuoteLine[]): Promise<{ available: boolean; revalidatedAt: string }> {
+  async revalidate(lines: QuoteLine[], customerId?: string, quoteId?: string): Promise<{ available: boolean; revalidatedAt: string }> {
+    const fixture = this.checkoutFixture(customerId);
+    if (fixture || quoteId?.startsWith(G5_FIXTURE_QUOTE_PREFIX)) {
+      this.g5OrderPaymentMethod(customerId, quoteId);
+      if (!fixture) throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+      this.assertFixtureLines(lines, fixture);
+      return { available: true, revalidatedAt: new Date().toISOString() };
+    }
     return this.request('post', 'http://inventory.mock/revalidate', { lines });
+  }
+
+  g5OrderPaymentMethod(customerId?: string, quoteId?: string, requested?: string): string | undefined {
+    const fixture = this.checkoutFixture(customerId);
+    if (!fixture) {
+      if (quoteId?.startsWith(G5_FIXTURE_QUOTE_PREFIX)) throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+      return requested;
+    }
+    if (!quoteId?.startsWith(this.fixtureQuotePrefix(fixture)) || (requested !== undefined && requested !== fixture.paymentMethod)) {
+      throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+    }
+    return fixture.paymentMethod;
+  }
+
+  private checkoutFixture(customerId?: string): G5CheckoutFixture | undefined {
+    if (!this.usesG5Sales()) return undefined;
+    const fixture = parseG5CheckoutFixture(this.config.get(G5_FIXTURE_ENV));
+    if (fixture && (customerId !== fixture.customerId || Date.now() >= Date.parse(fixture.expiresAt))) {
+      throw new ProviderError(403, 'CHECKOUT_TEST_FIXTURE_UNAVAILABLE');
+    }
+    return fixture;
+  }
+
+  private fixtureQuotePrefix(fixture: G5CheckoutFixture): string {
+    const revision = createHash('sha256').update(JSON.stringify(fixture)).digest('hex').slice(0, 16);
+    return `${G5_FIXTURE_QUOTE_PREFIX}${revision}-`;
+  }
+
+  private assertFixtureLines(lines: QuoteLine[], fixture: G5CheckoutFixture): void {
+    if (lines.length !== 1 || lines[0].sku !== fixture.sku || lines[0].quantity !== 1) {
+      throw new ProviderError(409, 'LINE_NOT_AVAILABLE');
+    }
   }
 
   createOrder(input: {
@@ -139,6 +200,7 @@ export class MarketplaceGateway {
     contact: CheckoutContact;
     total: Money;
     quote?: {
+      quoteId?: string;
       addressId: string;
       lines: QuoteLine[];
       quoteSnapshot?: {
@@ -184,6 +246,7 @@ export class MarketplaceGateway {
     idempotencyKey: string;
     contact: CheckoutContact;
     quote?: {
+      quoteId?: string;
       addressId: string;
       lines: QuoteLine[];
       quoteSnapshot?: {
@@ -201,8 +264,17 @@ export class MarketplaceGateway {
     if (!this.g5Sales || !input.customerAccessToken) throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
     const quote = input.quote;
     const snapshot = quote?.quoteSnapshot;
-    if (!quote || !snapshot || !input.paymentMethod?.trim()) {
+    const paymentMethod = this.g5OrderPaymentMethod(input.customerId, quote?.quoteId, input.paymentMethod);
+    if (!quote || !snapshot || !paymentMethod?.trim()) {
       throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+    }
+    const fixture = this.checkoutFixture(input.customerId);
+    if (fixture) {
+      this.assertFixtureLines(quote.lines, fixture);
+      if (quote.lines[0].productId !== fixture.productId || quote.lines[0].unitPrice?.amount !== fixture.unitPriceCents / 100 ||
+          snapshot.shipping.amount !== fixture.shippingCents / 100 || snapshot.discount.amount !== 0 || snapshot.selectedBenefit) {
+        throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
+      }
     }
 
     let addresses: DeliveryAddress[];
@@ -213,6 +285,8 @@ export class MarketplaceGateway {
     }
     const address = addresses.find((candidate) => candidate.addressId === quote.addressId);
     if (!address) throw new ProviderError(409, 'SALES_ADDRESS_UNAVAILABLE');
+    // Do not begin a new outbound order if the window elapsed during the address lookup.
+    if (fixture) this.checkoutFixture(input.customerId);
     const items = this.g5Items(quote.lines, snapshot.subtotal.amount);
     const discountAmount = snapshot.discount.amount;
     const benefit = snapshot.selectedBenefit;
@@ -242,7 +316,7 @@ export class MarketplaceGateway {
         ...(address.reference ? { referencia: address.reference } : {}),
       },
       pago: {
-        metodoPago: input.paymentMethod,
+        metodoPago: paymentMethod,
         moneda: snapshot.subtotal.currency as 'PEN' | 'USD',
         subtotal: snapshot.subtotal.amount,
         descuentoCupon: discountAmount,

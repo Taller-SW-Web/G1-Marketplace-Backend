@@ -118,7 +118,7 @@ export class CheckoutService {
         addressId: address.addressId,
         cartVersion: cart.version,
         lines,
-      });
+      }, customerId);
     } catch (error) {
       this.throwProviderError(error, 'QUOTE_UNAVAILABLE');
     }
@@ -145,7 +145,7 @@ export class CheckoutService {
 
     let nextQuote: CheckoutQuote;
     try {
-      nextQuote = await this.gateway.applyBenefit(currentQuote, couponCode);
+      nextQuote = await this.gateway.applyBenefit(currentQuote, couponCode, customerId);
     } catch (error) {
       this.throwProviderError(error, 'BENEFITS_UNAVAILABLE');
     }
@@ -270,7 +270,7 @@ export class CheckoutService {
 
     let revalidation: { available: boolean; revalidatedAt: string };
     try {
-      revalidation = await this.gateway.revalidate(context.lines);
+      revalidation = await this.gateway.revalidate(context.lines, customerId, context.quoteId);
     } catch (error) {
       // Preserve PREPARING so the same idempotency key can retry after provider recovery.
       this.throwProviderError(error, 'REVALIDATION_UNAVAILABLE');
@@ -347,16 +347,22 @@ export class CheckoutService {
       throw new NotFoundException({ error: { code: 'OPERATION_NOT_FOUND' } });
     }
     const context = this.readPreparedContext(operation);
+    let paymentMethod = input.paymentMethod;
 
     if (this.gateway.usesG5Sales?.()) {
-      this.assertG5OrderContext(context, input);
+      try {
+        paymentMethod = this.gateway.g5OrderPaymentMethod?.(customerId, context?.quoteId, paymentMethod) ?? paymentMethod;
+      } catch (error) {
+        this.throwProviderError(error, 'SALES_UNAVAILABLE');
+      }
+      this.assertG5OrderContext(context, { ...input, paymentMethod });
     }
 
     const requestFingerprint = this.fingerprint({
       checkoutOperationId: operation.id,
       idempotencyKey,
       contact: input.contact,
-      paymentMethod: input.paymentMethod ?? null,
+      paymentMethod: paymentMethod ?? null,
       deliveryRecipient: input.deliveryRecipient ?? null,
     });
     const hasOrderSubmission = Boolean(
@@ -473,7 +479,7 @@ export class CheckoutService {
           contact: input.contact,
           total: context!.total,
           quote: context!,
-          paymentMethod: input.paymentMethod,
+          paymentMethod,
           deliveryRecipient: input.deliveryRecipient,
           customerAccessToken: accessToken,
         });
