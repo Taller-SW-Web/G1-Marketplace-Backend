@@ -68,3 +68,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run prisma:generate
       - run: npm run test:ventas:webhook:postgres
+      - name: Run BE #316 security user reactions PostgreSQL 16 integration
+        env:
+          H3_ALLOW_TEST_DATABASE_WRITES: 'true'
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: npx jest --config ./test/jest-integration.json --runInBand test/security-user-reactions.integration-spec.ts
