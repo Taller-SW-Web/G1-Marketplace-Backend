@@ -67,7 +67,7 @@
   "devDependencies": {
     "@apidevtools/swagger-cli": "4.0.4",
     "@nestjs/cli": "^11.0.24",
-    "@nestjs/testing": "^11.2.7",
+    "@nestjs/testing": "^12.6.0",
     "@swc/core": "^1.16.18",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
