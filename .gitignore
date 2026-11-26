@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+/G1-Marketplace-Backend.env
 
 # Node
 node_modules/
