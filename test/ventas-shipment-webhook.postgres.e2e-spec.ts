@@ -15,6 +15,7 @@ import {
 } from '../src/webhooks/ventas/shipment-event';
 import { PrismaShipmentEventSink } from '../src/webhooks/ventas/prisma-shipment-event.sink';
 import { ShipmentWebhookService } from '../src/webhooks/ventas/shipment-webhook.service';
+import { ShipmentWebhookQaFailure } from '../src/webhooks/ventas/shipment-webhook-qa-failure';
 
 const syntheticToken = 'h5-postgres-test-token-only';
 const eventIds = [
@@ -22,7 +23,11 @@ const eventIds = [
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  '77777777-7777-4777-8777-777777777777',
 ];
+const syntheticOrder = 'PED-2099-00320';
 
 function createEvent(eventId: string, overrides: Partial<ShipmentStatusUpdatedEvent['data']> = {}): ShipmentStatusUpdatedEvent {
   return {
@@ -46,17 +51,19 @@ const postgresSuite = process.env.RUN_H5_WEBHOOK_POSTGRES === 'true' ? describe 
 postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  const qaConfig: Record<string, string> = {};
 
   beforeAll(async () => {
     prisma = new PrismaService();
     const config = {
-      get: (key: string, fallback?: unknown) => key === 'VENTAS_WEBHOOK_TOKEN' ? syntheticToken : fallback,
+      get: (key: string, fallback?: unknown) => key === 'VENTAS_WEBHOOK_TOKEN' ? syntheticToken : qaConfig[key] ?? fallback,
     };
     const module = await Test.createTestingModule({
       controllers: [ShipmentWebhookController],
       providers: [
         ShipmentWebhookService,
         PrismaShipmentEventSink,
+        ShipmentWebhookQaFailure,
         { provide: ConfigService, useValue: config },
         { provide: PrismaService, useValue: prisma },
         { provide: SHIPMENT_EVENT_SINK, useExisting: PrismaShipmentEventSink },
@@ -82,9 +89,11 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
+    for (const key of Object.keys(qaConfig)) delete qaConfig[key];
+    await prisma.$executeRaw`DELETE FROM shipment_webhook_qa_failure WHERE order_id = ${syntheticOrder}`;
     await prisma.shipmentMailNotice.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.shipmentEventInbox.deleteMany({ where: { eventId: { in: eventIds } } });
-    jest.restoreAllMocks();
   });
 
   const postEvent = (event: ShipmentStatusUpdatedEvent, correlationId = event.eventId) => request(app.getHttpServer())
@@ -92,6 +101,68 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
     .set('X-Webhook-Token', syntheticToken)
     .set('X-Correlation-Id', correlationId)
     .send(event);
+
+  function armQa(orderId = syntheticOrder, expiresAt = new Date(Date.now() + 60_000).toISOString()) {
+    qaConfig.VENTAS_WEBHOOK_QA_503_ENABLED = 'true';
+    qaConfig.VENTAS_WEBHOOK_QA_503_ORDER_ID = orderId;
+    qaConfig.VENTAS_WEBHOOK_QA_503_EXPIRES_AT = expiresAt;
+  }
+
+  it('keeps baseline ingestion, duplicate acknowledgement and C-002 queue intact with QA switched off', async () => {
+    armQa();
+    qaConfig.VENTAS_WEBHOOK_QA_503_ENABLED = 'false';
+    const markerWrite = jest.spyOn(prisma, '$executeRaw');
+    for (const eventId of eventIds) {
+      const orderId = eventId === eventIds[0] ? 'PED-2026-90001' : syntheticOrder;
+      const status = eventId === eventIds[0] ? 'DESPACHADO' : 'EN_CAMINO';
+      await postEvent(createEvent(eventId, { orderId, publicStatus: status }))
+        .expect(200, { data: { accepted: true, duplicate: false } });
+    }
+    await postEvent(createEvent(eventIds[0], { orderId: 'PED-2026-90001', publicStatus: 'DESPACHADO' }))
+      .expect(200, { data: { accepted: true, duplicate: true } });
+    expect(markerWrite).not.toHaveBeenCalled();
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId: { in: eventIds } } })).toBe(7);
+    expect(await prisma.shipmentMailNotice.count({ where: { eventId: { in: eventIds } } })).toBe(1);
+  });
+
+  it.each([
+    { orderId: 'PED-2026-00092' },
+    { orderId: 'PED-2026-90001' },
+    { orderId: syntheticOrder, expiry: '2000-01-01T00:00:00Z' },
+    { orderId: syntheticOrder, c002Order: syntheticOrder },
+  ])('does not consume QA configuration outside its scope: %j', async ({ orderId, expiry, c002Order }) => {
+    if (c002Order) qaConfig.C002_QA_ORDER_ID = c002Order;
+    armQa(orderId, expiry);
+    const markerWrite = jest.spyOn(prisma, '$executeRaw');
+    await postEvent(createEvent(eventIds[0], { orderId })).expect(200, { data: { accepted: true, duplicate: false } });
+    expect(markerWrite).not.toHaveBeenCalled();
+  });
+
+  it('consumes one QA failure before the inbox insert and accepts the retry under the same identifiers', async () => {
+    armQa();
+    const event = createEvent(eventIds[0], { orderId: syntheticOrder });
+    const correlationId = 'despacho-ventas-marketplace-qa-320';
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+    const log = jest.spyOn(Logger.prototype, 'log');
+
+    await postEvent(event, correlationId).expect(503, { error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' } });
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(0);
+    const markers = await prisma.$queryRaw<{ event_id: string; correlation_id: string }[]>`
+      SELECT event_id, correlation_id FROM shipment_webhook_qa_failure WHERE order_id = ${syntheticOrder}
+    `;
+    expect(markers).toEqual([{ event_id: event.eventId, correlation_id: correlationId }]);
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({
+      event: 'shipment_webhook_qa_503', correlationId, eventId: event.eventId, orderId: syntheticOrder,
+    }));
+
+    await postEvent(event, correlationId).expect(200, { data: { accepted: true, duplicate: false } });
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(1);
+    expect(log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'shipment_webhook_processed', correlationId, eventId: event.eventId, orderId: syntheticOrder, outcome: 'accepted',
+    }));
+    await postEvent(createEvent(eventIds[1], { orderId: syntheticOrder }))
+      .expect(200, { data: { accepted: true, duplicate: false } });
+  });
 
   it('applies the inbox migration and returns 200 for a repeated eventId with one durable row', async () => {
     const shipmentEvent = createEvent(eventIds[0]);
