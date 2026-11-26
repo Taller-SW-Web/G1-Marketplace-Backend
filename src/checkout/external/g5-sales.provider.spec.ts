@@ -171,6 +171,33 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
     });
   });
 
+  it.each([{}, { G5_SALES_TIMEOUT_MS: 45_000 }])('uses dedicated G5 timeouts for POST and detail GET (%j)', async (override) => {
+    const axiosRef = axios.create();
+    const post = jest.spyOn(axiosRef, 'post').mockResolvedValue({ status: 201, data: responseBody });
+    const get = jest.spyOn(axiosRef, 'get').mockResolvedValue({ status: 200, data: {
+      pedidoId: 'PED-2026-00001', estado: 'CREADO', fechaCreacion: '2026-11-24T10:15:00.000Z',
+      pago: { total: 215, moneda: 'PEN' },
+    } });
+    const values: Record<string, unknown> = {
+      VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+      AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', HTTP_TIMEOUT_MS: 5_000, ...override,
+    };
+    const config = { get: (key: string, fallback?: unknown) => values[key] ?? fallback } as ConfigService;
+    const client = new G5SalesProvider(new HttpService(axiosRef), config, {
+      getAccessToken: jest.fn().mockResolvedValue(syntheticToken),
+    } as never);
+    await client.createOrder(payload, idempotencyKey);
+    await client.getOrder('PED-2026-00001', customerToken);
+    await client.getOrder('PED-2026-00001', customerToken, 2_500);
+    const timeout = override.G5_SALES_TIMEOUT_MS ?? 30_000;
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(expect.any(String), payload, expect.objectContaining({
+      timeout, headers: expect.objectContaining({ 'Idempotency-Key': idempotencyKey }),
+    }));
+    expect(get).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ timeout }));
+    expect(get).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({ timeout: 2_500 }));
+  });
+
   it('returns G5 Retry-After to the bounded checkout poller without sleeping inside a request', async () => {
     getStatus = 429;
     getRetryAfter = '5';
