@@ -71,7 +71,7 @@ async function main() {
   if (!to) throw new Error('MAIL_DEMO_TO_REQUIRED');
   const fixtures = createFixtureMailRunner(orderId, to, transport);
   function log(state: string, result: { status: string }) {
-    console.log(JSON.stringify({ environment: 'LOCAL_FIXTURE', state, ...result }));
+    console.log(JSON.stringify({ environment: 'LOCAL_FIXTURE', at: new Date().toISOString(), state, ...result }));
   }
   log(order.estado, await fixtures.onOrderDetail(order, confirmedAt));
   log(dispatched.data.publicStatus, await fixtures.onShipmentEvent(dispatched));

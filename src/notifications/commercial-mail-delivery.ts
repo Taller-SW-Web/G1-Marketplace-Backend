@@ -4,7 +4,7 @@ type RenderedMail = ReturnType<typeof renderTransactionalEmail>;
 export type CommercialMailMessage = Pick<RenderedMail, 'subject' | 'html' | 'text'> & { to: string };
 
 export interface CommercialMailTransport {
-  send(message: CommercialMailMessage): Promise<{ messageId: string }>;
+  send(message: CommercialMailMessage): Promise<{ messageId: string; httpStatus: number }>;
 }
 
 /**
@@ -21,6 +21,6 @@ export async function deliverCommercialMail(
     return { status: 'skipped' } as const;
   }
   const { subject, html, text, payloadVersion } = renderTransactionalEmail(snapshot, config);
-  const { messageId } = await transport.send({ to, subject, html, text });
-  return { status: 'accepted', messageId, payloadVersion } as const;
+  const receipt = await transport.send({ to, subject, html, text });
+  return { status: 'accepted', ...receipt, payloadVersion } as const;
 }

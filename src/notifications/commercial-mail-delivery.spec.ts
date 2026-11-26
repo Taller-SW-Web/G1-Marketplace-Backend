@@ -22,7 +22,7 @@ describe('disparadores acordados con Ventas en fixtures', () => {
   } as const;
 
   it('envía C-001 una vez al consultar PAGADO para el mismo pedido', async () => {
-    const send = jest.fn().mockResolvedValue({ messageId: 'qa-order' });
+    const send = jest.fn().mockResolvedValue({ messageId: 'qa-order', httpStatus: 200 });
     const runner = createFixtureMailRunner(order.orderId, to, { send });
     for (const estado of ['CREADO', 'ANULADO'] as const) {
       await expect(runner.onOrderDetail({ ...detail, estado }, order.occurredAt)).resolves.toEqual({ status: 'skipped' });
@@ -34,7 +34,7 @@ describe('disparadores acordados con Ventas en fixtures', () => {
       runner.onOrderDetail(detail, order.occurredAt),
     ]);
     expect(results).toEqual([
-      { status: 'accepted', messageId: 'qa-order', payloadVersion: 'v1' },
+      { status: 'accepted', messageId: 'qa-order', httpStatus: 200, payloadVersion: 'v1' },
       { status: 'duplicate' },
     ]);
     expect(send).toHaveBeenCalledTimes(1);
@@ -42,7 +42,7 @@ describe('disparadores acordados con Ventas en fixtures', () => {
   });
 
   it('envía C-002 para H-05 DESPACHADO, omite ENTREGADO y deduplica por evento', async () => {
-    const send = jest.fn().mockResolvedValue({ messageId: 'qa-shipment' });
+    const send = jest.fn().mockResolvedValue({ messageId: 'qa-shipment', httpStatus: 200 });
     const runner = createFixtureMailRunner(order.orderId, to, { send });
     const event = {
       eventId: '30ba2519-8e05-4d78-af35-4153d1a12f4c',
@@ -66,7 +66,7 @@ describe('entrega local de correos comerciales', () => {
     const fetchImpl = mockFetch().mockResolvedValue(Response.json({ ID: 'qa-message-1' }));
     const transport = createConfiguredCommercialMailTransport(env, fetchImpl);
     await expect(deliverCommercialMail(snapshot, to, config, transport)).resolves.toEqual({
-      status: 'accepted', messageId: 'qa-message-1', payloadVersion: 'v1',
+      status: 'accepted', messageId: 'qa-message-1', httpStatus: 200, payloadVersion: 'v1',
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [endpoint, options] = fetchImpl.mock.calls[0];
@@ -131,7 +131,7 @@ describe('entrega local de correos comerciales', () => {
 });
 
 describe('entrega de correos comerciales con Brevo', () => {
-  const env = { MAIL_PROVIDER: 'brevo', BREVO_API_KEY: 'unit-test-only', BREVO_SENDER_EMAIL: 'marketplace@example.org' };
+  const env = { MAIL_PROVIDER: 'brevo', BREVO_ENABLED: 'true', BREVO_API_KEY: 'unit-test-only', BREVO_SENDER_EMAIL: 'marketplace@example.org' };
   const recipients = {
     PAGADO: 'comprador-1@example.org',
     DESPACHADO: 'comprador-2@example.org',
@@ -146,7 +146,7 @@ describe('entrega de correos comerciales con Brevo', () => {
       const to = recipients[snapshot.state];
 
       await expect(deliverCommercialMail(snapshot, to, config, transport)).resolves.toEqual({
-        status: 'accepted', messageId, payloadVersion: 'v1',
+        status: 'accepted', messageId, httpStatus: 201, payloadVersion: 'v1',
       });
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -164,11 +164,18 @@ describe('entrega de correos comerciales con Brevo', () => {
     },
   );
 
+  it('mantiene Brevo apagado sin activación explícita aunque existan credenciales', () => {
+    expect(() => createConfiguredCommercialMailTransport({ ...env, BREVO_ENABLED: undefined }))
+      .toThrow('BREVO_DISABLED');
+    expect(() => createConfiguredCommercialMailTransport({ ...env, BREVO_ENABLED: 'false' }))
+      .toThrow('BREVO_DISABLED');
+  });
+
   it('exige clave y remitente al configurar Brevo', () => {
     expect(() => createConfiguredCommercialMailTransport({ ...env, BREVO_API_KEY: '' }))
       .toThrow('BREVO_API_KEY_REQUIRED');
     expect(() => createConfiguredCommercialMailTransport({
-      MAIL_PROVIDER: 'brevo', BREVO_API_KEY: 'unit-test-only', MAIL_FROM: 'marketplace@example.org',
+      MAIL_PROVIDER: 'brevo', BREVO_ENABLED: 'true', BREVO_API_KEY: 'unit-test-only', MAIL_FROM: 'marketplace@example.org',
     }))
       .toThrow('BREVO_SENDER_REQUIRED');
   });

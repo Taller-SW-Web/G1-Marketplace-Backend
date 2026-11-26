@@ -1,3 +1,32 @@
+## [1.15.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.14.0...v1.15.0) (2026-11-26)
+
+### Features
+
+* **h5-sales:** add fail-closed shipment webhook ([0d9c08f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/0d9c08f4ab755d2c656610a30997f9a894299b8e))
+* **webhook:** persist shipment event inbox ([cbbbea3](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/cbbbea3faaa5591076167bd5c9dd4e29e8ccd3f9))
+
+### Bug Fixes
+
+* **webhook:** align H-05 contract and test inbox ([a91cbe7](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/a91cbe71f7c0e3517307f6629db8ac31fb02ff81))
+
+## [1.14.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.13.0...v1.14.0) (2026-11-26)
+
+### Features
+
+* **g7:** preparar la ronda funcional con códigos de correo ([bddbd88](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bddbd883c3ea8ee96a813f70330b7627f3b3b049))
+
+## [1.13.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.12.0...v1.13.0) (2026-11-26)
+
+### Features
+
+* **rabbitmq:** admitir un usuario de pruebas compartido ([18ba05c](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/18ba05c3bd18362d75f8b9c690e85adc34ce73b9)), closes [#313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313)
+* **rabbitmq:** preparar el broker de pruebas de Seguridad ([b232e28](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b232e28752aefc523fae5e3fe030b60ae3abeb9e)), closes [#313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313)
+
+### Bug Fixes
+
+* **rabbitmq:** align DLX topology and retry permissions ([8c64511](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/8c64511acbf3f682619ec76d3420da77004d1db3))
+* **rabbitmq:** etiquetar el transporte de publicación y lectura ([8c430e1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/8c430e1ae3a9f15efe4888bc8dd15b6f7e49f3bd))
+
 ## [1.12.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.11.0...v1.12.0) (2026-11-24)
 
 ### Features

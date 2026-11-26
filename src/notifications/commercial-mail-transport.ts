@@ -11,7 +11,10 @@ export function createConfiguredCommercialMailTransport(
   env: NodeJS.ProcessEnv,
   fetchImpl: typeof fetch = fetch,
 ): CommercialMailTransport {
-  if (env.MAIL_PROVIDER === 'brevo') return createBrevoTransport(env, fetchImpl);
+  if (env.MAIL_PROVIDER === 'brevo') {
+    if (env.BREVO_ENABLED !== 'true') throw new Error('BREVO_DISABLED');
+    return createBrevoTransport(env, fetchImpl);
+  }
   if (env.MAIL_PROVIDER !== 'mailpit') throw new Error('MAIL_PROVIDER_NOT_CONFIGURED');
   if (env.NODE_ENV === 'production') throw new Error('MAILPIT_LOCAL_ONLY');
 
@@ -35,7 +38,7 @@ export function createConfiguredCommercialMailTransport(
         Text: text,
         HTML: html,
       });
-      return readReceipt(receipt, 'ID', MESSAGE_ID, 'MAILPIT');
+      return { messageId: readMessageId(receipt.body, 'ID', MESSAGE_ID, 'MAILPIT'), httpStatus: receipt.httpStatus };
     },
   };
 }
@@ -57,7 +60,10 @@ function createBrevoTransport(env: NodeJS.ProcessEnv, fetchImpl: typeof fetch): 
         htmlContent: html,
         textContent: text,
       }, { 'api-key': apiKey });
-      return readReceipt(receipt, 'messageId', BREVO_MESSAGE_ID, 'BREVO');
+      return {
+        messageId: readMessageId(receipt.body, 'messageId', BREVO_MESSAGE_ID, 'BREVO'),
+        httpStatus: receipt.httpStatus,
+      };
     },
   };
 }
@@ -79,7 +85,7 @@ async function postMail(
   provider: Provider,
   payload: object,
   headers: Record<string, string> = {},
-): Promise<unknown> {
+): Promise<{ body: unknown; httpStatus: number }> {
   const signal = AbortSignal.timeout(timeoutMs);
   let response: Response;
   try {
@@ -96,15 +102,15 @@ async function postMail(
   if (!response.ok) throw new Error(`${provider}_HTTP_${response.status}`);
   const receipt: unknown = await response.json().catch(() => null);
   if (signal.aborted) throw new Error(`${provider}_TIMEOUT`);
-  return receipt;
+  return { body: receipt, httpStatus: response.status };
 }
 
-function readReceipt(receipt: unknown, field: 'ID' | 'messageId', pattern: RegExp, provider: Provider) {
+function readMessageId(receipt: unknown, field: 'ID' | 'messageId', pattern: RegExp, provider: Provider) {
   const id = typeof receipt === 'object' && receipt !== null
     ? (receipt as Record<string, unknown>)[field]
     : undefined;
   if (typeof id !== 'string' || !pattern.test(id)) {
     throw new Error(`${provider}_INVALID_RESPONSE`);
   }
-  return { messageId: id };
+  return id;
 }
