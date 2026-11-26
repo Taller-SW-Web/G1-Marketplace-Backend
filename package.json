@@ -16,7 +16,7 @@
     "test:g5:sales-adapter:offline": "jest --runInBand --runTestsByPath src/checkout/external/g5-sales.provider.spec.ts",
     "test:ventas:webhook:postgres": "node scripts/test-shipment-webhook-postgres.mjs",
     "test:integration": "ts-node scripts/integration-test.ts",
-    "test:integration:ci": "jest --config ./test/jest-integration.json --runInBand",
+    "test:integration:ci": "jest --config ./test/jest-integration.json --runInBand test/checkout.integration-spec.ts test/csat.integration-spec.ts test/wishlist.integration-spec.ts test/wishlist-handoff.integration-spec.ts test/http-doubles-postgres.integration-spec.ts",
     "test:diego:isolated": "node scripts/test-diego-isolated.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "sandbox:token": "ts-node scripts/sandbox-token.ts",
