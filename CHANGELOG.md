@@ -1,3 +1,10 @@
+## [1.17.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.16.0...v1.17.0) (2026-11-26)
+
+### Features
+
+* **checkout:** isolate G5 trial quote and stock fixtures ([4d880d6](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/4d880d6f9a65d357cdd5bc47b1e9d9034e6df7c7))
+* **checkout:** prepare gated G5 sales integration ([359a840](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/359a840d85f5f146cf0ee37ad5d2de9af33cdab4))
+
 ## [1.16.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.15.0...v1.16.0) (2026-11-26)
 
 ### Features
