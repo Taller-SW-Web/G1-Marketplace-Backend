@@ -41,6 +41,52 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     }
   }
   const nodeEnv = String(config.NODE_ENV ?? 'development').toLowerCase();
+  const securityEventsEnabled = String(config.SECURITY_EVENTS_ENABLED ?? 'false').toLowerCase();
+  if (!['true', 'false'].includes(securityEventsEnabled)) {
+    throw new Error('SECURITY_EVENTS_ENABLED must be true or false');
+  }
+  const securityEventsPrefetch = Number(config.SECURITY_EVENTS_PREFETCH ?? 1);
+  if (!Number.isInteger(securityEventsPrefetch) || securityEventsPrefetch < 1 || securityEventsPrefetch > 100) {
+    throw new Error('SECURITY_EVENTS_PREFETCH must be an integer between 1 and 100');
+  }
+  const securityEventsMaxRetries = Number(config.SECURITY_EVENTS_MAX_RETRIES ?? 3);
+  const securityEventsBackoffBaseMs = Number(config.SECURITY_EVENTS_BACKOFF_BASE_MS ?? 1000);
+  const securityEventsBackoffMaxMs = Number(config.SECURITY_EVENTS_BACKOFF_MAX_MS ?? 30000);
+  if (!Number.isInteger(securityEventsMaxRetries) || securityEventsMaxRetries < 1 || securityEventsMaxRetries > 10) {
+    throw new Error('SECURITY_EVENTS_MAX_RETRIES must be an integer between 1 and 10');
+  }
+  if (!Number.isInteger(securityEventsBackoffBaseMs) || securityEventsBackoffBaseMs < 1
+    || securityEventsBackoffBaseMs > 300000) {
+    throw new Error('SECURITY_EVENTS_BACKOFF_BASE_MS must be an integer between 1 and 300000');
+  }
+  if (!Number.isInteger(securityEventsBackoffMaxMs) || securityEventsBackoffMaxMs < securityEventsBackoffBaseMs
+    || securityEventsBackoffMaxMs > 3600000) {
+    throw new Error('SECURITY_EVENTS_BACKOFF_MAX_MS must be an integer between the base delay and 3600000');
+  }
+  if (securityEventsEnabled === 'true') {
+    let rabbitUrl: URL;
+    try {
+      rabbitUrl = new URL(String(config.RABBITMQ_URL ?? ''));
+    } catch {
+      throw new Error('RABBITMQ_URL is required when SECURITY_EVENTS_ENABLED=true');
+    }
+    if (!['amqp:', 'amqps:'].includes(rabbitUrl.protocol) || !rabbitUrl.hostname
+      || !rabbitUrl.username || !rabbitUrl.password || rabbitUrl.search || rabbitUrl.hash) {
+      throw new Error('RABBITMQ_URL must be an authenticated AMQP(S) URL without query or fragment');
+    }
+    if (nodeEnv === 'production' && rabbitUrl.protocol !== 'amqps:') {
+      throw new Error('RABBITMQ_URL must use TLS (amqps) in production');
+    }
+    for (const name of [
+      'SECURITY_EVENTS_MAX_RETRIES',
+      'SECURITY_EVENTS_BACKOFF_BASE_MS',
+      'SECURITY_EVENTS_BACKOFF_MAX_MS',
+    ]) {
+      if (config[name] === undefined || String(config[name]).trim() === '') {
+        throw new Error(`${name} must be explicitly configured when SECURITY_EVENTS_ENABLED=true`);
+      }
+    }
+  }
   const authEnabled = String(config.AUTH_ENABLED ?? 'false');
   for (const name of ['G7_REGISTRATION_ENABLED', 'G7_RECOVERY_ENABLED', 'G7_INTROSPECTION_ENABLED']) {
     if (!['true', 'false'].includes(String(config[name] ?? 'false'))) throw new Error(`${name} must be true or false`);
@@ -133,6 +179,11 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    SECURITY_EVENTS_ENABLED: securityEventsEnabled === 'true',
+    SECURITY_EVENTS_PREFETCH: securityEventsPrefetch,
+    SECURITY_EVENTS_MAX_RETRIES: securityEventsMaxRetries,
+    SECURITY_EVENTS_BACKOFF_BASE_MS: securityEventsBackoffBaseMs,
+    SECURITY_EVENTS_BACKOFF_MAX_MS: securityEventsBackoffMaxMs,
     CHECKOUT_SALES_SOURCE: checkoutSalesSource, G5_SALES_INTEGRATION_APPROVED: g5Approved,
     G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: g5ProductFallback,
     ORDERS_SOURCE: ordersSource,

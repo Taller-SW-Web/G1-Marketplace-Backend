@@ -218,3 +218,14 @@ model ShipmentMailNotice {
   @@index([sentAt, queuedAt], map: "shipment_mail_notice_pending_idx")
   @@map("shipment_mail_notice")
 }
+
+model SecurityUserEventInbox {
+  eventId       String   @id @map("event_id") @db.VarChar(255)
+  eventType     String   @map("event_type") @db.VarChar(100)
+  eventVersion  Int      @map("event_version")
+  payloadSha256 String   @map("payload_sha256") @db.Char(64)
+  receivedAt    DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@index([receivedAt], map: "security_user_event_inbox_received_idx")
+  @@map("security_user_event_inbox")
+}
