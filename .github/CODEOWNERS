@@ -1,0 +1,11 @@
+# Matriz de propietarios H5 — G1-Marketplace-Backend
+* @saire22 @andreus710 @JimSegovia @DiesmEsp
+
+.github/ @andreus710 @DiesmEsp
+prisma/ @LeonidasGarcia @saire22
+src/security/ @andreus710 @JimSegovia
+src/wishlist/ @DiesmEsp @saire22
+src/csat/ @DiesmEsp @saire22
+src/checkout/ @LeonidasGarcia @saire22
+src/orders/ @saire22 @LeonidasGarcia
+src/webhooks/ @LeonidasGarcia @DiesmEsp
