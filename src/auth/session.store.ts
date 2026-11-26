@@ -70,7 +70,8 @@ export class SessionStore {
         try { session = { id, expiresAt: row.expiresAt, data: this.decrypt(id, row.encrypted) }; }
         catch { /* A tampered row or changed key never grants a session. */ }
       }
-      if (row && session && session.data.kind === 'session') {
+      const securityEventsEnabled = this.config.get<unknown>('SECURITY_EVENTS_ENABLED');
+      if ((securityEventsEnabled === true || securityEventsEnabled === 'true') && row && session?.data.kind === 'session') {
         const userId = session.data.tokens.usuario.id;
         const userState = await tx.securityUserState?.findUnique({
           where: { userId },
