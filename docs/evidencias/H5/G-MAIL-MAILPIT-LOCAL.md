@@ -101,13 +101,30 @@ Los errores HTTP y el timeout tienen pruebas con dobles. La aceptación HTTP 201
 | Correo | Señal acordada | Datos para el render | Identidad de entrega propuesta |
 | --- | --- | --- | --- |
 | C-001 | La consulta de detalle de Ventas confirma `PAGADO` para el mismo pedido. | `orderId`, momento acreditado para la confirmación, total de la orden en PEN y líneas cuando estén disponibles en el snapshot autorizado. | Tipo de aviso y `orderId`, de forma que consultar de nuevo el mismo pedido no dispare un segundo correo. Leo debe confirmar la ruta o método, el contrato y el origen de la fecha. |
-| C-002 | Webhook H-05 de Ventas con `data.publicStatus=DESPACHADO`. | `data.orderId`, `timestamp` del evento y `data.estimatedDeliveryDate` cuando esté disponible. El renderer recibe el tipo `SHIPMENT_UPDATE` y el estado `DESPACHADO`. | Tipo de aviso y `eventId`. El [inbox de #357](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/357) ya persiste el evento. El [borrador #365](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/365) crea `shipment_mail_notice` con referencia única por evento. |
+| C-002 | Webhook H-05 de Ventas con `data.publicStatus=DESPACHADO`. | `data.orderId`, `timestamp` del evento y `data.estimatedDeliveryDate` cuando esté disponible. El renderer recibe el tipo `SHIPMENT_UPDATE` y el estado `DESPACHADO`. | Tipo de aviso y `eventId`. El [inbox de #357](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/357) persiste el evento. [BE #365](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/365) añade `shipment_mail_notice` con referencia única por evento. [BE #381](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/381) añade el procesamiento de un pedido QA acordado. |
 
-El destinatario se resuelve a partir de una fuente autorizada vinculada al pedido. El DTO de detalle actual de Ventas carece de correo. La cola propuesta guarda el ID del evento sin destinatario. El registro persistente de intentos y el uso de la clave de entrega quedan pendientes de conectar con `NotificationDelivery`. La deduplicación del runner actual se limita a la sesión de prueba.
+El C-002 desplegado para QA usa el buzón configurado para ese ensayo. La fuente autorizada del destinatario comercial queda pendiente, porque el DTO de detalle actual de Ventas carece de correo.
+
+## Checklist integrado de C-002 en Render
+
+Ensayo del 26 de noviembre de 2026 con el pedido sintético `PED-2026-90001`. Ambos intentos reutilizaron el `eventId` `c53403f0-a940-44d6-a3f1-4652d301e99a`.
+
+| Hora de Lima | Acción | Resultado observado |
+| --- | --- | --- |
+| 17:07:59 | Ventas envió `DESPACHADO`. | Evento inicial del ensayo QA. |
+| 17:08:37 | El worker procesó el aviso en Render. | Estado `sent`, Brevo HTTP 201 y recepción en el buzón QA. |
+| 17:09:12 | Ventas reenvió el mismo `eventId`. | El buzón conservó un correo total y los logs mostraron un solo registro de envío para ese evento. |
+
+- [x] Señal integrada `DESPACHADO` recibida y procesada en Render.
+- [x] Recepción de un C-002 en el buzón QA.
+- [x] Reenvío del mismo evento con un único correo observable.
+- [x] HTML y texto plano comprobados por separado con fixtures en Mailpit.
+
+[Registro del ensayo integrado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162#issuecomment-7204545580) · [Evidencia de Mailpit](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/323#issuecomment-7122203279)
 
 ## Evidencia que falta del despliegue
 
-- Acordar los contratos de las dos señales y la fuente del destinatario. Conectar la consulta `PAGADO` y el consumidor de `shipment_mail_notice`. Configurar Brevo con Diego en staging.
-- Probar con un pedido y un buzón QA acordados. El borrador de la cola también considera eventos históricos, por lo que se debe controlar qué avisos procesa el primer ensayo.
-- Acreditar C-001 en `PAGADO`, C-002 en `DESPACHADO`, omisión de `ENTREGADO` y ausencia de reenvíos al repetir la consulta o el mismo evento. Cubrir fallo del proveedor y timeout en el entorno acordado.
+- Acordar la fuente autorizada del destinatario comercial.
+- Acreditar C-001 en `PAGADO` y ausencia de duplicados en una operación QA de staging. El trabajo de C-001 conserva su [PR #395](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/395).
+- Cubrir la omisión de `ENTREGADO`, fallo y timeout en el entorno acordado. Los resultados de fixtures se conservan en las secciones anteriores.
 - Registrar URL y SHA o digest del despliegue, origen de cada señal, hora y resultado, recibo de Brevo y comprobación del buzón. La revisión independiente de esta documentación corresponde a Sebastián. El cierre integral conserva el resultado de BE #162, FE #82 y BE #163.
