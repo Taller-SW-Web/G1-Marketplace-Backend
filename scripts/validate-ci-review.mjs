@@ -16,13 +16,11 @@ assert.match(policy, /context\.Request\.Url\.Path\.Substring\(3\)/, 'APIM must s
 assert.match(policy, /@\("\/api" \+ context\.Request\.Url\.Path\)/, 'APIM must replace public /v1 with backend /api/v1');
 assert.doesNotMatch(policy, /@\("\/api\/v1" \+ context\.Request\.Url\.Path\)/, 'APIM must not prepend a duplicate /v1 prefix');
 
-const staging = cicd.jobs['deploy-staging'];
-assert.equal(staging.env.RENDER_STAGING_DEPLOY_HOOK_URL, '${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}');
-assert.equal(staging.env.BACKEND_STAGING_URL, '${{ vars.BACKEND_STAGING_URL }}');
-assert.equal(staging.env.HEALTH_URL, '${{ vars.BACKEND_STAGING_HEALTH_URL }}');
-assert.doesNotMatch(JSON.stringify(staging), /secrets\.RENDER_DEPLOY_HOOK_URL/);
-assert.equal(cicd.jobs['deploy-production'].env.RENDER_PROD_DEPLOY_HOOK_URL, '${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}');
-assert.doesNotMatch(JSON.stringify(cicd.jobs['deploy-production']), /secrets\.RENDER_DEPLOY_HOOK_URL/);
+const deploy = cicd.jobs['deploy'];
+assert.ok(deploy, 'single deploy job must exist');
+assert.equal(deploy.environment, 'production');
+assert.equal(cicd.jobs['deploy-staging'], undefined, 'single deploy path must not duplicate deploy-staging');
+assert.equal(cicd.jobs['deploy-production'], undefined, 'single deploy path must not duplicate deploy-production');
 
 const imageSteps = cicd.jobs['docker-image'].steps;
 const buildIndex = imageSteps.findIndex((step) => step.uses?.startsWith('docker/build-push-action@'));
