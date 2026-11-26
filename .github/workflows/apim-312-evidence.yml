@@ -1,0 +1,26 @@
+name: BE 312 APIM QA evidence
+
+on:
+  push:
+    branches: [docs/h5-312-apim-traffic-evidence]
+    paths: [.github/workflows/apim-312-evidence.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify deployed APIM policies
+        env:
+          APIM_SUBSCRIPTION_KEY: ${{ secrets.APIM_QA_SUBSCRIPTION_KEY }}
+          APIM_RUN_RATE_LIMIT: 'true'
+        run: node scripts/verify-apim-policies.mjs
