@@ -53,3 +53,24 @@ docker compose -f docker-compose.h5-webhook-test.yml down
 El script rechaza cualquier host que no sea loopback y cualquier base cuyo nombre no sea exactamente `marketplace_h5_webhook_test`; no usarlo con una base compartida. La integración comprueba migración aplicada, duplicado 200/una fila, pedido desconocido persistido con 200 y 503/no fila ante fallo de escritura. El job de CI [45553497971](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45553497971) pasó esos tres casos sobre PostgreSQL 16 efímero. La ejecución local queda pendiente: Docker Desktop no estaba activo en este entorno.
 
 Refs: #319
+
+## Prueba coordinada de C-002 con Brevo
+
+El consumidor QA lee `shipment_mail_notice` en intervalos de cinco segundos. Recupera el `DESPACHADO` del inbox y renderiza el correo con el enlace al seguimiento. Solo toma avisos del pedido configurado cuyo evento se recibió a partir del corte UTC. La migración `20261126000200_claim_shipment_mail_notice` agrega las columnas necesarias para registrar el intento y el recibo.
+
+| Variable | Preparación en staging |
+| --- | --- |
+| `C002_QA_ENABLED` | `false` por defecto. Activar con `true` solo para el ensayo acordado. |
+| `BREVO_ENABLED` y `MAIL_PROVIDER` | Requiere `true` y `brevo`, respectivamente. |
+| `C002_QA_ORDER_ID` | Identificador exacto del pedido sintético de la cuenta QA que confirme Jim. |
+| `C002_QA_TO` | Dirección del buzón QA acordado, desde el entorno del servicio. |
+| `C002_QA_EVENT_AFTER` | Instante UTC ISO 8601 acordado antes de disparar el envío, por ejemplo `2026-11-26T12:00:00Z`. Los avisos históricos recibidos antes del corte quedan fuera del ensayo. |
+| `G1_WEB_ORIGIN` | Origen HTTPS exacto de la web de staging para el enlace a «Mis pedidos». |
+| `BREVO_API_KEY` y `BREVO_SENDER_EMAIL` | Clave de Brevo del servicio y remitente verificado, según la [guía de Brevo](G-MAIL-MAILPIT-LOCAL.md). |
+
+1. Confirmar el corte desplegado, las migraciones, el pedido sintético y el buzón. Configurar staging y enviar un `DESPACHADO` de ese pedido.
+2. Abrir «Mis pedidos» con la cuenta QA y comprobar el seguimiento. Verificar recepción de C-002 y el enlace del correo.
+3. Correlacionar el `eventId` con `shipment_mail_notice`. Después de la aceptación deben quedar `sent_at` y `provider_message_id`. Repetir el evento con el mismo ID y confirmar que queda una fila y un correo.
+4. Volver a `C002_QA_ENABLED=false` y `BREVO_ENABLED=false` al terminar. Registrar fecha, SHA de staging, ID del evento, resultado de Brevo y recepción, sin incluir la dirección QA ni credenciales.
+
+El consumidor reserva de forma atómica el ID en `attempted_at` antes de enviar. Solo guarda `sent_at` y el recibo cuando el adaptador devuelve una aceptación. Si hay timeout, caída del proceso o error al guardar el recibo, una fila con `attempted_at` y sin `sent_at` indica un intento pendiente de reconciliar. Revisar el registro de Brevo antes de considerar otro intento. La prueba de PostgreSQL usa una respuesta de proveedor simulada para comprobar concurrencia, reentrega, corte, alcance del pedido y persistencia. La recepción real queda para el ensayo coordinado.
