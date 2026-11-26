@@ -1,0 +1,52 @@
+name: g1-marketplace-h5-perf
+
+services:
+  postgres:
+    volumes: !reset []
+    tmpfs:
+      - /var/lib/postgresql/data
+    cpus: 2
+    mem_limit: 512m
+
+  backend:
+    image: ${PERF_BACKEND_IMAGE:-g1-marketplace-h5-perf-backend:latest}
+    env_file: !reset []
+    volumes:
+      - ./scripts/mock-auth-server.mjs:/local-perf/mock-auth-server.mjs:ro
+      - ./scripts/performance/mock-latency.cjs:/local-perf/mock-latency.cjs:ro
+    environment:
+      BFF_MODE: mock
+      AUTH_ENABLED: "false"
+      AUTH_ISSUER: http://127.0.0.1:4010
+      AUTH_JWKS_URL: http://127.0.0.1:4010/jwks
+      G7_INTROSPECTION_ENABLED: "false"
+      CHECKOUT_ADDRESS_SOURCE: fixture
+      CHECKOUT_SALES_SOURCE: mock
+      MOCK_SALES_OUTCOME: PAID
+      ORDERS_SOURCE: mock
+      CATALOG_CACHE_TTL_MS: "${PERF_CATALOG_CACHE_TTL_MS:-0}"
+      PERF_G6_LATENCY_MS: "${PERF_G6_LATENCY_MS:-0}"
+      PERF_G5_LATENCY_MS: "${PERF_G5_LATENCY_MS:-0}"
+    command:
+      - sh
+      - -ec
+      - |
+        node /local-perf/mock-auth-server.mjs &
+        npm run prisma:deploy
+        exec node --require /local-perf/mock-latency.cjs dist/main.js
+    ports: !reset []
+    init: true
+    cpus: 2
+    mem_limit: 768m
+
+  k6:
+    image: grafana/k6:1.2.3
+    network_mode: service:backend
+    volumes:
+      - ./scripts/performance/k6:/perf:ro
+    cpus: 2
+    mem_limit: 1536m
+
+networks:
+  default:
+    internal: true
