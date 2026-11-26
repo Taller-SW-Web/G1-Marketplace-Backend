@@ -98,12 +98,26 @@ const resourceTable = ['smoke', 'baseline-catalog-load', 'baseline-cart-load', .
 
 const report = `# BE #391 y #306 · Carga, quiebre, recuperación y caché
 
-Pruebas de G1 en Docker local con PostgreSQL 16 y k6 1.2.3. G5, G6 y G7 fueron simulados. El BFF y k6 compartieron loopback dentro de una red interna sin puertos publicados. Los [datos de cada corrida](./datos-finales.json) incluyen SHA, imagen, hora UTC, iteraciones, código de k6 y muestras de recursos.
+**Medición local en Docker con terceros simulados (G5/G6/G7). Entorno ajeno a producción.**
+
+Pruebas de G1 con PostgreSQL 16 y k6 1.2.3. El BFF y k6 compartieron loopback dentro de una red interna sin puertos publicados. Los [datos de cada corrida](./datos-finales.json) incluyen SHA, imagen, hora UTC, iteraciones, código de k6 y muestras de recursos.
 
 ${quiebre ? `**Primer quiebre observado con ${quiebre.label} VUs.** p95 de ${ms(quiebre.p95)} ms, ${ms(quiebre.rps)} RPS y ${percent(quiebre.errorRate)} de errores. El p95 bajó a ${ms(recovery.p95)} ms al volver a 10 VUs, con ${percent(recovery.errorRate)} de errores en recuperación.`
   : `**El límite de la corrida fue ${stress.metadata.maxStressVus} VUs.** Las mesetas probadas quedaron bajo el criterio de quiebre.`}
 
 ![Curva de latencia bajo estrés y comparación de caché](./grafico-final.svg)
+
+## Casos de performance para BE #392
+
+Los cinco casos usan el entorno local aislado descrito arriba. Las dos cargas y el soak pasan con p95 menor que 500 ms y errores HTTP por debajo del 1 %. En estrés, cruzar un umbral forma parte del caso y la recuperación se evalúa al volver a 10 VUs.
+
+| Caso | Precondición y pasos | Resultado esperado | Resultado observado | Estado | Evidencia |
+| --- | --- | --- | --- | --- | --- |
+| CP-PERF-01 · Carga de catálogo | BFF calentado con catálogo simulado. Consultar \`GET /api/v1/catalog/home\` con 10 VUs durante 30 s. | HTTP 200 y umbrales de carga cumplidos. | p95 ${ms(runs['baseline-catalog-load'].summary.p95)} ms y ${percent(runs['baseline-catalog-load'].summary.errorRate)} de errores. | ${runs['baseline-catalog-load'].metadata.exitCode === 0 ? 'Pasó' : 'Falló'} | [Carga de catálogo](#carga-spike-y-soak) |
+| CP-PERF-02 · Carga de carrito idempotente | Carritos y sesiones sintéticas. Ejecutar el DELETE inicial y repetirlo sobre el mismo ítem con 10 VUs durante 30 s. | El replay conserva \`X-Cart-Version\` y cumple los umbrales de carga. | p95 ${ms(runs['baseline-cart-load'].summary.p95)} ms y ${percent(runs['baseline-cart-load'].summary.errorRate)} de errores. | ${runs['baseline-cart-load'].metadata.exitCode === 0 ? 'Pasó' : 'Falló'} | [Carga de carrito](#carga-spike-y-soak) |
+| CP-PERF-03 · Estrés hasta el quiebre | Catálogo simulado y BFF calentado. Subir por mesetas hasta cruzar un umbral y volver a 10 VUs. | Identificar el primer quiebre y comprobar la recuperación por debajo de los umbrales. | ${quiebre ? `Quiebre a ${quiebre.label} VUs con p95 de ${ms(quiebre.p95)} ms y ${percent(quiebre.errorRate)} de errores.` : 'Sin quiebre observado.'} Recuperación con p95 de ${ms(recovery.p95)} ms y ${percent(recovery.errorRate)} de errores. | ${quiebre && recovery.p95 < 500 && recovery.errorRate < 0.01 ? 'Pasó' : 'Falló'} | [Estrés y recuperación](#estrés-del-catálogo) |
+| CP-PERF-04 · Spike | Catálogo con carga estable de 10 VUs. Saltar a 200 VUs en un segundo y volver a 10. | Registrar el pico y recuperar los umbrales al volver a 10 VUs. | p95 de ${ms(spikeStages[1].p95)} ms en el pico y ${ms(spikeStages[2].p95)} ms en recuperación. ${percent(runs.spike.summary.errorRate)} de errores en la corrida. | ${spikeStages[2].p95 < 500 && spikeStages[2].errorRate < 0.01 ? 'Pasó' : 'Falló'} | [Mesetas del spike](#carga-spike-y-soak) |
+| CP-PERF-05 · Soak | Caché con TTL de 120 s y G6 simulado a 120 ms. Mantener 10 VUs durante 5 minutos. | Completar los cinco minutos con los umbrales de carga cumplidos. | ${runs.soak.summary.requests} solicitudes, p95 de ${ms(runs.soak.summary.p95)} ms y ${percent(runs.soak.summary.errorRate)} de errores. | ${runs.soak.metadata.exitCode === 0 ? 'Pasó' : 'Falló'} | [Soak y recursos](#carga-spike-y-soak) |
 
 ## Carga, spike y soak
 
