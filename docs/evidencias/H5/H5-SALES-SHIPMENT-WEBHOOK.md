@@ -9,6 +9,13 @@
 - Se aceptan y persisten estados `publicStatus` no conocidos, con 200. Se reserva 400 para un sobre mal formado; no se consulta el pedido ni se rechaza por no existir en el backend.
 - El token se compara en tiempo constante. No se registran tokens ni payloads en las respuestas de error.
 
+## Identificador upstream informado por Despacho — mapeo pendiente (#318)
+
+- El 25/nov/2026, Despacho confirmó que al iniciar un traslado envía a Ventas `DESPACHO_EN_CAMINO` con `idEvento`, y reportó que G2 ya transmite el ID original a Ventas. La referencia del flujo G2→Ventas debe quedar en G2 Specs PR #42.
+- Esta respuesta sólo confirma el tramo Despacho→Ventas. No acredita qué identificador incluye Ventas en el webhook `pedidos.envio.estado_actualizado` hacia Marketplace ni que `idEvento` sea el `eventId` del contrato H-05.
+- El receptor G1 de esta PR valida y deduplica por el `eventId` exigido por H-05. No se aliasa `idEvento` a `eventId` ni se transforma el evento G2 directamente; un sobre que no cumpla el contrato de Ventas se rechaza.
+- Pendiente entre Ventas y Marketplace (#318): confirmar por escrito si Ventas propaga el ID original como `eventId` o en un campo de correlación separado. No cambiar el parser ni el esquema de persistencia hasta cerrar ese acuerdo.
+
 ## ACK, persistencia y deduplicación
 
 - La migración aditiva `20261124000100_shipment_event_inbox` crea `shipment_event_inbox`; su PK única es `event_id` y conserva `order_id`, el payload JSON completo y `received_at`.

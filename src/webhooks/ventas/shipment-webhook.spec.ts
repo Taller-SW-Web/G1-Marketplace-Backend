@@ -103,6 +103,18 @@ describe('Ventas shipment webhook — offline HTTP contract', () => {
     expect(sink.accept).not.toHaveBeenCalled();
   });
 
+  it('does not treat an upstream idEvento as the H-05 eventId without an agreed mapping', async () => {
+    const upstreamIdOnlyEnvelope = {
+      ...event,
+      eventId: undefined,
+      idEvento: event.eventId,
+    };
+
+    await request(app.getHttpServer()).post('/api/v1/webhooks/ventas/envios')
+      .set('X-Webhook-Token', syntheticToken).send(upstreamIdOnlyEnvelope).expect(400);
+    expect(sink.accept).not.toHaveBeenCalled();
+  });
+
   it('returns 503 when the sink cannot persist the event', async () => {
     jest.spyOn(sink, 'accept').mockRejectedValueOnce(new ServiceUnavailableException({
       error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' },
