@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrdersQueryDto } from './dto/orders-query.dto';
+import { parseOrdersQuery } from './dto/orders-query.dto';
 import { OrdersService } from './orders.service';
 import { AuthGuard } from '../security/auth.guard';
 import { AuthenticatedRequest } from '../security/auth.types';
@@ -30,7 +30,7 @@ export class OrdersController {
   @Get('me')
   async listMyOrders(
     @Req() request: AuthenticatedRequest,
-    @Query() query: OrdersQueryDto,
+    @Query() query: Record<string, unknown>,
     @Res({ passthrough: true }) response: ResponseHeaders,
   ) {
     response.setHeader('Cache-Control', 'no-store');
@@ -44,7 +44,7 @@ export class OrdersController {
     const token = typeof value === 'string' ? /^Bearer\s+([^\s]+)$/i.exec(value)?.[1] : undefined;
     if (!request.user?.sub || !token) throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
     try {
-      return await this.orders.listMyOrders(request.user.sub, query, token);
+      return await this.orders.listMyOrders(request.user.sub, parseOrdersQuery(query), token);
     } catch (error) {
       this.setRetryAfter(response, error);
       throw error;

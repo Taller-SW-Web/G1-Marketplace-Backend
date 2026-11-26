@@ -40,6 +40,23 @@ describe('G5OrdersProvider', () => {
     });
   });
 
+  it('passes status and inclusive Peru date filters to G5', async () => {
+    http.get.mockReturnValue(of({ status: 200, data: { items: [], total: 0, page: 2, pageSize: 5 } }));
+    await provider.listForCustomer('customer-a', {
+      page: 1, pageSize: 5, state: 'PAGADO', from: '2026-11-01', to: '2026-11-26',
+    }, 'user-token-A');
+    expect(http.get).toHaveBeenCalledWith('https://ventas.example.test/api/v1/pedidos/me', expect.objectContaining({
+      params: { page: 2, pageSize: 5, estado: 'PAGADO', desde: '2026-11-01', hasta: '2026-11-26' },
+    }));
+  });
+
+  it('maps a known filter error without exposing the provider response', async () => {
+    const error = { response: { status: 400, data: { codigo: 'RANGO_FECHAS_INVALIDO', internal: 'private' } } };
+    http.get.mockReturnValue(throwError(() => error));
+    await expect(provider.listForCustomer('customer-a', { page: 0, pageSize: 10 }, 'user-token-A'))
+      .rejects.toMatchObject({ status: 400, response: { code: 'RANGO_FECHAS_INVALIDO' } });
+  });
+
   it('does not expose another user credential or provider error details on denial', async () => {
     const failure = Object.assign(new Error('provider denied'), { response: { status: 403, data: { token: 'secret' } } });
     http.get.mockReturnValue(throwError(() => failure));
