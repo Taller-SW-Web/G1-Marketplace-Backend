@@ -22,11 +22,17 @@ function makeEvent(
 
 describe('SecurityUserReactionService', () => {
   const tx = {
-    securityUserState: { upsert: jest.fn(async () => ({})) },
+    securityUserState: {
+      findUnique: jest.fn(async () => null),
+      upsert: jest.fn(async () => ({})),
+    },
     authSession: { deleteMany: jest.fn(async () => ({ count: 1 })) },
     wishlistItem: { deleteMany: jest.fn(async () => ({ count: 2 })) },
     cartItem: { deleteMany: jest.fn(async () => ({ count: 1 })) },
-    cart: { deleteMany: jest.fn(async () => ({ count: 1 })) },
+    cart: {
+      deleteMany: jest.fn(async () => ({ count: 1 })),
+      updateMany: jest.fn(async () => ({ count: 0 })),
+    },
   };
   const prisma = {
     $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
@@ -39,9 +45,10 @@ describe('SecurityUserReactionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (inbox.recordWithClient as jest.Mock).mockResolvedValue('recorded');
+    tx.securityUserState.findUnique.mockResolvedValue(null);
   });
 
-  it('invalidates sessions and purges cart/wishlist on usuario.bloqueado', async () => {
+  it('invalidates sessions and purges cart/wishlist on usuario.bloqueado preserving checkout carts', async () => {
     const service = new SecurityUserReactionService(prisma, inbox);
     const event = makeEvent('usuario.bloqueado');
 
@@ -53,7 +60,21 @@ describe('SecurityUserReactionService', () => {
     expect(tx.authSession.deleteMany).toHaveBeenCalledWith({ where: { customerId: event.userId } });
     expect(tx.wishlistItem.deleteMany).toHaveBeenCalledWith({ where: { customerId: event.userId } });
     expect(tx.cartItem.deleteMany).toHaveBeenCalledWith({ where: { cart: { customerId: event.userId } } });
-    expect(tx.cart.deleteMany).toHaveBeenCalledWith({ where: { customerId: event.userId } });
+    expect(tx.cart.deleteMany).toHaveBeenCalledWith({ where: { customerId: event.userId, checkoutOperations: { none: {} } } });
+    expect(tx.cart.updateMany).toHaveBeenCalledWith({
+      where: { customerId: event.userId, checkoutOperations: { some: {} }, state: 'ACTIVE' },
+      data: { state: 'ABANDONED' },
+    });
+  });
+
+  it('preserves active BLOCKED status when usuario.roles_cambiados arrives', async () => {
+    tx.securityUserState.findUnique.mockResolvedValueOnce({ status: 'BLOCKED' } as never);
+    const service = new SecurityUserReactionService(prisma, inbox);
+
+    await service.handleEvent(makeEvent('usuario.roles_cambiados'));
+    expect(tx.securityUserState.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({ status: 'BLOCKED' }),
+    }));
   });
 
   it('handles usuario.eliminado and usuario.roles_cambiados atomically', async () => {

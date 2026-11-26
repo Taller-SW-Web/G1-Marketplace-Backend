@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaModule } from '../src/prisma/prisma.module';
@@ -55,43 +55,57 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
     await moduleRef.close();
   });
 
-  async function seedUser(customerId: string, sku: string) {
+  async function cleanUser(customerId: string) {
+    await prisma.checkoutOperation.deleteMany({ where: { customerId } });
     await prisma.authSession.deleteMany({ where: { customerId } });
     await prisma.wishlistItem.deleteMany({ where: { customerId } });
     await prisma.cartItem.deleteMany({ where: { cart: { customerId } } });
     await prisma.cart.deleteMany({ where: { customerId } });
     await prisma.securityUserState.deleteMany({ where: { userId: customerId } });
+  }
 
-    const sessionToken = await sessionStore.create(
-      {
-        kind: 'session',
-        tokens: {
-          accessToken: 'a',
-          refreshToken: 'r',
-          tokenType: 'Bearer',
-          expiresIn: 3600,
-          usuario: { id: customerId, nombreCompleto: 'Usuario Prueba', roles: ['CLIENTE'] },
-        },
-        accessExpiresAt: Date.now() + 3600000,
-        scope: customerId,
+  async function seedUser(customerId: string, sku: string, withCheckout = false) {
+    await cleanUser(customerId);
+    const sessionData = {
+      kind: 'session' as const,
+      tokens: {
+        accessToken: 'a',
+        refreshToken: 'r',
+        tokenType: 'Bearer' as const,
+        expiresIn: 3600,
+        usuario: { id: customerId, nombreCompleto: 'Usuario Prueba', roles: ['CLIENTE'] },
       },
-      new Date(Date.now() + 3600000),
-      customerId,
-    );
+      accessExpiresAt: Date.now() + 3600000,
+      scope: customerId,
+    };
+    const linkedSession = await sessionStore.create(sessionData, new Date(Date.now() + 3600000), customerId);
+    const legacySession = await sessionStore.create(sessionData, new Date(Date.now() + 3600000));
     await prisma.wishlistItem.create({ data: { customerId, productId: `prod-${sku}` } });
     const cart = await prisma.cart.create({ data: { customerId } });
     await prisma.cartItem.create({ data: { cartId: cart.id, sku, quantity: 1 } });
-    return sessionToken;
+    if (withCheckout) {
+      await prisma.checkoutOperation.create({
+        data: {
+          customerId,
+          cartId: cart.id,
+          idempotencyKey: `idem-${sku}`,
+          requestFingerprint: 'f'.repeat(64),
+          state: 'PREPARED',
+        },
+      });
+    }
+    return { linkedSession, legacySession, cartId: cart.id };
   }
 
-  it('invalidates user A sessions, blocks actions and purges cart/wishlist without affecting user B', async () => {
+  it('invalidates sessions (including legacy NULL customer_id), preserves checkout history and isolates user B', async () => {
     const userA = SANDBOX_CUSTOMERS.A;
     const userB = SANDBOX_CUSTOMERS.B;
-    await seedUser(userA, 'SKU-A1');
-    await seedUser(userB, 'SKU-B1');
+    const seededA = await seedUser(userA, 'SKU-A1', true);
+    await seedUser(userB, 'SKU-B1', false);
 
     const eventId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-    await prisma.securityUserEventInbox.deleteMany({ where: { eventId } });
+    const roleEventId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    await prisma.securityUserEventInbox.deleteMany({ where: { eventId: { in: [eventId, roleEventId] } } });
 
     const res = await reactions.handleEvent({
       eventId,
@@ -104,10 +118,30 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
     });
     expect(res).toBe('recorded');
 
-    // User A is purged and blocked
+    // Linked session deleted immediately; legacy NULL-customer_id session invalidated on read
     expect(await prisma.authSession.count({ where: { customerId: userA } })).toBe(0);
+    const legacyRead = await sessionStore.locked(seededA.legacySession, async (s) => ({ result: s }));
+    expect(legacyRead).toBeNull();
+
+    // Wishlist and cart items purged, while checkout-linked cart is preserved as ABANDONED
     expect(await prisma.wishlistItem.count({ where: { customerId: userA } })).toBe(0);
-    expect(await prisma.cart.count({ where: { customerId: userA } })).toBe(0);
+    expect(await prisma.cartItem.count({ where: { cart: { customerId: userA } } })).toBe(0);
+    const preservedCart = await prisma.cart.findUnique({ where: { id: seededA.cartId } });
+    expect(preservedCart?.state).toBe('ABANDONED');
+    expect(await prisma.checkoutOperation.count({ where: { customerId: userA } })).toBe(1);
+
+    // Role change must preserve active BLOCKED status
+    await reactions.handleEvent({
+      eventId: roleEventId,
+      eventType: 'usuario.roles_cambiados',
+      version: 1,
+      occurredAt: new Date(Date.now() + 6000).toISOString(),
+      userId: userA,
+      data: { roles: ['CLIENTE'] },
+      payloadSha256: 'd'.repeat(64),
+    });
+    const stateA = await prisma.securityUserState.findUnique({ where: { userId: userA } });
+    expect(stateA?.status).toBe('BLOCKED');
 
     const tokenA = issueSandboxToken(userA, jwtSecret);
     await expect(authGuard.authenticate(tokenA)).rejects.toThrow(ForbiddenException);
@@ -116,14 +150,16 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
     expect(await prisma.authSession.count({ where: { customerId: userB } })).toBe(1);
     expect(await prisma.wishlistItem.count({ where: { customerId: userB } })).toBe(1);
     expect(await prisma.cart.count({ where: { customerId: userB } })).toBe(1);
-
     const tokenB = issueSandboxToken(userB, jwtSecret);
     await expect(authGuard.authenticate(tokenB)).resolves.toEqual({ sub: userB });
+
+    await cleanUser(userA);
+    await cleanUser(userB);
   });
 
-  it('invalidates pre-event tokens on usuario.roles_cambiados and ignores duplicate events', async () => {
+  it('acknowledges duplicate eventId inside PostgreSQL transaction without aborting or repeating purge', async () => {
     const userA = SANDBOX_CUSTOMERS.A;
-    await seedUser(userA, 'SKU-A2');
+    await seedUser(userA, 'SKU-A2', false);
 
     const eventId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
     await prisma.securityUserEventInbox.deleteMany({ where: { eventId } });
@@ -142,6 +178,9 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
     });
     expect(first).toBe('recorded');
 
+    // Re-add an item to verify the duplicate event does not re-run purge
+    await prisma.wishlistItem.create({ data: { customerId: userA, productId: 'prod-after-first' } });
+
     const duplicate = await reactions.handleEvent({
       eventId,
       eventType: 'usuario.roles_cambiados',
@@ -152,7 +191,9 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
       payloadSha256: 'c'.repeat(64),
     });
     expect(duplicate).toBe('duplicate');
+    expect(await prisma.wishlistItem.count({ where: { customerId: userA } })).toBe(1);
 
     await expect(authGuard.authenticate(tokenBefore)).rejects.toThrow(UnauthorizedException);
+    await cleanUser(userA);
   });
 });
