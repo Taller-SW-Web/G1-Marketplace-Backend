@@ -63,7 +63,7 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
     let requests = 0;
     let open: () => void = () => {};
     const barrier = new Promise<void>(resolve => { open = resolve; });
-    const getOrder = jest.fn(async (_orderId: string, _bearer?: string) => {
+    const getOrder = jest.fn(async (_orderId: string, _bearer?: string, _timeoutMs?: number) => {
       requests += 1;
       if (requests === 2) open();
       await barrier;
@@ -82,8 +82,8 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
     ]);
     expect(results.map(result => result.status)).toEqual([200, 200]);
     expect(getOrder.mock.calls).toEqual([
-      [orderId, 'qa-bearer-placeholder'],
-      [orderId, 'qa-bearer-placeholder'],
+      [orderId, 'qa-bearer-placeholder', expect.any(Number)],
+      [orderId, 'qa-bearer-placeholder', expect.any(Number)],
     ]);
     const persisted = await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operationId } });
     expect(persisted.state).toBe('SUCCEEDED');
@@ -129,7 +129,7 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
   });
 
   it('recovers a paid order through status reads after the outbox insert fails', async () => {
-    const getOrder = jest.fn(async () => order);
+    const getOrder = jest.fn(async (_orderId: string, _bearer?: string, _timeoutMs?: number) => order);
     const createOrder = jest.fn();
     const gateway = { usesG5Sales: () => true, getOrder, createOrder } as unknown as MarketplaceGateway;
     // Exercise the real confirmation transaction without starting the background Brevo worker.
@@ -168,7 +168,11 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
       });
     }
     expect(createOrder).not.toHaveBeenCalled();
-    expect(getOrder.mock.calls).toEqual(Array.from({ length: 3 }, () => [orderId, 'qa-bearer-placeholder']));
+    expect(getOrder.mock.calls).toEqual([
+      [orderId, 'qa-bearer-placeholder', expect.any(Number)],
+      [orderId, 'qa-bearer-placeholder', expect.any(Number)],
+      [orderId, 'qa-bearer-placeholder'],
+    ]);
     const deliveries = await queue.findMany({ where: { type: C001, customerId } });
     expect(deliveries).toHaveLength(1);
     expect(deliveries[0]).toMatchObject({ eventKey: `c001:${orderId}`, attemptCount: 0 });
