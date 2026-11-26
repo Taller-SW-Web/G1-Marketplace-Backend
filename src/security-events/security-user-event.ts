@@ -43,7 +43,7 @@ export class SecurityUserEventValidationError extends Error {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EVENT_TYPE_PATTERN = /^usuario\.[a-z][a-z0-9_]*$/;
-const UTC_MILLISECONDS_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const UTC_TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
 const ROLE_PATTERN = /^[A-Z][A-Z0-9_]{0,49}$/;
 
 type JsonObject = Record<string, unknown>;
@@ -62,9 +62,15 @@ function isStringArray(value: unknown, pattern?: RegExp): value is string[] {
 }
 
 function validUtcTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string' || !UTC_MILLISECONDS_PATTERN.test(value)) return false;
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value;
+  if (typeof value !== 'string') return false;
+  const match = UTC_TIMESTAMP_PATTERN.exec(value);
+  if (!match || match[0] !== value) return false;
+  // G7 serializes Java Instants at up to nanosecond precision. Use a millisecond
+  // copy only to check calendar validity; keep the original timestamp and fingerprint.
+  const milliseconds = (match[2] ?? '').padEnd(3, '0').slice(0, 3);
+  const canonical = `${match[1]}.${milliseconds}Z`;
+  const parsed = new Date(canonical);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
 }
 
 function validEventData(eventType: SecurityUserEventType, data: JsonObject): boolean {

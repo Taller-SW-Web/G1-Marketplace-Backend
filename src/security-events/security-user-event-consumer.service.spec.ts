@@ -233,6 +233,23 @@ describe('SecurityUserEventConsumerService', () => {
     expect(raw.sendToQueue).not.toHaveBeenCalled();
   });
 
+  it('persists and acknowledges a G7 v1 event with a nanosecond timestamp', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    const fecha = '2026-11-24T12:30:45.123456789Z';
+    const message = makeMessage({ ...validEvent, fecha });
+    inbox.record.mockResolvedValue('recorded');
+
+    await handle(service, channel, message);
+
+    expect(inbox.record).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: validEvent.eventoId, occurredAt: fecha,
+    }));
+    expect(raw.ack).toHaveBeenCalledWith(message);
+    expect(raw.nack).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed messages so RabbitMQ routes them through the queue DLX', async () => {
     const { service } = createHarness();
     const { channel, raw } = makeChannel();
