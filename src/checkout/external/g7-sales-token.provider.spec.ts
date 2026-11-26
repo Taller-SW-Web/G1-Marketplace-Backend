@@ -102,6 +102,16 @@ describe('G7SalesTokenProvider - offline client_credentials contract', () => {
     expect(calls).toHaveLength(1);
   });
 
+  it.each([{}, { G7_SERVICE_TOKEN_TIMEOUT_MS: 23_000 }])('uses a dedicated timeout for the G7 service token (%j)', async (override) => {
+    const timeout = jest.spyOn(AbortSignal, 'timeout');
+    try {
+      await expect(provider({ HTTP_TIMEOUT_MS: 5_000, ...override }).getAccessToken()).resolves.toBe(token());
+      expect(timeout).toHaveBeenCalledWith(override.G7_SERVICE_TOKEN_TIMEOUT_MS ?? 15_000);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it.each([
     { aud: ['api-other'], scope: 'ventas:pedidos:crear' },
     { aud: ['api-ventas'], scope: 'ventas:pedidos:consultar' },
