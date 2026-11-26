@@ -22,7 +22,8 @@ export function validateMockRun(env) {
 export function validateAuthenticatedRun(env) {
   const origin = validateMockRun(env);
   const token = env.PERF_ACCESS_TOKEN || '';
-  if (!/^[A-Za-z0-9._~-]{16,8192}$/.test(token)) {
+  // k6 1.2.3 uses RE2 for this expression; repeat counts above 1000 are invalid.
+  if (token.length < 16 || token.length > 8192 || /[^A-Za-z0-9._~-]/.test(token)) {
     throw new Error('PERF_ACCESS_TOKEN must be a disposable local test token; its value is never logged.');
   }
   return { origin, token };

@@ -50,3 +50,14 @@ npm run perf:k6:order
 El perfil no registra tokens, cookies, claves de idempotencia ni cuerpos de respuesta. La prueba estática no ejecuta k6 ni envía tráfico.
 
 La comprobación estática no genera tráfico: `npm run test:h5-k6:static`.
+
+## Extensión para BE #396 — solo G1 aislado / providers MOCK
+
+Usar `scripts/performance/k6/h5-breakpoint.js` con las mismas guardas de loopback y `PERF_CASE` / `PERF_VUS`. No ejecutar en APIM, Render ni contra servicios de otros grupos.
+
+- **Estrés:** `PERF_CASE=stress`, `PERF_VUS=400`, luego `800` y `1000` solo si el nivel anterior no superó el límite. Cada corrida separa la rampa del tramo medido de 30 s; decide con p95 > 500 ms o errores > 1% de `scenario:measured` (incluidos códigos distintos de 200). Si no rompe hasta 1000, reportar «no observado en el rango».
+- **Spike:** `PERF_CASE=spike`, `PERF_VUS` a partir de 200 y sin exceder un nivel aceptado por el operador. Dura 5 min: base, salto, meseta y recuperación. Reportar por tramo, no solo el p95 agregado.
+- **Soak:** `PERF_CASE=soak`, `PERF_VUS=10` o `20` durante 5 min. Reportar p95, errores y evolución de CPU/memoria/conexiones; cinco minutos no demuestran estabilidad a largo plazo.
+- **Comparativo TTL:** mismo SHA, imagen, dataset, entorno, warm-up, mezcla y duración, TTL apagado y encendido. Stubs aislados con latencia reproducible de 80–200 ms en la dependencia que la ruta realmente usa. Registrar llamadas al stub y métricas por ruta cacheable; no mezclar detalle como si estuviera cacheado. El perfil de ruptura no reemplaza ese comparativo.
+
+Validación sin carga: `node --test scripts/performance/k6/h5-breakpoint-options.test.mjs` y `k6 inspect scripts/performance/k6/h5-breakpoint.js` con parámetros de caso. `inspect` valida configuración, no produce métricas. Las corridas reales del laboratorio siguen con el runner de #396.
