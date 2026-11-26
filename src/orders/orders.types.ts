@@ -31,6 +31,7 @@ export interface OrdersProvider {
   listForCustomer(
     customerId: string,
     query: ListOrdersQuery,
+    accessToken?: string,
   ): Promise<OrdersHistoryResponse>;
 }
 

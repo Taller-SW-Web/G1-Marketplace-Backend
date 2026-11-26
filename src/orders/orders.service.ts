@@ -16,28 +16,30 @@ export class OrdersService {
   ) {}
 
   async listMyOrders(
+    customerId: string,
     query: ListOrdersQuery,
+    accessToken: string,
   ): Promise<OrdersHistoryResponse> {
     const source = this.config.get<string>('ORDERS_SOURCE', 'unconfigured');
     const environment = this.config.get<string>('NODE_ENV', 'development');
 
+    if (source === 'real' && environment !== 'test') {
+      return this.provider.listForCustomer(customerId, query, accessToken);
+    }
     if (source !== 'mock' || environment === 'production') {
       throw new ServiceUnavailableException({
         error: { code: 'ORDERS_INTEGRATION_UNAVAILABLE' },
       });
     }
 
-    const mockCustomerId = this.config.get<string>('ORDERS_MOCK_CUSTOMER_ID');
-
     if (
-      !mockCustomerId ||
-      !(MOCK_CUSTOMER_IDS as readonly string[]).includes(mockCustomerId)
+      !(MOCK_CUSTOMER_IDS as readonly string[]).includes(customerId)
     ) {
       throw new ServiceUnavailableException({
         error: { code: 'MOCK_CUSTOMER_NOT_CONFIGURED' },
       });
     }
 
-    return this.provider.listForCustomer(mockCustomerId, query);
+    return this.provider.listForCustomer(customerId, query, accessToken);
   }
 }

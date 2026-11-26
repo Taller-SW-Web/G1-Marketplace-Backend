@@ -11,6 +11,7 @@ export class MockOrdersProvider implements OrdersProvider {
   async listForCustomer(
     customerId: string,
     query: ListOrdersQuery,
+    _accessToken?: string,
   ): Promise<OrdersHistoryResponse> {
     const customerOrders = MOCK_ORDERS
       .filter((order) => order.ownerCustomerId === customerId)

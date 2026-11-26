@@ -8,6 +8,7 @@ import { MarketplaceGateway } from './marketplace.gateway';
 describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
   const values: Record<string, unknown> = { USE_MOCKS: true, NODE_ENV: 'test' };
   let adapter: MockHttpAdapter;
+  let http: HttpService;
   let gateway: MarketplaceGateway;
 
   beforeEach(() => {
@@ -16,7 +17,7 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     const config = {
       get: (key: string, fallback?: unknown) => values[key] ?? fallback,
     } as unknown as ConfigService;
-    const http = new HttpService(axios.create({ timeout: 1000 }));
+    http = new HttpService(axios.create({ timeout: 1000 }));
     adapter = new MockHttpAdapter(http, config);
     adapter.onModuleInit();
     gateway = new MarketplaceGateway(http, config);
@@ -156,8 +157,10 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     };
 
     const firstOrder = await gateway.createOrder(first);
+    const replayedFirstOrder = await gateway.createOrder(first);
     const secondOrder = await gateway.createOrder(second);
 
+    expect(replayedFirstOrder).toEqual(firstOrder);
     expect(secondOrder.pedidoId).not.toBe(firstOrder.pedidoId);
     expect(firstOrder.total.amount).toBe(355);
     expect(secondOrder.total.amount).toBe(999);
@@ -184,5 +187,18 @@ describe('MarketplaceGateway with axios-mock-adapter fixtures', () => {
     await expect(
       gateway.listAddresses('11111111-1111-4111-8111-111111111111', tokenFor('11111111-1111-4111-8111-111111111111')),
     ).rejects.toMatchObject({ status: 504, code: 'ADDRESS_SERVICE_UNAVAILABLE' });
+  });
+
+  it('fails closed before HTTP when MOCK providers are disabled; this is not a REAL G5 integration', async () => {
+    const get = jest.spyOn(http, 'get');
+    const post = jest.spyOn(http, 'post');
+    values.USE_MOCKS = false;
+
+    await expect(gateway.getOrder('PED-2026-00001')).rejects.toMatchObject({
+      status: 503,
+      response: { error: { code: 'EXTERNAL_INTEGRATION_DISABLED' } },
+    });
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
   });
 });

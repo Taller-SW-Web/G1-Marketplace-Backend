@@ -88,8 +88,18 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   }
   if (authEnabled === 'true' && httpTimeoutMs > 5000) throw new Error('G7 session flow requires HTTP_TIMEOUT_MS <= 5000');
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
-  if (!['mock', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock or unconfigured');
+  if (!['mock', 'real', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock, real or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
+  if (ordersSource === 'real') {
+    if (nodeEnv === 'test' || useMocks === 'true' || config.G5_SALES_INTEGRATION_APPROVED !== 'true' || authEnabled !== 'true') {
+      throw new Error('ORDERS_SOURCE=real requires production authentication, USE_MOCKS=false and explicit G5 approval');
+    }
+    let salesUrl: URL;
+    try { salesUrl = new URL(String(config.VENTAS_BASE_URL)); } catch { throw new Error('VENTAS_BASE_URL is required for real orders'); }
+    if (salesUrl.protocol !== 'https:' || salesUrl.username || salesUrl.password || salesUrl.pathname !== '/' || salesUrl.search || salesUrl.hash) {
+      throw new Error('VENTAS_BASE_URL must be an HTTPS origin without credentials or path');
+    }
+  }
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
     NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
