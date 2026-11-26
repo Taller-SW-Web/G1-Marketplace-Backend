@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityUserEvent } from './security-user-event';
 import {
@@ -18,6 +19,7 @@ export class SecurityUserReactionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inbox: SecurityUserEventInboxService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async handleEvent(event: SecurityUserEvent): Promise<RecordSecurityUserEventResult> {
@@ -89,6 +91,9 @@ export class SecurityUserReactionService {
   }
 
   async assertUserAllowed(userId: string, tokenIssuedAtMs?: number): Promise<void> {
+    const enabled = this.config?.get<unknown>('SECURITY_EVENTS_ENABLED');
+    if (this.config && enabled !== true && enabled !== 'true') return;
+
     const state = await this.prisma.securityUserState.findUnique({
       where: { userId },
       select: { status: true, invalidatedAt: true },

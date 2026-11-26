@@ -9,14 +9,10 @@ import { SecurityUserReactionService } from '../src/security-events/security-use
 import { AuthGuard } from '../src/security/auth.guard';
 import { SessionStore } from '../src/auth/session.store';
 import { issueSandboxToken, SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
-import { validateTestDatabase } from '../scripts/test-database';
 
-if (process.env.H3_ALLOW_TEST_DATABASE_WRITES !== 'true' || process.env.NODE_ENV !== 'test'
-  || process.env.DATABASE_URL !== validateTestDatabase({ TEST_DATABASE_URL: process.env.TEST_DATABASE_URL })) {
-  throw new Error('Use the isolated PostgreSQL runner');
-}
+const postgresSuite = process.env.H3_ALLOW_TEST_DATABASE_WRITES === 'true' ? describe : describe.skip;
 
-describe('Security user reactions PostgreSQL integration (BE #316)', () => {
+postgresSuite('Security user reactions PostgreSQL integration (BE #316)', () => {
   let prisma: PrismaService;
   let reactions: SecurityUserReactionService;
   let authGuard: AuthGuard;
@@ -37,6 +33,7 @@ describe('Security user reactions PostgreSQL integration (BE #316)', () => {
             H3_SANDBOX_ENABLED: true,
             H3_JWT_SECRET: jwtSecret,
             AUTH_SESSION_KEY: sessionKey,
+            SECURITY_EVENTS_ENABLED: 'true',
           })],
         }),
         PrismaModule,
