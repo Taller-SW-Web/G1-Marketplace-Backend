@@ -149,7 +149,7 @@ jobs:
             --exit-code 1
       - uses: docker/setup-buildx-action@v3
       - name: Construir imagen Docker local para escaneo
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -240,7 +240,7 @@ jobs:
         with:
           ref: v${{ needs.release.outputs.version }}
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           load: true
