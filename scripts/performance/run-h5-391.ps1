@@ -2,11 +2,14 @@ param(
   [Parameter(Mandatory)]
   [string] $OutputDirectory,
 
-  [ValidateSet('warmup', 'load', 'stress')]
+  [ValidateSet('warmup', 'load', 'stress', 'spike', 'soak', 'smoke')]
   [string] $Profile = 'load',
 
   [ValidateSet('catalog', 'cart')]
-  [string] $Workload = 'catalog'
+  [string] $Workload = 'catalog',
+
+  [ValidateSet('200', '400', '800', '1000')]
+  [int] $MaxStressVus = 400
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,10 +37,13 @@ try {
     throw 'El BFF y PostgreSQL del Compose de performance deben estar en ejecución.'
   }
 
-  $network = docker inspect $backend --format '{{.HostConfig.NetworkMode}}'
-  $published = docker inspect $backend --format '{{json .HostConfig.PortBindings}}'
-  if ($network -ne 'g1-marketplace-h5-perf_default' -or $published -notin @('{}', 'null')) {
-    throw 'El BFF de performance debe estar en la red interna y sin puertos publicados.'
+  foreach ($service in $backend, $postgres) {
+    $networks = docker inspect $service --format '{{json .NetworkSettings.Networks}}' | ConvertFrom-Json -AsHashtable
+    $published = docker inspect $service --format '{{json .HostConfig.PortBindings}}'
+    if ($networks.Count -ne 1 -or -not $networks.Contains('g1-marketplace-h5-perf_default') -or
+        $published -notin @('{}', 'null')) {
+      throw 'Los servicios de performance deben quedar en una única red interna y sin puertos publicados.'
+    }
   }
 
   $sha = docker inspect $backend --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
@@ -45,18 +51,24 @@ try {
     $sha = git rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo registrar el SHA.' }
   }
-  $cacheTtlMs = docker exec $backend node -p "process.env.CATALOG_CACHE_TTL_MS || '0'"
-  if ($LASTEXITCODE -ne 0) { throw 'No se pudo registrar el TTL del BFF.' }
+  $configuration = docker exec $backend node -p "JSON.stringify({ttl: +(process.env.CATALOG_CACHE_TTL_MS || 0), g6: +(process.env.PERF_G6_LATENCY_MS || 0), g5: +(process.env.PERF_G5_LATENCY_MS || 0)})" |
+    ConvertFrom-Json
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudo registrar la configuración medida.' }
   $images = docker inspect $backend $postgres --format '{{.Name}} {{.Image}} cpu={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}}'
   if ($LASTEXITCODE -ne 0) { throw 'No se pudieron registrar las imágenes y límites.' }
   New-Item -ItemType Directory -Path $resultPath | Out-Null
 
   $statsPath = Join-Path $resultPath 'docker-stats.jsonl'
-  $sampler = Start-Job -ArgumentList $backend, $postgres, $statsPath -ScriptBlock {
-    param($bffContainer, $pgContainer, $target)
+  $loadContainer = "h5-391-k6-$PID"
+  $sampler = Start-Job -ArgumentList $backend, $postgres, $loadContainer, $statsPath -ScriptBlock {
+    param($bffContainer, $pgContainer, $load, $target)
     while ($true) {
       $when = [DateTime]::UtcNow.ToString('o')
-      docker stats --no-stream --format '{{json .}}' $bffContainer $pgContainer |
+      $containers = @($bffContainer, $pgContainer)
+      if ((docker inspect $load --format '{{.State.Running}}' 2>$null) -eq 'true') {
+        $containers += $load
+      }
+      docker stats --no-stream --format '{{json .}}' @containers 2>$null |
         ForEach-Object {
           $entry = $_ | ConvertFrom-Json
           [ordered]@{
@@ -72,9 +84,10 @@ try {
 
   $startedAt = [DateTime]::UtcNow.ToString('o')
   try {
-    docker compose @compose run --rm --no-deps -T -v "${resultPath}:/results" `
+    docker compose @compose run --rm --no-deps -T --name $loadContainer -v "${resultPath}:/results" `
       -e PERF_MOCK_MODE=true -e PERF_RUN_AUTHORIZED=1 `
       -e "PERF_PROFILE=$Profile" -e "PERF_CASE=$Workload" `
+      -e "PERF_STRESS_MAX_VUS=$MaxStressVus" `
       k6 run --quiet --no-color --summary-export=/results/summary.json /perf/h5-391.js 2>&1 |
       Tee-Object -FilePath (Join-Path $resultPath 'k6.log')
     $runExit = $LASTEXITCODE
@@ -90,7 +103,9 @@ try {
     startedAt = $startedAt
     finishedAt = [DateTime]::UtcNow.ToString('o')
     k6 = '1.2.3'
-    catalogCacheTtlMs = [int]$cacheTtlMs
+    catalogCacheTtlMs = $configuration.ttl
+    stubLatencyMs = @{ g5 = $configuration.g5; g6 = $configuration.g6 }
+    maxStressVus = if ($Profile -eq 'stress') { $MaxStressVus } else { $null }
     origin = 'http://127.0.0.1:10000'
     upstreams = 'G5, G6 and G7 mocked, isolated Docker network'
     containers = @($images)

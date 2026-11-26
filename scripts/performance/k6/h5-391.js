@@ -7,31 +7,47 @@ const origin = validateMockRun(__ENV);
 const profile = __ENV.PERF_PROFILE || 'load';
 const workload = __ENV.PERF_CASE || 'catalog';
 const sku = 'INKA-RUNNER-42';
+const maxStressVus = Number(__ENV.PERF_STRESS_MAX_VUS || '400');
 
-if (!['load', 'stress', 'warmup'].includes(profile) || !['catalog', 'cart'].includes(workload)) {
-  throw new Error('Expected PERF_PROFILE=load|stress|warmup and PERF_CASE=catalog|cart.');
+if (!['load', 'stress', 'warmup', 'spike', 'soak', 'smoke'].includes(profile) ||
+    !['catalog', 'cart'].includes(workload)) {
+  throw new Error('Expected a supported PERF_PROFILE and PERF_CASE=catalog|cart.');
 }
 if (profile !== 'load' && workload !== 'catalog') {
-  throw new Error('The stress and warmup profiles target the catalog.');
+  throw new Error('Only the load profile supports cart.');
+}
+if (![200, 400, 800, 1000].includes(maxStressVus)) {
+  throw new Error('PERF_STRESS_MAX_VUS must be 200, 400, 800 or 1000.');
 }
 
 // Each plateau is measured separately. Ramp samples are kept out of plateau summaries.
 const rampSeconds = 5;
 const holdSeconds = 15;
-const plateaus = [
-  { name: 'vu20', vus: 20 },
-  { name: 'vu50', vus: 50 },
-  { name: 'vu100', vus: 100 },
-  { name: 'vu200', vus: 200 },
-  { name: 'recovery', vus: 10 },
+const stressPlateaus = [
+  ...[20, 50, 100, 200, 400, 800, 1000].filter((vus) => vus <= maxStressVus)
+    .map((vus) => ({ name: `vu${vus}`, vus, rampSeconds, holdSeconds })),
+  { name: 'recovery', vus: 10, rampSeconds, holdSeconds },
 ];
-const stages = plateaus.flatMap(({ vus }) => [
-  { duration: `${rampSeconds}s`, target: vus },
-  { duration: `${holdSeconds}s`, target: vus },
+const spikePlateaus = [
+  { name: 'low', vus: 10, rampSeconds: 5, holdSeconds: 15 },
+  { name: 'burst', vus: 200, rampSeconds: 1, holdSeconds: 15 },
+  { name: 'recovery', vus: 10, rampSeconds: 5, holdSeconds: 15 },
+];
+const plateaus = profile === 'spike' ? spikePlateaus : stressPlateaus;
+const stages = plateaus.flatMap((phase) => [
+  { duration: `${phase.rampSeconds}s`, target: phase.vus },
+  { duration: `${phase.holdSeconds}s`, target: phase.vus },
 ]);
 stages.push({ duration: '5s', target: 0 });
+const isRamp = profile === 'stress' || profile === 'spike';
+const steadyProfiles = {
+  warmup: { vus: 2, duration: '10s' },
+  smoke: { vus: 1, duration: '5s' },
+  load: { vus: 10, duration: '30s' },
+  soak: { vus: 10, duration: '5m' },
+};
 
-const thresholds = profile === 'load'
+const thresholds = ['load', 'soak', 'smoke'].includes(profile)
   ? {
       'http_req_duration{measured:yes}': ['p(95)<500'],
       'http_req_failed{measured:yes}': ['rate<0.01'],
@@ -46,7 +62,7 @@ function collectBreakdown(tag) {
   thresholds[`http_req_failed{${tag}}`] = ['rate<=1'];
 }
 
-if (profile === 'stress') {
+if (isRamp) {
   for (const { name } of plateaus) collectBreakdown(`phase:${name}`);
 }
 if (workload === 'cart') {
@@ -59,20 +75,22 @@ export const options = {
   maxRedirects: 0,
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
   scenarios: {
-    [workload]: profile === 'stress'
+    [workload]: isRamp
       ? { executor: 'ramping-vus', startVUs: 0, stages, gracefulRampDown: '0s', gracefulStop: '2s' }
-      : { executor: 'constant-vus', vus: profile === 'warmup' ? 2 : 10,
-          duration: profile === 'warmup' ? '10s' : '30s', gracefulStop: '2s' },
+      : { executor: 'constant-vus', ...steadyProfiles[profile], gracefulStop: '2s' },
   },
   thresholds,
 };
 
 function catalogPhase() {
-  if (profile !== 'stress') return profile;
-  const elapsed = (Date.now() - exec.scenario.startTime) / 1000;
-  const blockSeconds = rampSeconds + holdSeconds;
-  const plateau = plateaus[Math.floor(elapsed / blockSeconds)];
-  return plateau && elapsed % blockSeconds >= rampSeconds ? plateau.name : 'ramp';
+  if (!isRamp) return profile;
+  let elapsed = (Date.now() - exec.scenario.startTime) / 1000;
+  for (const phase of plateaus) {
+    if (elapsed < phase.rampSeconds) return 'ramp';
+    if (elapsed < phase.rampSeconds + phase.holdSeconds) return phase.name;
+    elapsed -= phase.rampSeconds + phase.holdSeconds;
+  }
+  return 'ramp';
 }
 
 function readCatalog() {
