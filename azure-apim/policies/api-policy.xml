@@ -1,0 +1,85 @@
+<!--
+  Política Global / API para Azure API Management (Plan Consumption)
+  Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-006 (Issues #309 y #311)
+  Controles:
+  - CORS hacia el frontend de Vercel
+  - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429)
+  - Validación de JWT RS256 contra JWKS de G7 (-> HTTP 401)
+  - Propagación de trazabilidad distribuida (X-Correlation-Id)
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- 1. Inyección o conservación de X-Correlation-Id -->
+        <set-header name="X-Correlation-Id" exists-action="skip">
+            <value>@(Guid.NewGuid().ToString())</value>
+        </set-header>
+
+        <!-- 2. Configuración de CORS hacia Vercel y desarrollo local -->
+        <cors allow-credentials="true">
+            <allowed-origins>
+                <origin>https://g1-marketplace-frontend.vercel.app</origin>
+                <origin>http://localhost:3000</origin>
+            </allowed-origins>
+            <allowed-methods preflight-result-max-age="300">
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>PATCH</method>
+                <method>DELETE</method>
+                <method>OPTIONS</method>
+            </allowed-methods>
+            <allowed-headers>
+                <header>*</header>
+            </allowed-headers>
+            <expose-headers>
+                <header>X-Correlation-Id</header>
+                <header>Retry-After</header>
+            </expose-headers>
+        </cors>
+
+        <!-- 3. Rate Limiting (Plan Consumption): Máximo 60 llamadas por minuto por suscripción (HTTP 429) -->
+        <!-- Nota: Aplicar a nivel de API (no en All APIs), requiere Subscription Key -->
+        <rate-limit calls="60" renewal-period="60" retry-after-header-name="Retry-After" />
+
+        <!-- 4. Validación de Token JWT (G7 Auth Service) en rutas protegidas -->
+        <choose>
+            <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger -->
+            <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") || 
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/docs") || 
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/catalog") || 
+                               context.Request.Method == "OPTIONS")'>
+                <!-- Ruta pública: permitir paso directo -->
+            </when>
+            <otherwise>
+                <validate-jwt header-name="Authorization" failed-validation-httpcode="401" 
+                              failed-validation-error-message="Acceso no autorizado: Token JWT invalido, expirado o ausente">
+                    <openid-config url="https://g7-auth-service.onrender.com/api/v1/auth/.well-known/openid-configuration" />
+                    <issuers>
+                        <issuer>https://g7-auth-service.onrender.com/api/v1/auth</issuer>
+                    </issuers>
+                </validate-jwt>
+            </otherwise>
+        </choose>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+        <!-- Reenviar X-Correlation-Id al cliente en la respuesta -->
+        <set-header name="X-Correlation-Id" exists-action="override">
+            <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", Guid.NewGuid().ToString()))</value>
+        </set-header>
+    </outbound>
+
+    <on-error>
+        <base />
+        <set-header name="X-Correlation-Id" exists-action="override">
+            <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", Guid.NewGuid().ToString()))</value>
+        </set-header>
+    </on-error>
+</policies>
