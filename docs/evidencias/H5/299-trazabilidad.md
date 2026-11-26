@@ -8,6 +8,7 @@ Objetivo: que cada requisito funcional expuesto tenga una prueba identificable y
 | F por mapear: consulta de pedido | `GET /api/v1/orders/me`, `GET /api/v1/orders/PED-2026-00092` | [Informe de compra fusionado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/tree/develop/docs/evidencias/H5/integracion-real#compra-real-con-ventas-be-380-397-387) | 26/11 15:26, ambos HTTP 200; `requestId=d1750523-fd6b-43f6-b8ac-e9e64a55ee9f` y `103f155a-6040-4fa9-89de-f7f39fa7ab1e`; pedido `PAGADO` | **No aportado** | REAL reportado/publicado; falta correlación en logs |
 | F por mapear: reintento idempotente | Misma operación y `Idempotency-Key` | [BE #380](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/380) / [#397](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/397); permalink/run: Pendiente | 26/11 15:46:09, HTTP 202; mismo pedido, sin duplicado; Ventas confirmó que la clave mapea solo a `00092`; `requestId=132ea7e8-9bdc-46f6-b8ac-e9e64a55ee9f` | **No aportado** | Parcial; prueba funcional reportada |
 | Evento de G7 en `marketplace.usuarios` | Lectura de cola y cotejo con outbox | [BE #313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313) y [#294](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/294); permalink exacto: Pendiente | Evento `5206c121-61e7-4de9-8fe9-0b11306c0daa`, leído el 25/11 23:07 | `eventId` visible, pero no se aportó `correlation-id` de log | REAL reportado; falta la traza F→test→run |
+| G7 — recuperación del evento REAL desde DLQ | Consumidor RabbitMQ; recuperación manual con parser candidato `20cdb57` (#409) | [BE #314, comentario de recuperación](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314#issuecomment-7205557701) / [BE #315](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/315) | 26/11 18:26:36 Lima; tres mensajes originales recuperados con una fila por ID; cuatro filas/cuatro IDs únicos contando la recepción previa | `correlation-id` no aportado en los logs públicos | REAL controlado; recuperación manual desde DLQ, no prueba reintento automático ni nueva publicación post-fix |
 
 ## Captura por run
 
@@ -21,7 +22,7 @@ Objetivo: que cada requisito funcional expuesto tenga una prueba identificable y
 
 > Los identificadores recibidos para la compra son `requestId`; para el mensaje de G7 se recibió un `eventId`. Ninguno de esos valores demuestra por sí mismo que `correlation-id` esté propagado y visible en los logs. Las claves `requestId` exactas están en la tabla anterior y deben cotejarse con los registros fuente; la F asociada también debe mapearse a su ID de SPEC.
 
-La evidencia de cuenta B 403, CSAT y `ENTREGADO` REAL de `PED-2026-00092` continúa pendiente.
+La matriz publicada [BE #291/#299](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/eb39191e0aef7485fdad4a21b09a8f32b93f3cb0/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md) contiene el mapeo funcional y comandos por F. Esta tabla aún no incorpora un run identificable para cada una de las 40 F. Cuenta B 403, CSAT y `DESPACHADO`/`ENTREGADO` REAL de `PED-2026-00092` siguen pendientes.
 
 ## Regla de aceptación documental
 
