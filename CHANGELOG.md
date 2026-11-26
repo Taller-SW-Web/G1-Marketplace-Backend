@@ -1,3 +1,9 @@
+## [1.14.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.13.0...v1.14.0) (2026-11-26)
+
+### Features
+
+* **g7:** preparar la ronda funcional con códigos de correo ([bddbd88](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/bddbd883c3ea8ee96a813f70330b7627f3b3b049))
+
 ## [1.13.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.12.0...v1.13.0) (2026-11-26)
 
 ### Features
