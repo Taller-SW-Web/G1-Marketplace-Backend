@@ -30,7 +30,11 @@ const maxErrorRate = Number(process.env.PERF_MAX_ERROR_RATE || 0.01);
 const timeoutMs = Number(process.env.PERF_TIMEOUT_MS || 15000);
 
 const parsed = new URL(targetBase);
-if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() === 'g1-marketplace-backend.onrender.com' || !ALLOWED_HOST_PATTERNS.some((rx) => rx.test(parsed.hostname))) {
+const isLocalHost = parsed.hostname.toLowerCase() === 'localhost' || parsed.hostname === '127.0.0.1';
+const validProtocol = isLocalHost
+  ? parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  : parsed.protocol === 'https:';
+if (!validProtocol || parsed.hostname.toLowerCase() === 'g1-marketplace-backend.onrender.com' || !ALLOWED_HOST_PATTERNS.some((rx) => rx.test(parsed.hostname))) {
   console.error(`ERROR: Host '${parsed.hostname}' no autorizado. El smoke de performance solo aplica a entornos propios de G1.`);
   process.exit(1);
 }

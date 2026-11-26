@@ -24,6 +24,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pruebas
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: g1_auth_test
+          POSTGRES_PASSWORD: temporary_h5_ci_only
+          POSTGRES_DB: g1_auth_h4_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U g1_auth_test -d g1_auth_h4_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       PERF_TARGET_URL: ${{ vars.BACKEND_STAGING_URL || '' }}
       PERF_REQUESTS: '30'
@@ -38,6 +49,35 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+
+      - name: Levantar entorno efímero propio de G1 (si BACKEND_STAGING_URL no está configurada)
+        if: env.PERF_TARGET_URL == ''
+        env:
+          NODE_ENV: test
+          PORT: '10000'
+          USE_MOCKS: 'true'
+          AUTH_ISSUER: https://security.example.test
+          AUTH_JWKS_URL: https://security.example.test/jwks
+          DATABASE_URL: postgresql://g1_auth_test:temporary_h5_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+        run: |
+          echo "BACKEND_STAGING_URL no configurada; levantando instancia efímera propia de G1 en 127.0.0.1:10000 (nunca producción)."
+          npm ci --no-audit --no-fund
+          npm run build
+          npx prisma db push --skip-generate
+          nohup node dist/main.js > /tmp/g1-perf-backend.log 2>&1 &
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/health || echo "000")
+            echo "Boot efímero intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "PERF_TARGET_URL=http://127.0.0.1:10000" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 3
+          done
+          cat /tmp/g1-perf-backend.log || true
+          echo "::error::No se pudo iniciar la instancia efímera de G1 en 127.0.0.1:10000."
+          exit 1
 
       - name: Ejecutar smoke de performance con umbrales bloqueantes
         run: node scripts/perf-smoke.mjs

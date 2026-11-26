@@ -24,6 +24,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: pruebas
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: g1_auth_test
+          POSTGRES_PASSWORD: temporary_h5_ci_only
+          POSTGRES_DB: g1_auth_h4_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U g1_auth_test -d g1_auth_h4_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       TARGET_URL: ${{ github.event.inputs.target_url || vars.BACKEND_STAGING_URL || '' }}
     steps:
@@ -34,17 +45,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Instalar dependencias para importar los contratos
         run: npm ci --no-audit --no-fund
 
+      - name: Levantar entorno efímero propio de G1 (si BACKEND_STAGING_URL no está configurada)
+        if: env.TARGET_URL == ''
+        env:
+          NODE_ENV: test
+          PORT: '10000'
+          USE_MOCKS: 'true'
+          AUTH_ISSUER: https://security.example.test
+          AUTH_JWKS_URL: https://security.example.test/jwks
+          DATABASE_URL: postgresql://g1_auth_test:temporary_h5_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+        run: |
+          echo "BACKEND_STAGING_URL no configurada; levantando instancia efímera propia de G1 en 127.0.0.1:10000 (nunca producción)."
+          npm run build
+          npx prisma db push --skip-generate
+          nohup node dist/main.js > /tmp/g1-dast-backend.log 2>&1 &
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/health || echo "000")
+            echo "Boot efímero intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "TARGET_URL=http://127.0.0.1:10000" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 3
+          done
+          cat /tmp/g1-dast-backend.log || true
+          echo "::error::No se pudo iniciar la instancia efímera de G1 en 127.0.0.1:10000."
+          exit 1
+
       - name: Validar que TARGET_URL pertenezca únicamente al entorno propio de G1
         run: |
           if [ -z "$TARGET_URL" ]; then echo "::error::Configura BACKEND_STAGING_URL o indica target_url; no se usa fallback de producción."; exit 1; fi
-          host=$(node -e "const u = new URL(process.env.TARGET_URL); if (u.protocol !== 'https:' || u.hostname === 'g1-marketplace-backend.onrender.com') process.exit(1); console.log(u.hostname)") || { echo "::error::TARGET_URL debe ser HTTPS y no puede ser el host de producción."; exit 1; }
+          host=$(node -e "const u = new URL(process.env.TARGET_URL); const isLocal = u.hostname === '127.0.0.1' || u.hostname === 'localhost'; const okProto = isLocal ? (u.protocol === 'http:' || u.protocol === 'https:') : u.protocol === 'https:'; if (!okProto || u.hostname === 'g1-marketplace-backend.onrender.com') process.exit(1); console.log(u.hostname)") || { echo "::error::TARGET_URL debe ser HTTPS (o 127.0.0.1 efímero) y no puede ser el host de producción."; exit 1; }
           echo "Host objetivo DAST: $host"
           case "$host" in
-            g1-marketplace-backend-*.onrender.com)
+            g1-marketplace-backend-*.onrender.com|127.0.0.1|localhost)
               echo "OK: entorno propio de G1 verificado."
               ;;
             *)
@@ -70,7 +109,7 @@ jobs:
           cp .zap/rules.tsv zap-wrk/rules.tsv
           chmod 777 zap-wrk
           set +e
-          docker run --rm \
+          docker run --rm --network host \
             -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
             -t ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
@@ -141,7 +180,7 @@ jobs:
             name=$(basename "$spec")
             echo "Importando y escaneando $name en modo seguro"
             set +e
-            docker run --rm \
+            docker run --rm --network host \
               -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
               -t ghcr.io/zaproxy/zaproxy:stable \
               zap-api-scan.py -t "/zap/wrk/openapi/$name" -f openapi -S \
