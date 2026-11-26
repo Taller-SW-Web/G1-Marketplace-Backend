@@ -2,10 +2,12 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { CheckoutOperationState, Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { C001QaService } from '../notifications/c001-qa.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutContactDto } from './dto/contact.dto';
 import { CreateDeliveryAddressDto } from './dto/delivery-address.dto';
@@ -63,6 +65,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly gateway: MarketplaceGateway,
     private readonly quotes: QuotesService,
+    @Optional() private readonly c001Qa?: C001QaService,
   ) {}
 
   async listAddresses(customerId: string, accessToken: string): Promise<DeliveryAddress[]> {
@@ -600,13 +603,17 @@ export class CheckoutService {
     this.assertValidSalesOrder(order);
 
     if (order.estado === 'PAGADO') {
-      const updated = await this.prisma.checkoutOperation.update({
+      const completedAt = this.completionTime(operation.createdAt);
+      const qaCompletion = this.gateway.usesG5Sales?.() && accessToken && this.c001Qa?.isEnabledFor(operation.id)
+        ? await this.c001Qa.completePaidOperation(operation, order, completedAt)
+        : null;
+      const updated = qaCompletion ?? await this.prisma.checkoutOperation.update({
         where: { id: operation.id },
         data: {
           state: CheckoutOperationState.SUCCEEDED,
           externalOrderId: order.pedidoId,
           failureCode: null,
-          completedAt: this.completionTime(operation.createdAt),
+          completedAt,
         },
       });
       return {
