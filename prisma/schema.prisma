@@ -59,6 +59,17 @@ enum NotificationDeliveryState {
 // MODELOS RELACIONALES
 // ==========================================
 
+// Shared, transient BFF sessions. No passwords or plaintext provider tokens.
+model AuthSession {
+  id        String   @id @db.Char(64)
+  encrypted String   @db.Text
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([expiresAt], map: "auth_sessions_expiry_idx")
+  @@map("auth_sessions")
+}
+
 model Cart {
   id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   customerId           String?                   @map("customer_id") @db.Uuid
@@ -181,4 +192,16 @@ model NotificationDelivery {
   @@unique([type, eventKey], map: "notification_deliveries_type_event_uk")
   @@index([externalOrderId, createdAt(sort: Desc)], map: "notification_deliveries_order_idx")
   @@map("notification_deliveries")
+}
+
+// Durable receipt for Sales shipment webhooks. A unique eventId makes retries
+// safe; the full contract payload is retained for later processing/audit.
+model ShipmentEventInbox {
+  eventId    String   @id @map("event_id") @db.VarChar(255)
+  orderId    String   @map("order_id") @db.VarChar(20)
+  payload    Json     @db.JsonB
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@index([orderId, receivedAt(sort: Desc)], map: "shipment_event_inbox_order_received_idx")
+  @@map("shipment_event_inbox")
 }

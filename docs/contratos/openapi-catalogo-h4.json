@@ -1,0 +1,704 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Marketplace — Catálogo H4 (F-006–F-010)",
+    "version": "0.2.0",
+    "description": "Contrato G1 implementado para revisión. Catálogo público; identidad técnica G1→G6 sólo en servidor. No acredita homologación ni despliegue."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Origen del BFF desplegado o local"
+    }
+  ],
+  "paths": {
+    "/api/v1/catalog/home": {
+      "get": {
+        "operationId": "catalogHome",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lectura pública válida; arreglos vacíos permitidos",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Home"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Criterios inválidos antes del proveedor",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/filters": {
+      "get": {
+        "operationId": "catalogFilters",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lectura pública válida; arreglos vacíos permitidos",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filters"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Criterios inválidos antes del proveedor",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/products": {
+      "get": {
+        "operationId": "catalogProducts",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": ""
+                },
+                {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 120
+                }
+              ]
+            },
+            "description": "Normalizada: trim y espacios consecutivos; vacía significa catálogo"
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Un ID activo, no CSV. Mapea a categoriaId G6"
+          },
+          {
+            "name": "brandIds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Un ID activo, no CSV. AND con categoría; mapea a marcaId"
+          },
+          {
+            "name": "minPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 9999999999999.99,
+              "multipleOf": 0.01
+            },
+            "description": "PEN; sin notación exponencial; precioMin G6"
+          },
+          {
+            "name": "maxPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 9999999999999.99,
+              "multipleOf": 0.01
+            },
+            "description": "PEN; mínimo ≤ máximo; precioMax G6"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NAME_ASC",
+                "NAME_DESC"
+              ]
+            },
+            "description": "NOMBRE_ASC/DESC G6; no ordenar una página incompleta localmente"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            },
+            "description": "Cero basada; G6 pagina=page+1. Fuera de total conserva vacío sin retry automático"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 48,
+              "default": 24
+            },
+            "description": "tamanio G6"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lectura pública válida; arreglos vacíos permitidos",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Criterios inválidos antes del proveedor",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Catalog-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "MOCK",
+                    "REAL",
+                    "UNCONFIGURED"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "categoryId",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Brand": {
+        "type": "object",
+        "properties": {
+          "brandId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "brandId",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "ProductCard": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "categoryId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "brandId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "url",
+                  "alt"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "productId",
+          "slug",
+          "name",
+          "categoryId",
+          "brandId",
+          "image"
+        ],
+        "additionalProperties": false
+      },
+      "Home": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            }
+          },
+          "featuredProducts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductCard"
+            }
+          }
+        },
+        "required": [
+          "categories",
+          "featuredProducts"
+        ],
+        "additionalProperties": false
+      },
+      "Filters": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            }
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Brand"
+            }
+          }
+        },
+        "required": [
+          "categories",
+          "brands"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogPage": {
+        "type": "object",
+        "properties": {
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "NAME_ASC",
+              "NAME_DESC",
+              null
+            ],
+            "description": "Orden explícito delegado a G6; null conserva el orden predeterminado del proveedor. No acredita desempate global externo."
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductCard"
+            }
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 48
+              },
+              "totalElements": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "totalPages": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "number",
+              "size",
+              "totalElements",
+              "totalPages"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "sort",
+          "data",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "INVALID_SEARCH_QUERY",
+              "INVALID_PAGE",
+              "INVALID_PARAMETERS",
+              "INVALID_FILTER",
+              "INVALID_PRICE_RANGE",
+              "INVALID_SORT",
+              "CATALOG_UNAVAILABLE",
+              "CATALOG_TIMEOUT"
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "requestId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

@@ -3,6 +3,15 @@ import { validateTestDatabase } from '../../scripts/test-database';
 
 describe('Environment boundaries', () => {
   const base = { DATABASE_URL: 'postgresql://localhost/development', NODE_ENV: 'test' };
+  it('rejects invalid integration flags and mixed real providers/sandbox identity', () => {
+    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
+      expect(() => validateEnvironment({ ...base, [key]: 'yes' })).toThrow();
+    }
+    expect(() => validateEnvironment({ ...base, WISHLIST_SOURCE: 'other' })).toThrow();
+    const sandbox = { ...base, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'synthetic-test-only-'.repeat(3) };
+    expect(() => validateEnvironment({ ...sandbox, WISHLIST_SOURCE: 'real' })).toThrow();
+    expect(() => validateEnvironment({ ...sandbox, CSAT_ENABLED: 'true' })).toThrow();
+  });
   it('keeps sandbox off by default and supports existing CORS variable', () => {
     expect(validateEnvironment({ ...base, CORS_ORIGINS: 'http://localhost:3000' }))
       .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'] });
@@ -52,5 +61,35 @@ describe('Environment boundaries', () => {
   it('accepts the dedicated local database', () => {
     const url = 'postgresql://localhost:55432/marketplace_h3_test';
     expect(validateTestDatabase({ TEST_DATABASE_URL: url, DATABASE_URL: base.DATABASE_URL })).toBe(url);
+  });
+  const g7 = { ...base, AUTH_ENABLED: 'true', G7_API_URL: 'https://g7.example/api/v1',
+    G1_WEB_ORIGIN: 'https://g1.example', AUTH_SESSION_KEY: Buffer.alloc(32, 1).toString('base64') };
+  it('derives G7 issuer and JWKS without inheriting the local mock issuer', () => {
+    expect(validateEnvironment(g7)).toMatchObject({ AUTH_ENABLED: 'true',
+      AUTH_ISSUER: 'https://g7.example/api/v1/auth', AUTH_JWKS_URL: 'https://g7.example/api/v1/auth/.well-known/jwks.json' });
+  });
+  it('requires a private encryption key and explicit web origin for sessions', () => {
+    expect(() => validateEnvironment({ ...g7, AUTH_SESSION_KEY: '' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G1_WEB_ORIGIN: 'https://g1.example/path' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '30000' })).toThrow();
+  });
+  it('rejects mixing real G7 sessions with mock identity', () => {
+    expect(() => validateEnvironment({ ...g7, H3_AUTH_MOCK: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'x'.repeat(32) })).toThrow();
+  });
+  it('requires HTTPS for production web and provider endpoints', () => {
+    expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G7_API_URL: 'http://localhost:4012/api/v1' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, NODE_ENV: 'production', G1_WEB_ORIGIN: 'http://127.0.0.1:3000' })).toThrow();
+  });
+  it('keeps introspection gated and requires private service credentials when enabled', () => {
+    expect(validateEnvironment(g7).G7_INTROSPECTION_ENABLED).toBeUndefined();
+    expect(() => validateEnvironment({ ...base, G7_INTROSPECTION_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true',
+      G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: 'short' })).toThrow();
+    expect(() => validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'maybe' })).toThrow();
+    expect(validateEnvironment({ ...g7, G7_INTROSPECTION_ENABLED: 'true',
+      G7_SERVICE_CLIENT_ID: 'fixture-client', G7_SERVICE_CLIENT_SECRET: 'x'.repeat(43) }))
+      .toMatchObject({ G7_INTROSPECTION_ENABLED: 'true' });
   });
 });

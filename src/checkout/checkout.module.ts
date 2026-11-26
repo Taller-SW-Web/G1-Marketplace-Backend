@@ -7,9 +7,11 @@ import { MarketplaceGateway } from './external/marketplace.gateway';
 import { CheckoutController } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { QuotesService } from './quotes.service';
+import { G7IntegrationModule } from '../auth/g7-integration.module';
 
 @Module({
   imports: [
+    G7IntegrationModule,
     HttpModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

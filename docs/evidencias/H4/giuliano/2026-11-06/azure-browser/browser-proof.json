@@ -1,0 +1,153 @@
+{
+  "startedAt": "2026-11-06T15:47:12.264Z",
+  "backend": "3ec390c4e4cb77b8699d4e3448966c9f4e13133e",
+  "frontend": "28f4bb002247c686a742a406c486168e9ad1424c",
+  "origin": "https://g6-po-axl031-167090a.chilecentral.cloudapp.azure.com",
+  "local": "http://127.0.0.1:3860",
+  "source": "REAL",
+  "authMode": "public-read-only",
+  "httpIntercepted": false,
+  "productionModified": false,
+  "stages": [
+    {
+      "name": "01-home-real",
+      "startedAt": "2026-11-06T15:47:12.820Z",
+      "http": 200,
+      "source": "REAL",
+      "categories": 8,
+      "featuredProducts": 0,
+      "hero": {
+        "url": "http://127.0.0.1:3860/figma/hero-shoe.png",
+        "width": 1500,
+        "height": 1500
+      },
+      "verdict": "PASS",
+      "url": "http://127.0.0.1:3860/",
+      "finishedAt": "2026-11-06T15:47:13.382Z"
+    },
+    {
+      "name": "02-filtro-marca-nike-real",
+      "startedAt": "2026-11-06T15:47:13.528Z",
+      "image": {
+        "url": "https://slzglmtiyrzygpkiuthf.supabase.co/storage/v1/object/public/catalog-products/nike-academy-hv4386-100.jpg",
+        "width": 700,
+        "height": 700
+      },
+      "http": 200,
+      "source": "REAL",
+      "brand": "Nike",
+      "brandId": "d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "brands": 6,
+      "total": 7,
+      "cards": 4,
+      "priceFieldsEmpty": true,
+      "verdict": "PASS",
+      "url": "http://127.0.0.1:3860/catalogo?pageSize=4&sort=NAME_ASC&brandIds=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "finishedAt": "2026-11-06T15:47:15.417Z"
+    },
+    {
+      "name": "03-ficha-nike-academy-real",
+      "startedAt": "2026-11-06T15:47:15.518Z",
+      "image": {
+        "url": "https://slzglmtiyrzygpkiuthf.supabase.co/storage/v1/object/public/catalog-products/nike-academy-hv4386-100.jpg",
+        "width": 700,
+        "height": 700
+      },
+      "http": 200,
+      "source": "REAL",
+      "productId": "2ee6399e-2333-5916-847b-f6d2a0f03527",
+      "productName": "Nike Academy",
+      "brand": "Nike",
+      "specifications": 0,
+      "from": "http://127.0.0.1:3860/catalogo?pageSize=4&sort=NAME_ASC&brandIds=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "returnHref": "/catalogo?pageSize=4&sort=NAME_ASC&brandIds=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "commerceAlerts": [
+        "No pudimos cargar las opciones del producto.",
+        "No pudimos consultar disponibilidad."
+      ],
+      "verdict": "PASS",
+      "url": "http://127.0.0.1:3860/productos/nike-academy-hv4386-100?returnTo=%2Fcatalogo%3FpageSize%3D4%26sort%3DNAME_ASC%26brandIds%3Dd5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "finishedAt": "2026-11-06T15:47:16.334Z"
+    },
+    {
+      "name": "04-ficha-galeria-ampliada-real",
+      "startedAt": "2026-11-06T15:47:16.448Z",
+      "source": "REAL",
+      "sameProduct": "Nike Academy",
+      "verdict": "PASS",
+      "url": "http://127.0.0.1:3860/productos/nike-academy-hv4386-100?returnTo=%2Fcatalogo%3FpageSize%3D4%26sort%3DNAME_ASC%26brandIds%3Dd5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "finishedAt": "2026-11-06T15:47:16.472Z"
+    }
+  ],
+  "browserRequests": [
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/home",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "0c6b8d31-43e9-44b2-a10d-01046dc52c49",
+      "at": "2026-11-06T15:47:13.290Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/home",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "e78a3fbd-69c7-458b-9824-c7d6afe4fb5c",
+      "at": "2026-11-06T15:47:13.731Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/filters",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "6e2f7237-e89c-4ddf-bfee-8b0adb11ce11",
+      "at": "2026-11-06T15:47:14.179Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products?pageSize=4&sort=NAME_ASC&brandIds=d5649b17-23aa-dbf2-cb87-60164737fcf9",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "431e54e1-9156-49f8-897a-a82ef4912bc8",
+      "at": "2026-11-06T15:47:14.987Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products/nike-academy-hv4386-100",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "f4535e02-6704-4acc-b120-32d81a859929",
+      "at": "2026-11-06T15:47:16.285Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products/nike-academy-hv4386-100/variants",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "4622ed2e-b7b0-46f6-bbdf-58256953b572",
+      "at": "2026-11-06T15:47:16.306Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products/nike-academy-hv4386-100/recommendations",
+      "status": 200,
+      "source": "REAL",
+      "requestId": "d5ebce21-05b3-4a15-89d3-f035fd41dfdd",
+      "at": "2026-11-06T15:47:16.307Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products/nike-academy-hv4386-100/price",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "3b2706ee-470b-42b7-a691-24ec8751fde8",
+      "at": "2026-11-06T15:47:16.314Z"
+    },
+    {
+      "url": "http://127.0.0.1:3860/api/catalog/products/nike-academy-hv4386-100/availability",
+      "status": 503,
+      "source": "REAL",
+      "requestId": "2087688f-b355-4833-b5e2-cd96a85be6cb",
+      "at": "2026-11-06T15:47:16.314Z"
+    }
+  ],
+  "pageErrors": [],
+  "finishedAt": "2026-11-06T15:47:16.584Z",
+  "summary": {
+    "pass": 4,
+    "fail": 0
+  }
+}

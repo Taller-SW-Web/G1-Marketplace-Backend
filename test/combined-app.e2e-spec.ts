@@ -18,7 +18,14 @@ describe('Combined application HTTP contracts', () => {
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig' };
   const cart = { getCurrentCart: jest.fn(), addItemToCart: jest.fn() };
   const wishlist = { save: jest.fn(), remove: jest.fn() };
-  const checkout = { createAddress: jest.fn(), getOperation: jest.fn() };
+  const checkout = {
+    listAddresses: jest.fn(),
+    createAddress: jest.fn(),
+    createQuote: jest.fn(),
+    applyBenefit: jest.fn(),
+    prepare: jest.fn(),
+    getOperation: jest.fn(),
+  };
   const environment = {
     DATABASE_URL: 'postgresql://localhost/combined_app_mock', NODE_ENV: 'test',
     H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: secret,
@@ -71,6 +78,17 @@ describe('Combined application HTTP contracts', () => {
     await request(app.getHttpServer()).get('/api/v1/carts/current').auth('invalid', { type: 'bearer' })
       .expect(401).expect({ error: { code: 'UNAUTHENTICATED' } });
     expect(cart.getCurrentCart).not.toHaveBeenCalled();
+  });
+  it('requires an authenticated principal before accessing checkout addresses or preparing', async () => {
+    await request(app.getHttpServer()).get('/api/v1/checkout/delivery-addresses')
+      .expect(401).expect({ error: { code: 'UNAUTHENTICATED' } });
+    await request(app.getHttpServer()).post('/api/v1/checkout/preparations')
+      .set('Idempotency-Key', '33333333-3333-4333-8333-333333333333')
+      .send({ quoteId: 'Q-1', cartVersion: 1, simulationConfirmed: true })
+      .expect(401).expect({ error: { code: 'UNAUTHENTICATED' } });
+
+    expect(checkout.listAddresses).not.toHaveBeenCalled();
+    expect(checkout.prepare).not.toHaveBeenCalled();
   });
   it('preserves JWKS unavailability as 503', async () => {
     jest.mocked(global.fetch).mockRejectedValueOnce(new Error('offline'));

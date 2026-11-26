@@ -1,0 +1,79 @@
+{
+  "mode": "MOCK / aislado / pasivo",
+  "target": "http://frontend:3000",
+  "zapVersion": "2.17.0",
+  "zapExit": 2,
+  "appRevision": "8420d42855c9894267d6f06f8474834955d9b61e",
+  "seedRequests": [
+    {
+      "method": "GET",
+      "path": "/registro",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/recuperar-contrasena",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/restablecer-contrasena",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/checkout",
+      "status": 200
+    }
+  ],
+  "alerts": [
+    {
+      "id": 10038,
+      "rule": "Content Security Policy (CSP) Header Not Set",
+      "risk": "Medium (High)",
+      "count": 5,
+      "routes": [
+        "GET /checkout",
+        "GET /login",
+        "GET /recuperar-contrasena",
+        "GET /registro",
+        "GET /restablecer-contrasena"
+      ]
+    },
+    {
+      "id": 10019,
+      "rule": "Content-Type Header Missing",
+      "risk": "Informational (Medium)",
+      "count": 2,
+      "routes": [
+        "GET /recuperar-contrasena",
+        "GET /restablecer-contrasena"
+      ]
+    },
+    {
+      "id": 10024,
+      "rule": "Information Disclosure - Sensitive Information in URL",
+      "risk": "Informational (Medium)",
+      "count": 4,
+      "routes": [
+        "GET /login",
+        "GET /registro"
+      ]
+    }
+  ],
+  "informationalAlertMetadata": [
+    {
+      "id": 10019,
+      "status": 307
+    },
+    {
+      "id": 10024,
+      "kind": "parameter-value"
+    }
+  ]
+}

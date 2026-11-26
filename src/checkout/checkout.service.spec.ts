@@ -136,12 +136,185 @@ describe('CheckoutService', () => {
       cartVersion: cart.version,
       lines: cart.items.map(({ sku, quantity }) => ({ sku, quantity })),
     });
-    expect(gateway.listAddresses).toHaveBeenCalledWith('valid-test-token');
+    expect(gateway.listAddresses).toHaveBeenCalledWith(customerId, 'valid-test-token');
     expect(quotes.get(customerId, 'Q-1')).toEqual(quote);
 
     await expect(
       service.createQuote(customerId, 'valid-test-token', { addressId: 'ADR-OTHER', cartVersion: 8 }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects a quote provider response bound to a different cart snapshot and preserves the active quote', async () => {
+    const previousQuote = { ...quote, quoteId: 'Q-PREVIOUS' };
+    quotes.replace(customerId, previousQuote);
+    gateway.createQuote.mockResolvedValue({ ...quote, quoteId: 'Q-UNRELATED', cartVersion: 7 });
+
+    await expect(service.createQuote(
+      customerId,
+      'valid-test-token',
+      { addressId: 'ADR-1', cartVersion: 8 },
+    )).rejects.toMatchObject({
+      status: 503,
+      response: { error: { code: 'QUOTE_UNAVAILABLE' } },
+    });
+
+    expect(quotes.get(customerId, 'Q-PREVIOUS')).toBe(previousQuote);
+    expect(quotes.get(customerId, 'Q-UNRELATED')).toBeUndefined();
+  });
+
+  it('rejects a quote request with a stale cart version before calling providers', async () => {
+    await expect(service.createQuote(
+      customerId,
+      'valid-test-token',
+      { addressId: 'ADR-1', cartVersion: 7 },
+    )).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'CART_CHANGED' } },
+    });
+
+    expect(gateway.listAddresses).not.toHaveBeenCalled();
+    expect(gateway.createQuote).not.toHaveBeenCalled();
+  });
+
+  it('rejects benefit provider output for a different quote context without replacing the active quote', async () => {
+    quotes.replace(customerId, quote);
+    gateway.applyBenefit.mockResolvedValue({ ...quote, quoteId: 'Q-WRONG', addressId: 'ADR-OTHER' });
+
+    await expect(service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' }))
+      .rejects.toMatchObject({
+        status: 503,
+        response: { error: { code: 'BENEFITS_UNAVAILABLE' } },
+      });
+
+    expect(quotes.get(customerId, 'Q-1')).toBe(quote);
+    expect(quotes.get(customerId, 'Q-WRONG')).toBeUndefined();
+  });
+
+  it('replaces the active quote after a valid benefit response without accumulating a client discount', async () => {
+    quotes.replace(customerId, quote);
+    const discountedQuote = {
+      ...quote,
+      quoteId: 'Q-DISCOUNTED',
+      discount: { amount: 20, currency: 'PEN' },
+      total: { amount: 335, currency: 'PEN' },
+      selectedBenefit: {
+        type: 'COUPON' as const,
+        id: 'COUPON-1',
+        discount: { amount: 20, currency: 'PEN' },
+      },
+    };
+    gateway.applyBenefit.mockResolvedValue(discountedQuote);
+
+    const result = await service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' });
+
+    expect(gateway.applyBenefit).toHaveBeenCalledWith(quote, 'SAVE20');
+    expect(result).toBe(discountedQuote);
+    expect(quotes.get(customerId, 'Q-1')).toBeUndefined();
+    expect(quotes.get(customerId, 'Q-DISCOUNTED')).toBe(discountedQuote);
+  });
+
+  it('preserves the active quote when a coupon is rejected by the benefits provider', async () => {
+    quotes.replace(customerId, quote);
+    gateway.applyBenefit.mockRejectedValue(new ProviderError(422, 'COUPON_NOT_APPLICABLE'));
+
+    await expect(service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'NOPE' }))
+      .rejects.toMatchObject({
+        status: 422,
+        response: { error: { code: 'COUPON_NOT_APPLICABLE' } },
+      });
+
+    expect(quotes.get(customerId, 'Q-1')).toBe(quote);
+  });
+
+  it('preserves the active quote when the benefits provider times out', async () => {
+    quotes.replace(customerId, quote);
+    gateway.applyBenefit.mockRejectedValue(new ProviderError(504, 'BENEFITS_TIMEOUT'));
+
+    await expect(service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' }))
+      .rejects.toMatchObject({
+        status: 503,
+        response: { error: { code: 'BENEFITS_UNAVAILABLE' } },
+      });
+
+    expect(quotes.get(customerId, 'Q-1')).toBe(quote);
+  });
+
+  it('rejects a quote owned by another customer before requesting a benefit', async () => {
+    const otherCustomerId = '99999999-9999-4999-8999-999999999999';
+    const foreignQuote = { ...quote, quoteId: 'Q-FOREIGN' };
+    quotes.replace(otherCustomerId, foreignQuote);
+
+    await expect(service.applyBenefit(customerId, {
+      quoteId: 'Q-FOREIGN',
+      couponCode: 'SAVE20',
+    })).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+
+    expect(gateway.applyBenefit).not.toHaveBeenCalled();
+    expect(quotes.get(otherCustomerId, 'Q-FOREIGN')).toBe(foreignQuote);
+  });
+
+  it('rejects an expired quote before requesting a benefit', async () => {
+    const expiredQuote = { ...quote, expiresAt: new Date(Date.now() - 1_000).toISOString() };
+    quotes.replace(customerId, expiredQuote);
+
+    await expect(service.applyBenefit(customerId, {
+      quoteId: 'Q-1',
+      couponCode: 'SAVE20',
+    })).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+
+    expect(gateway.applyBenefit).not.toHaveBeenCalled();
+  });
+
+  it('removes a benefit by requesting a fresh base quote without consuming a coupon', async () => {
+    const baseQuote = { ...quote, quoteId: 'Q-BASE' };
+    const discountedQuote = {
+      ...quote,
+      quoteId: 'Q-DISCOUNTED',
+      discount: { amount: 20, currency: 'PEN' },
+      total: { amount: 335, currency: 'PEN' },
+      selectedBenefit: { type: 'COUPON' as const, id: 'COUPON-1', discount: { amount: 20, currency: 'PEN' } },
+    };
+    quotes.replace(customerId, discountedQuote);
+    gateway.applyBenefit.mockResolvedValue(baseQuote);
+
+    const result = await service.applyBenefit(customerId, { quoteId: 'Q-DISCOUNTED' });
+
+    expect(gateway.applyBenefit).toHaveBeenCalledWith(discountedQuote, undefined);
+    expect(result).toBe(baseQuote);
+    expect(result.discount.amount).toBe(0);
+    expect(result.selectedBenefit).toBeUndefined();
+    expect(quotes.get(customerId, 'Q-DISCOUNTED')).toBeUndefined();
+    expect(quotes.get(customerId, 'Q-BASE')).toBe(baseQuote);
+  });
+
+  it('keeps the same quote object as the active context when a delayed benefit response races a same-ID replacement', async () => {
+    quotes.replace(customerId, quote);
+    let resolveBenefit!: (value: typeof quote) => void;
+    let markBenefitStarted!: () => void;
+    const benefitStarted = new Promise<void>((resolve) => { markBenefitStarted = resolve; });
+    gateway.applyBenefit.mockImplementation(() => {
+      markBenefitStarted();
+      return new Promise((resolve) => { resolveBenefit = resolve; });
+    });
+
+    const delayedRequest = service.applyBenefit(customerId, { quoteId: 'Q-1', couponCode: 'SAVE20' });
+    await benefitStarted;
+    const newerSameIdQuote = { ...quote, subtotal: { amount: 500, currency: 'PEN' } };
+    quotes.replace(customerId, newerSameIdQuote);
+    resolveBenefit({ ...quote, quoteId: 'Q-BENEFIT' });
+
+    await expect(delayedRequest).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'QUOTE_EXPIRED' } },
+    });
+    expect(quotes.get(customerId, 'Q-1')).toBe(newerSameIdQuote);
+    expect(quotes.get(customerId, 'Q-BENEFIT')).toBeUndefined();
   });
 
   it('maps a provider address 4xx response to ADDRESS_VALIDATION_ERROR', async () => {
@@ -157,6 +330,86 @@ describe('CheckoutService', () => {
       status: 400,
       response: { error: { code: 'ADDRESS_VALIDATION_ERROR' } },
     });
+  });
+
+  it('invalidates the owner quote and pending preparation after creating an address', async () => {
+    quotes.replace(customerId, quote);
+    gateway.createAddress.mockResolvedValue({
+      addressId: 'ADR-NEW',
+      street: 'Av. Lima 456',
+      district: 'San Isidro',
+      province: 'Lima',
+      department: 'Lima',
+      phone: '999999999',
+    });
+
+    await service.createAddress(customerId, 'valid-test-token', {
+      street: 'Av. Lima 456',
+      district: 'San Isidro',
+      province: 'Lima',
+      department: 'Lima',
+      phone: '999999999',
+    });
+
+    expect(gateway.createAddress).toHaveBeenCalledWith(customerId, 'valid-test-token', expect.objectContaining({
+      street: 'Av. Lima 456',
+    }));
+    expect(quotes.get(customerId, 'Q-1')).toBeUndefined();
+    expect(prisma.checkoutOperation.updateMany).toHaveBeenCalledWith({
+      where: {
+        customerId,
+        state: { in: [CheckoutOperationState.PREPARING, CheckoutOperationState.PREPARED] },
+      },
+      data: { state: CheckoutOperationState.FAILED, failureCode: 'CHECKOUT_CONTEXT_CHANGED', completedAt: expect.any(Date) },
+    });
+  });
+
+  it.each([
+    ['addressId', { ...quote, addressId: 'ADR-OTHER' }],
+    ['cart lines', { ...quote, lines: [{ sku: 'OTHER-SKU', quantity: 2 }] }],
+  ])('rejects a quote response with mismatched %s', async (_context, providerQuote) => {
+    gateway.createQuote.mockResolvedValue({ ...providerQuote, quoteId: 'Q-MISMATCH' });
+
+    await expect(service.createQuote(
+      customerId,
+      'valid-test-token',
+      { addressId: 'ADR-1', cartVersion: 8 },
+    )).rejects.toMatchObject({
+      status: 503,
+      response: { error: { code: 'QUOTE_UNAVAILABLE' } },
+    });
+
+    expect(quotes.get(customerId, 'Q-MISMATCH')).toBeUndefined();
+  });
+
+  it('rejects preparation without explicit simulation consent before database or provider work', async () => {
+    await expect(service.prepare(
+      customerId,
+      { quoteId: 'Q-1', cartVersion: 8, simulationConfirmed: false },
+      '33333333-3333-4333-8333-333333333333',
+    )).rejects.toMatchObject({
+      status: 400,
+      response: { error: { code: 'SIMULATION_NOT_CONFIRMED' } },
+    });
+
+    expect(prisma.checkoutOperation.findUnique).not.toHaveBeenCalled();
+    expect(prisma.checkoutOperation.create).not.toHaveBeenCalled();
+    expect(gateway.revalidate).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, 'not-an-idempotency-key'])('rejects an invalid preparation key before database or provider work', async key => {
+    await expect(service.prepare(
+      customerId,
+      { quoteId: 'Q-1', cartVersion: 8, simulationConfirmed: true },
+      key,
+    )).rejects.toMatchObject({
+      status: 400,
+      response: { error: { code: 'IDEMPOTENCY_KEY_REQUIRED' } },
+    });
+
+    expect(prisma.checkoutOperation.findUnique).not.toHaveBeenCalled();
+    expect(prisma.checkoutOperation.create).not.toHaveBeenCalled();
+    expect(gateway.revalidate).not.toHaveBeenCalled();
   });
 
   it('records a PREPARED operation only after quantity revalidation', async () => {
@@ -189,6 +442,35 @@ describe('CheckoutService', () => {
     expect(prisma.checkoutOperation.create.mock.calls[0][0].data).toHaveProperty(
       'preparedTotalAmount',
     );
+  });
+
+  it('claims the anonymous session cart for the authenticated MOCK checkout before quoting', async () => {
+    const anonymousCart = {
+      ...cart,
+      id: '66666666-6666-4666-8666-666666666666',
+      anonymousSessionHash: 'session-capability-123456',
+    };
+    prisma.cart.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(anonymousCart);
+
+    const created = await service.createQuote(
+      customerId,
+      'valid-test-token',
+      { addressId: 'ADR-1', cartVersion: 8 },
+      'session-capability-123456',
+    );
+
+    expect(created).toEqual(quote);
+    expect(prisma.cart.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { anonymousSessionHash: 'session-capability-123456', state: 'ACTIVE' },
+      include: { items: true },
+    });
+    expect(prisma.cart.findFirst).toHaveBeenCalledTimes(2);
+    expect(gateway.createQuote).toHaveBeenCalledWith(expect.objectContaining({
+      lines: [{ sku: 'AERO-42-BLK', quantity: 2 }],
+      cartVersion: 8,
+    }));
   });
 
   it('does not finish preparation against a quote replaced during revalidation', async () => {
@@ -816,6 +1098,22 @@ describe('CheckoutService', () => {
       },
     });
     expect(operation.externalOrderId).toBeNull();
+  });
+
+  it('returns 409 when a previously terminal FAILED operation is queried again', async () => {
+    const operation = {
+      ...baseOperation(),
+      state: CheckoutOperationState.FAILED,
+      failureCode: 'PAGO_NO_COMPLETADO',
+      externalOrderId: null,
+    };
+    prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+
+    await expect(service.getOperation(customerId, operationId)).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'PAGO_NO_COMPLETADO' } },
+    });
+    expect(gateway.getOrder).not.toHaveBeenCalled();
   });
 
   it('does not reveal an operation to a different customer', async () => {

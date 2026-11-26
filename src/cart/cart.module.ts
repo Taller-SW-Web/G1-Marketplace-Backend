@@ -5,9 +5,10 @@ import { CartService } from './cart.service';
 
 import { AuthGuard } from '../security/auth.guard';
 import { OptionalAuthGuard } from '../security/optional-auth.guard';
+import { G7IntegrationModule } from '../auth/g7-integration.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, G7IntegrationModule],
   controllers: [CartController],
   providers: [CartService, AuthGuard, OptionalAuthGuard],
   exports: [CartService, AuthGuard],

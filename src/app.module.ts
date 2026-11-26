@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CsatModule } from './csat/csat.module';
 import { ConfigModule } from '@nestjs/config';
 import { CheckoutModule } from './checkout/checkout.module';
 import { HealthModule } from './health/health.module';
@@ -8,8 +9,11 @@ import { validateEnvironment as validateH3Environment } from './config/environme
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ProductCommerceModule } from './catalog/product-commerce.module';
 import { ProductDetailModule } from './catalog/product-detail.module';
+import { DocsModule } from './docs/docs.module';
 import { WishlistModule } from './wishlist/wishlist.module';
+import { ShipmentWebhookModule } from './webhooks/ventas/shipment-webhook.module';
 
 @Module({
   imports: [
@@ -20,12 +24,16 @@ import { WishlistModule } from './wishlist/wishlist.module';
     PrismaModule,
     HealthModule,
     WishlistModule,
+    CsatModule,
     AuthModule,
     OrdersModule,
     CartModule,
     CatalogModule,
     ProductDetailModule,
+    ProductCommerceModule,
     CheckoutModule,
+    DocsModule,
+    ShipmentWebhookModule,
   ],
 })
 export class AppModule {}

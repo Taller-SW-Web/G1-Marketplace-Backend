@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-11-06T17:21:46.653Z",
+  "upstreamRequests": 28,
+  "artifacts": [
+    {
+      "file": "01-variantes-seleccion-real.png",
+      "sha256": "d7c53807ca31966b66003c8a88b917c04ec24c5afae724750732144dce1b23bc"
+    },
+    {
+      "file": "02-cambio-variante-real.png",
+      "sha256": "bb288b9ae0584d132bab87e90f28e23aa7308954cda3c376b0be85010a0c3633"
+    },
+    {
+      "file": "03-producto-simple-real.png",
+      "sha256": "a207e4a9bfb8ff5becf81b0a9e2054e45e168d9240130d10922185a0f7936f2a"
+    },
+    {
+      "file": "variants-live.json",
+      "sha256": "595a23a3a2abf9c3fa56c6d33a7376445369cb84dc3115f120391a568b8ba8c4"
+    },
+    {
+      "file": "upstream.jsonl",
+      "sha256": "3eb0e3935a5cb240f159dcc7240fa63e41b87edcf9a013be27e9ca0f7b6d81f9"
+    }
+  ]
+}

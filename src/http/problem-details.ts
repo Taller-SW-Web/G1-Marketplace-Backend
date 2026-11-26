@@ -30,6 +30,22 @@ const TITLES: Record<string, string> = {
   PRODUCT_CATALOG_INVALID_RESPONSE: 'Respuesta inválida del catálogo.',
   PRODUCT_CATALOG_UNAVAILABLE: 'El catálogo no está disponible.',
   PRODUCT_CATALOG_TIMEOUT: 'El catálogo tardó demasiado en responder.',
+  // F-012 — precio, oferta y descuento.
+  PRODUCT_VARIANT_SELECTION_REQUIRED:
+    'Selecciona una variante antes de consultar el precio.',
+  SKU_NOT_BELONG_TO_PRODUCT: 'El SKU no corresponde a este producto.',
+  PRICE_NOT_AVAILABLE: 'Precio no disponible por el momento.',
+  PRICING_INVALID_RESPONSE: 'La respuesta de precios no es válida.',
+  PRICING_UNAVAILABLE: 'El servicio de precios no está disponible.',
+  PRICING_TIMEOUT: 'El servicio de precios tardó demasiado en responder.',
+  // F-013 — variantes.
+  CATALOG_INVALID_RESPONSE: 'La respuesta de variantes no es válida.',
+  CATALOG_UNAVAILABLE: 'El catálogo no está disponible.',
+  CATALOG_TIMEOUT: 'El catálogo tardó demasiado en responder.',
+  // F-014 — disponibilidad.
+  INVENTORY_INVALID_RESPONSE: 'La respuesta de inventario no es válida.',
+  INVENTORY_UNAVAILABLE: 'El inventario no está disponible.',
+  INVENTORY_TIMEOUT: 'El inventario tardó demasiado en responder.',
 };
 
 const DEFAULT_TITLE = 'No pudimos procesar la solicitud.';

@@ -30,6 +30,25 @@ describe('QuotesService', () => {
     expect(quotes.get(owner, 'Q-2')).toBeDefined();
   });
 
+  it('isolates identical provider quote IDs across different owners', () => {
+    const ownerA = 'customer-a';
+    const ownerB = 'customer-b';
+    const quoteA = makeQuote('Q-SHARED');
+    const quoteB = makeQuote('Q-SHARED');
+
+    quotes.replace(ownerA, quoteA);
+    quotes.replace(ownerB, quoteB);
+
+    expect(quotes.get(ownerA, 'Q-SHARED')).toBe(quoteA);
+    expect(quotes.get(ownerB, 'Q-SHARED')).toBe(quoteB);
+
+    quotes.replace(ownerA, makeQuote('Q-A-NEXT'));
+    quotes.invalidate(ownerA);
+
+    expect(quotes.get(ownerA, 'Q-SHARED')).toBeUndefined();
+    expect(quotes.get(ownerB, 'Q-SHARED')).toBe(quoteB);
+  });
+
   it('expires quotes and supports explicit invalidation', () => {
     const expired = { ...makeQuote('Q-old'), expiresAt: new Date(Date.now() - 1000).toISOString() };
     quotes.replace('customer-a', expired);
