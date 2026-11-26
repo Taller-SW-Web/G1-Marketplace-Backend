@@ -23,7 +23,7 @@
 
 - [ ] Implementar proveedor de fixture determinista detrás de una interfaz; habilitarlo sólo explícitamente en desarrollo/pruebas.
 - [ ] La fixture usa únicamente clientes y pedidos sintéticos, sin PII ni secretos.
-- [ ] La identidad de demostración es un principal sintético fijo configurado en servidor (`ORDERS_MOCK_CUSTOMER_ID`); no se puede elegir con header/query/body del cliente.
+- [x] La identidad de la consulta se toma del `sub` autenticado; en MOCK sólo se admiten principals sintéticos conocidos. No se puede elegir con header/query/body.
 - [ ] Probar que parámetros como `clienteId` se rechazan y que el proveedor sólo proyecta pedidos del principal de servidor configurado. No llamar a Ventas en modo MOCK.
 - [ ] Hacer que cero pedidos sea `200` con `data: []` y metadatos coherentes.
 - [ ] Hacer que fallo del proveedor sea error recuperable; nunca traducir un fallo/timeout a una lista vacía.
@@ -32,11 +32,11 @@
 ## Preparación para la integración futura (mantener bloqueada)
 
 - [ ] Aislar el adaptador HTTP de Ventas de la lógica del controller/servicio.
-- [ ] Cuando I-03 esté liberado, obtener identidad de JWT validado en el backend; derivar titular desde `sub`/`customerId` según contrato homologado.
-- [ ] Enviar a Ventas `GET /api/v1/pedidos/me`, no una ruta con `clienteId`.
-- [ ] Convertir página local 0 a página upstream 1 en el adaptador, no en frontend; mapear `items`, `total`, `page`, `pageSize` al contrato Marketplace.
-- [ ] Añadir timeout, validación estricta de respuesta, correlación y errores públicos seguros antes de activar REAL.
-- [ ] No configurar URL/token ni habilitar REAL hasta que exista aprobación, ambiente, scope y prueba autorizada registrados.
+- [x] Obtener identidad de JWT validado en el backend; derivar titular desde `sub`.
+- [x] Enviar a Ventas `GET /api/v1/pedidos/me`, no una ruta con `clienteId`.
+- [x] Convertir página local 0 a página upstream 1 en el adaptador; mapear `items`, `total`, `page`, `pageSize` al contrato Marketplace.
+- [x] Añadir timeout, validación estricta de respuesta y errores públicos seguros antes de activar REAL.
+- [ ] Configurar el origen HTTPS/approval en el entorno desplegado y ejecutar prueba autorizada; no guardar tokens en código ni frontend.
 - [ ] Mantener separada la evidencia MOCK de las pruebas de integración reales.
 
 ## Seguridad y operación
@@ -66,7 +66,7 @@
 - [ ] Adjuntar comandos exactos, casos positivos/negativos, resultados y entorno.
 - [ ] Incluir request/response sanitizados sin tokens ni PII y clasificación explícita `MOCK`.
 - [ ] Explicar cualquier desviación de specs; mantener I-03 como pendiente mientras no haya prueba real aprobada.
-- [ ] Escribir explícitamente: “BFF local con fixture MOCK y principal fijo de demostración; no valida JWT real ni acredita integración con Ventas”.
+- [x] Registrar explícitamente que las pruebas son locales/MOCK y no acreditan despliegue ni integración real con Ventas.
 - [ ] No marcar integración, QA, seguridad o F-028 como terminadas por tener el endpoint fixture.
 
 ## Fuera de alcance H3
