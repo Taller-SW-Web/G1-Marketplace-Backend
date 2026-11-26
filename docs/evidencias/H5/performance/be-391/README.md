@@ -1,5 +1,9 @@
 # BE #391 · Carga, estrés y comparación local
 
+La [segunda ejecución documentada](./reporte-final.md) incluye el criterio de quiebre, G6 con latencia simulada, spike, soak y un comando para reproducir el reporte. Esa es la evidencia ampliada para [#391](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/391) y [#306](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/306).
+
+## Primera ejecución · referencia sin latencia simulada
+
 Ejecución del 26/11/2026, hora de Lima. Evidencia para [BE #391](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/391). Los [datos de k6 y muestras de Docker](./datos.json) incluyen el SHA, imagen, hora UTC, métricas y código de salida de cada corrida.
 
 ## Resultados
