@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { createConfiguredCommercialMailTransport } from '../src/notifications/commercial-mail-transport';
+import { OrdersService } from '../src/orders/orders.service';
+import type { OrderSummary, OrdersProvider } from '../src/orders/orders.types';
 import { processC002QaNotice } from '../src/webhooks/ventas/c002-qa.worker';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ShipmentWebhookController } from '../src/webhooks/ventas/shipment-webhook.controller';
@@ -109,6 +111,39 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
 
     const stored = await prisma.shipmentEventInbox.findUnique({ where: { eventId: eventIds[1] } });
     expect(stored).toMatchObject({ orderId: 'PED-2099-99999', payload: shipmentEvent });
+  });
+
+  it('persists both out-of-order statuses without regressing delivered tracking', async () => {
+    const orderId = 'PED-2099-99998';
+    const delivered = createEvent(eventIds[0], { orderId, publicStatus: 'ENTREGADO' });
+    const dispatched = {
+      ...createEvent(eventIds[1], { orderId, publicStatus: 'DESPACHADO' }),
+      // Even if the late notification has a newer timestamp, delivery is terminal.
+      timestamp: '2026-11-24T10:16:00.000Z',
+    };
+    const summary: OrderSummary = {
+      orderId, state: 'PAGADO', total: { amount: 50, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00.000Z',
+    };
+    const provider: OrdersProvider = {
+      getForCustomer: jest.fn().mockResolvedValue(summary),
+      listForCustomer: jest.fn(),
+    };
+    const orders = new OrdersService(new ConfigService({ ORDERS_SOURCE: 'real', NODE_ENV: 'development' }), provider, prisma);
+    const getTracking = () => orders.getMyOrderTracking('synthetic-owner', orderId, 'synthetic-session');
+
+    await postEvent(delivered).expect(200, { data: { accepted: true, duplicate: false } });
+    await expect(getTracking()).resolves.toMatchObject({ state: 'ENTREGADO' });
+    await postEvent(dispatched).expect(200, { data: { accepted: true, duplicate: false } });
+
+    const persisted = await prisma.shipmentEventInbox.findMany({ where: { orderId }, select: { eventId: true } });
+    expect(persisted.map(({ eventId }) => eventId).sort()).toEqual([delivered.eventId, dispatched.eventId].sort());
+    await expect(getTracking()).resolves.toMatchObject({
+      state: 'ENTREGADO',
+      milestones: [
+        { state: 'ENTREGADO', at: delivered.timestamp },
+        { state: 'DESPACHADO', at: dispatched.timestamp },
+      ],
+    });
   });
 
   const qaSettings = {
