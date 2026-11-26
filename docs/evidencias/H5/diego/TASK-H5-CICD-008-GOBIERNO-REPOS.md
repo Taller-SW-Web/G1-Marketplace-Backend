@@ -11,11 +11,11 @@
 
 ## 1. Protección de rama `main` (`branches/main/protection`)
 
-En Frontend se aplicó la protección clásica de `main` mediante la API de GitHub. Exige los tres checks de GitHub Actions, una aprobación y revisión de CODEOWNERS, invalida aprobaciones obsoletas y bloquea force-push y borrado. También se aplica a administradores. En Backend, GitHub devuelve `protected: false` para `main` y queda pendiente aplicar su protección.
+En Backend y Frontend se aplicó la protección clásica de `main` mediante la API de GitHub. Exige los checks de GitHub Actions de la tabla, una aprobación y revisión de CODEOWNERS, invalida aprobaciones obsoletas y bloquea force-push y borrado. También se aplica a administradores.
 
 | Repositorio | Checks de `main` |
 |---|---|
-| `G1-Marketplace-Backend` | Pendientes de aplicar: `Build, Compile y Test`, `SAST (Semgrep + SARIF)`, `Secret Scan (Gitleaks código + historial)`, `SCA (npm audit + OSV) y Licencias`, `Quality Gate (Cobertura Jest)`, `backend (22)`, `backend (24)` |
+| `G1-Marketplace-Backend` | `Build, Compile y Test`, `SAST (Semgrep + SARIF)`, `Secret Scan (Gitleaks código + historial)`, `SCA (npm audit + OSV) y Licencias`, `Quality Gate (Cobertura Jest)`, `backend (22)`, `backend (24)` |
 | `G1-Marketplace-Frontend` | `Build, Compile y Test`, `e2e-cart-checkout`, `web` |
 
 ---
@@ -52,11 +52,13 @@ Configurado en ambos repositorios (`PUT /environments/production`):
 
 **Pendiente en Frontend.** El [workflow CI-CD vigente en `main`](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/blob/main/.github/workflows/cicd.yml) invoca Vercel en el job `Deploy a Vercel + Smoke test`, con `environment: pruebas` y un disparador de despliegue limitado a pushes a `develop`. GitHub registra cero despliegues en el entorno `production` de Frontend. Falta conectar el flujo de Vercel a `environment: production` y verificar en una ejecución que GitHub espere la aprobación manual antes de llamar al hook de producción. [Entorno `production` de Frontend](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/settings/environments)
 
+**Pendiente en Backend.** Render reporta que `g1-marketplace-backend` sigue la rama `main` con `autoDeploy: yes` y `autoDeployTrigger: commit`. La revisión exigida por la protección de `main` ocurre antes del merge. Una vez que cambia `main`, Render inicia su autodespliegue sin pasar por el entorno `production` de GitHub. El workflow CI-CD vigente en `main` referencia `pruebas` y GitHub registra cero despliegues de Backend en `production`. Para verificar una aprobación manual de despliegue, falta conectar un job a `environment: production`, desactivar el autodespliegue directo de Render en el corte coordinado y comprobar que el job espere la aprobación antes de invocar el hook de producción. [Servicio en Render](https://dashboard.render.com/web/srv-db05v0navr4c73e9mnug) · [Workflow Backend vigente en `main`](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/main/.github/workflows/cicd.yml) · [Entorno `production` de Backend](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/settings/environments)
+
 ---
 
 ## 5. Verificación
 
-- `GET /repos/Taller-SW-Web/G1-Marketplace-Backend/branches/main` → `protected: false`.
+- `GET /repos/Taller-SW-Web/G1-Marketplace-Backend/branches/main` → `protected: true`. La API de protección devolvió los siete checks exigidos, con revisión de CODEOWNERS y aplicación a administradores.
 - `GET /repos/Taller-SW-Web/G1-Marketplace-Frontend/branches/main` → `protected: true`. La API de protección devolvió los tres checks exigidos, revisión de CODEOWNERS y aplicación a administradores.
 - `GET /repos/Taller-SW-Web/G1-Marketplace-Backend/rulesets` → `develop-governance-h5` (`active`)
 - `GET /repos/Taller-SW-Web/G1-Marketplace-Frontend/rulesets` → `develop-governance-h5` (`active`)
