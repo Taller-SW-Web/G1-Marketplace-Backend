@@ -1,3 +1,14 @@
+## [1.16.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.15.0...v1.16.0) (2026-11-26)
+
+### Features
+
+* **h5-295:** add gated G5 order adapters ([62bea9f](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/62bea9f4d51b780ee10a1eeeaeec61fabf894a75))
+
+### Bug Fixes
+
+* normalize pinned G5 snapshots across line endings ([b70c953](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b70c953977070e66e90bfb0440165e6a48bcc369))
+* **security:** narrow synthetic G5 fixture finding ([066df83](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/066df83ffbd0c1cc5d548b2387731683520fab3c))
+
 ## [1.15.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.14.0...v1.15.0) (2026-11-26)
 
 ### Features
