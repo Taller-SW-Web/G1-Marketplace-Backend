@@ -70,7 +70,7 @@ export class G7SalesTokenProvider {
     const clientId = this.config.get<string>('G7_SERVICE_CLIENT_ID');
     const clientSecret = this.config.get<string>('G7_SERVICE_CLIENT_SECRET');
     const apiUrl = this.config.get<string>('G7_API_URL');
-    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
+    const timeoutMs = this.config.get<number>('G7_SERVICE_TOKEN_TIMEOUT_MS', 15_000);
     let tokenUrl: URL;
     try {
       const base = new URL(apiUrl ?? '');
@@ -78,7 +78,7 @@ export class G7SalesTokenProvider {
         ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
       if ((base.protocol !== 'https:' && !localHttp) || base.username || base.password || base.search || base.hash ||
           base.pathname.replace(/\/$/u, '') !== '/api/v1' ||
-          !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
+          !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 60_000 ||
           !clientId || !/^[A-Za-z0-9._-]{1,100}$/u.test(clientId) ||
           !clientSecret || clientSecret.length < 32 || clientSecret.length > 1024 || /[\r\n\0]/u.test(clientSecret)) {
         throw new Error('invalid configuration');

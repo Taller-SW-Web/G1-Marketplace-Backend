@@ -79,10 +79,10 @@ export class G5SalesProvider {
     return mapCreateOrder(response);
   }
 
-  async getOrder(orderId: string, customerAccessToken: string): Promise<G5SalesOrder> {
+  async getOrder(orderId: string, customerAccessToken: string, remainingMs?: number): Promise<G5SalesOrder> {
     if (!orderId.trim() || orderId.length > 100) throw new ProviderError(400, 'ORDER_ID_INVALID');
     if (!isBearerToken(customerAccessToken)) throw new ProviderError(401, 'CUSTOMER_TOKEN_REQUIRED');
-    const response = await this.request('get', `/api/v1/pedidos/${encodeURIComponent(orderId)}`, customerAccessToken);
+    const response = await this.request('get', `/api/v1/pedidos/${encodeURIComponent(orderId)}`, customerAccessToken, undefined, {}, remainingMs);
     return mapOrderDetail(response);
   }
 
@@ -97,6 +97,7 @@ export class G5SalesProvider {
     bearerToken: string,
     body?: G5CreateOrderRequest,
     extraHeaders: Record<string, string> = {},
+    remainingMs?: number,
   ): Promise<unknown> {
     this.assertIntegrationReady();
     const baseUrl = this.config.get<string>('VENTAS_BASE_URL');
@@ -106,7 +107,8 @@ export class G5SalesProvider {
     } catch {
       throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
     }
-    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
+    const timeoutMs = Math.min(this.config.get<number>('G5_SALES_TIMEOUT_MS', 30_000), remainingMs ?? Infinity);
+    if (timeoutMs <= 0) throw new ProviderError(504, 'SALES_TIMEOUT');
 
     const url = new URL(path, base);
     try {
@@ -155,14 +157,14 @@ export class G5SalesProvider {
     const checkoutEnabled = this.config.get<string>('CHECKOUT_SALES_SOURCE') === 'g5';
     const authenticated = this.config.get<string>('AUTH_ENABLED') === 'true';
     const mocks = this.config.get<boolean>('USE_MOCKS', false);
-    const timeoutMs = this.config.get<number>('HTTP_TIMEOUT_MS', 5000);
+    const timeoutMs = this.config.get<number>('G5_SALES_TIMEOUT_MS', 30_000);
     const production = this.config.get<string>('NODE_ENV') === 'production';
     const baseUrl = this.config.get<string>('VENTAS_BASE_URL');
     let base: URL;
     try { base = new URL(baseUrl ?? ''); } catch { throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED'); }
     const localHttp = !production && base.protocol === 'http:' &&
       ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
-    if (!approved || !checkoutEnabled || !authenticated || mocks || !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000 ||
+    if (!approved || !checkoutEnabled || !authenticated || mocks || !Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 60_000 ||
         (base.protocol !== 'https:' && !localHttp) || base.username || base.password || base.pathname !== '/' || base.search || base.hash) {
       throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
     }

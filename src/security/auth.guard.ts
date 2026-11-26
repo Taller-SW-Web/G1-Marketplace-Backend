@@ -11,6 +11,7 @@ import { createPublicKey, verify as verifySignature } from 'node:crypto';
 import { AuthenticatedRequest, CheckoutPrincipal } from './auth.types';
 import { verifySandboxToken } from '../identity/sandbox-token';
 import { G7IntrospectionService } from '../auth/g7-introspection.service';
+import { SecurityUserReactionService } from '../security-events/security-user-reaction.service';
 
 interface JwtHeader {
   alg?: unknown;
@@ -38,7 +39,11 @@ export class AuthGuard implements CanActivate {
   private cachedKeys?: JsonWebKeySet;
   private keysFetchedAt = 0;
 
-  constructor(private readonly config: ConfigService, @Optional() private readonly introspection?: G7IntrospectionService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly introspection?: G7IntrospectionService,
+    @Optional() private readonly userReaction?: SecurityUserReactionService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -63,7 +68,9 @@ export class AuthGuard implements CanActivate {
     }
     if (algorithm === 'HS256') {
       if (this.config.get('G7_INTROSPECTION_ENABLED') === 'true') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
-      return this.verifyToken(token, '', '');
+      const principal = await this.verifyToken(token, '', '');
+      await this.userReaction?.assertUserAllowed(principal.sub, this.extractIssuedAtMs(token));
+      return principal;
     }
     if (algorithm !== 'RS256') throw new UnauthorizedException({ error: { code: 'UNAUTHENTICATED' } });
     const issuer = this.config.get<string>('AUTH_ISSUER');
@@ -77,7 +84,17 @@ export class AuthGuard implements CanActivate {
       if (!this.introspection) throw new ServiceUnavailableException({ error: { code: 'AUTH_CONFIGURATION_UNAVAILABLE' } });
       await this.introspection.assertActive(token, principal.sub);
     }
+    await this.userReaction?.assertUserAllowed(principal.sub, this.extractIssuedAtMs(token));
     return principal;
+  }
+
+  private extractIssuedAtMs(token: string): number | undefined {
+    try {
+      const payload = this.decodeJson<{ iat?: unknown }>(token.split('.')[1]);
+      return typeof payload?.iat === 'number' && Number.isFinite(payload.iat) ? payload.iat * 1000 : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   protected async verifyToken(

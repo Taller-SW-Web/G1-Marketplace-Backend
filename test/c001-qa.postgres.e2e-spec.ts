@@ -128,6 +128,60 @@ postgresSuite('C-001 QA — checkout and delivery in disposable PostgreSQL', () 
     })).rejects.toThrow('checkout_operations_result_chk');
   });
 
+  it('recovers a paid order through status reads after the outbox insert fails', async () => {
+    const getOrder = jest.fn(async () => order);
+    const createOrder = jest.fn();
+    const gateway = { usesG5Sales: () => true, getOrder, createOrder } as unknown as MarketplaceGateway;
+    // Exercise the real confirmation transaction without starting the background Brevo worker.
+    const qa = Object.assign(new C001QaService(prisma), { settings });
+    const checkout = new CheckoutService(prisma, gateway, new QuotesService(), qa);
+    const readStatus = () => checkout.getOperation(customerId, operationId, undefined, 'qa-bearer-placeholder');
+    const queue = prisma.notificationDelivery;
+    const { fetchImpl, transport } = stubBrevo(() =>
+      Response.json({ messageId: '<qa-retry-c001@provider.example.org>' }, { status: 201 }));
+
+    await prisma.$executeRaw`
+      ALTER TABLE "notification_deliveries"
+      ADD CONSTRAINT "c001_test_reject_outbox" CHECK ("type" <> 'ORDER_CONFIRMATION') NOT VALID
+    `;
+    try {
+      await expect(readStatus()).rejects.toMatchObject({
+        status: 503,
+        response: { error: { code: 'C001_QA_CONFIRMATION_UNAVAILABLE' } },
+      });
+      await expect(prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operationId } })).resolves.toMatchObject({
+        state: CheckoutOperationState.SUBMITTED,
+        externalOrderId: orderId,
+        completedAt: null,
+      });
+      await expect(queue.count({ where: { type: C001, customerId } })).resolves.toBe(0);
+      await expect(processC001QaDelivery(queue, settings, transport)).resolves.toEqual({ status: 'idle' });
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      await prisma.$executeRaw`ALTER TABLE "notification_deliveries" DROP CONSTRAINT "c001_test_reject_outbox"`;
+    }
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await expect(readStatus()).resolves.toMatchObject({
+        status: 200,
+        data: { state: CheckoutOperationState.SUCCEEDED, order: { orderId, state: 'PAGADO' } },
+      });
+    }
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(getOrder.mock.calls).toEqual(Array.from({ length: 3 }, () => [orderId, 'qa-bearer-placeholder']));
+    const deliveries = await queue.findMany({ where: { type: C001, customerId } });
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({ eventKey: `c001:${orderId}`, attemptCount: 0 });
+    await expect(processC001QaDelivery(queue, settings, transport)).resolves.toMatchObject({ status: 'sent' });
+    await expect(processC001QaDelivery(queue, settings, transport)).resolves.toEqual({ status: 'idle' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await expect(queue.findUniqueOrThrow({ where: { id: deliveries[0].id } })).resolves.toMatchObject({
+      state: NotificationDeliveryState.SENT,
+      attemptCount: 1,
+      providerMessageId: '<qa-retry-c001@provider.example.org>',
+    });
+  });
+
   it('rejects unpaid or mismatched Sales orders and does not queue them', async () => {
     const operation = { id: operationId, customerId, externalOrderId: orderId };
     for (const other of [

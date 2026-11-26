@@ -811,7 +811,7 @@ export class CheckoutService {
     let lastOrder: SalesOrder | undefined;
     while (Date.now() < deadline) {
       try {
-        lastOrder = await this.gateway.getOrder(orderId, accessToken);
+        lastOrder = await this.gateway.getOrder(orderId, accessToken, deadline - Date.now());
         if (Date.now() > deadline) throw new ProviderError(504, 'SALES_STATUS_TIMEOUT');
       } catch (error) {
         if (!(error instanceof ProviderError) || error.status !== 429) throw error;

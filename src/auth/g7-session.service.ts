@@ -77,7 +77,7 @@ export class G7SessionService {
   private async establish(value: unknown, request: CookieRequest, response: CookieResponse) {
     const data = await this.validate(value);
     await this.store.remove(this.cookie(request));
-    const opaque = await this.store.create(data, new Date(Date.now() + 7 * 24 * 3600000));
+    const opaque = await this.store.create(data, new Date(Date.now() + 7 * 24 * 3600000), data.tokens.usuario.id);
     this.setCookie(response, opaque, 7 * 24 * 3600);
     this.setCookie(response, '', 0, true);
     return this.publicSession(data);
