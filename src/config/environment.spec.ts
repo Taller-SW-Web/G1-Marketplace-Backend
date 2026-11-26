@@ -74,6 +74,14 @@ describe('Environment boundaries', () => {
     expect(() => validateEnvironment({ ...g7, G1_WEB_ORIGIN: 'https://g1.example/path' })).toThrow();
     expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '30000' })).toThrow();
   });
+  it('validates independent checkout timeouts without relaxing the G7 user-session limit', () => {
+    expect(validateEnvironment(g7)).toMatchObject({ G5_SALES_TIMEOUT_MS: 30_000, G7_SERVICE_TOKEN_TIMEOUT_MS: 15_000 });
+    expect(validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '5000', G5_SALES_TIMEOUT_MS: '60000', G7_SERVICE_TOKEN_TIMEOUT_MS: '25000' }))
+      .toMatchObject({ HTTP_TIMEOUT_MS: 5_000, G5_SALES_TIMEOUT_MS: 60_000, G7_SERVICE_TOKEN_TIMEOUT_MS: 25_000 });
+    expect(() => validateEnvironment({ ...g7, G5_SALES_TIMEOUT_MS: '60001' })).toThrow(/G5_SALES_TIMEOUT_MS/);
+    expect(() => validateEnvironment({ ...g7, G7_SERVICE_TOKEN_TIMEOUT_MS: '10.5' })).toThrow(/G7_SERVICE_TOKEN_TIMEOUT_MS/);
+    expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '5800', G5_SALES_TIMEOUT_MS: '30000' })).toThrow(/G7 session flow/);
+  });
   it('enables G5 checkout only with G7 service credentials, live auth, G7 addresses and explicit approval', () => {
     const g5 = {
       ...g7,
