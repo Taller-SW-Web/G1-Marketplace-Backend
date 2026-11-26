@@ -8,9 +8,10 @@ import { MockOrdersProvider } from './providers/mock-orders.provider';
 import { G5OrdersProvider } from './providers/g5-orders.provider';
 import { AuthGuard } from '../security/auth.guard';
 import { G7IntegrationModule } from '../auth/g7-integration.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [G7IntegrationModule, HttpModule],
+  imports: [G7IntegrationModule, HttpModule, PrismaModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,
