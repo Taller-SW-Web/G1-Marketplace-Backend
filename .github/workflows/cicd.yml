@@ -284,22 +284,8 @@ jobs:
             "trivy-image-v${{ needs.release.outputs.version }}.sarif" \
             --clobber
 
-  deploy:
-    name: 7. Smoke Test Post-CI (autodespliegue nativo Render en main)
-    needs: [container-security, release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://g1-marketplace-backend.onrender.com/health' }}
-    steps:
-      - name: Smoke test /health tras autodespliegue de Render
-        run: |
-          echo "Render autodespliega al pasar el CI (sin deploy hooks duplicados). Versión: ${{ needs.release.outputs.version || 'sin cambios' }}"
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 60 "$HEALTH_URL" || true)
-            echo "intento $i -> HTTP $code"
-            if [ "$code" = "200" ]; then cat /tmp/health.json; exit 0; fi
-            sleep 20
-          done
-          echo "::error::/health no respondió 200 en 10 minutos"; exit 1
+  # Vía única de despliegue (acordada para H5):
+  # - Render autodespliega `main` de forma nativa una vez que los checks de CI pasan en verde
+  #   (sin hooks duplicados ni jobs muertos en `develop`).
+  # - La verificación continua de disponibilidad (/health) corre en `.github/workflows/keep-alive.yml`
+  #   y el smoke de rendimiento / DAST en `.github/workflows/perf-smoke.yml` y `.github/workflows/dast-zap.yml`.

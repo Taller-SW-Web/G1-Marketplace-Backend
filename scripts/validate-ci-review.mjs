@@ -16,12 +16,12 @@ assert.match(policy, /context\.Request\.Url\.Path\.Substring\(3\)/, 'APIM must s
 assert.match(policy, /@\("\/api" \+ context\.Request\.Url\.Path\)/, 'APIM must replace public /v1 with backend /api/v1');
 assert.doesNotMatch(policy, /@\("\/api\/v1" \+ context\.Request\.Url\.Path\)/, 'APIM must not prepend a duplicate /v1 prefix');
 
-const deploy = cicd.jobs['deploy'];
-assert.ok(deploy, 'single deploy job must exist');
-assert.equal(deploy.environment, undefined, 'single native deploy path must not require environment: production');
-assert.equal(deploy.env?.RENDER_DEPLOY_HOOK_URL, undefined, 'single native deploy path must not duplicate Render deploy hooks');
+assert.equal(cicd.jobs['deploy'], undefined, 'native Render auto-deploy on main must not keep an unreachable deploy job in cicd.yml');
 assert.equal(cicd.jobs['deploy-staging'], undefined, 'single deploy path must not duplicate deploy-staging');
 assert.equal(cicd.jobs['deploy-production'], undefined, 'single deploy path must not duplicate deploy-production');
+const cicdText = read('.github/workflows/cicd.yml');
+assert.match(cicdText, /keep-alive\.yml/, 'cicd.yml must document the workflow that verifies /health availability');
+assert.equal(cicd.jobs['build-and-security'].name, 'Build, Compile y Test', 'required ruleset check name must be preserved');
 
 const imageSteps = cicd.jobs['docker-image'].steps;
 const buildIndex = imageSteps.findIndex((step) => step.uses?.startsWith('docker/build-push-action@'));
