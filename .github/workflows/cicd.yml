@@ -7,7 +7,7 @@ on:
   push:
     branches: [develop]
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
 
 concurrency:
@@ -86,7 +86,7 @@ jobs:
         run: npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe && npm run test:g7:kit
 
   build-and-security:
-    name: 3. Build y Seguridad (SAST, Gitleaks, SCA, Licencias)
+    name: Build, Compile y Test
     needs: integration-postgres
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -285,9 +285,9 @@ jobs:
             --clobber
 
   deploy:
-    name: 7. Smoke Test Post-CI (autodespliegue nativo Render)
+    name: 7. Smoke Test Post-CI (autodespliegue nativo Render en main)
     needs: [container-security, release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
