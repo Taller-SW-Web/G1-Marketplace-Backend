@@ -18,7 +18,8 @@ assert.doesNotMatch(policy, /@\("\/api\/v1" \+ context\.Request\.Url\.Path\)/, '
 
 const deploy = cicd.jobs['deploy'];
 assert.ok(deploy, 'single deploy job must exist');
-assert.equal(deploy.environment, 'production');
+assert.equal(deploy.environment, undefined, 'single native deploy path must not require environment: production');
+assert.equal(deploy.env?.RENDER_DEPLOY_HOOK_URL, undefined, 'single native deploy path must not duplicate Render deploy hooks');
 assert.equal(cicd.jobs['deploy-staging'], undefined, 'single deploy path must not duplicate deploy-staging');
 assert.equal(cicd.jobs['deploy-production'], undefined, 'single deploy path must not duplicate deploy-production');
 

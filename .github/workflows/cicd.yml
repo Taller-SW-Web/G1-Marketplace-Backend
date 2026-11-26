@@ -285,27 +285,17 @@ jobs:
             --clobber
 
   deploy:
-    name: 7. Deploy + Smoke Test (vía única con aprobación)
+    name: 7. Smoke Test Post-CI (autodespliegue nativo Render)
     needs: [container-security, release]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Entorno protegido con Required Reviewers en GitHub Settings -> Environments -> production
-    environment: production
     env:
-      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
       HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://g1-marketplace-backend.onrender.com/health' }}
     steps:
-      - name: Disparar despliegue en Render (si hay deploy hook; en main Render autodespliega)
+      - name: Smoke test /health tras autodespliegue de Render
         run: |
-          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
-            curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
-            echo "Despliegue solicitado vía hook. Versión: ${{ needs.release.outputs.version || 'sin cambios' }}"
-          else
-            echo "Sin deploy hook configurado: esperando autodespliegue de Render."
-          fi
-      - name: Smoke test /health tras despliegue
-        run: |
+          echo "Render autodespliega al pasar el CI (sin deploy hooks duplicados). Versión: ${{ needs.release.outputs.version || 'sin cambios' }}"
           for i in $(seq 1 30); do
             code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 60 "$HEALTH_URL" || true)
             echo "intento $i -> HTTP $code"

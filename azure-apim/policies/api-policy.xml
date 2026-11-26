@@ -1,19 +1,20 @@
 <!--
   Política Global / API para Azure API Management (Plan Consumption)
-  Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-004 / TASK-H5-APIM-006 (Issues #309, #310, #311)
+  Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-004 / TASK-H5-APIM-006 (Issues #309, #310, #311, #394)
   Controles:
   - Trazabilidad unificada: X-Correlation-Id (oficial) + alias sincronizado X-Request-Id
-  - CORS hacia el frontend de Vercel
-  - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429)
+  - CORS hacia el frontend de Vercel (exponiendo X-Correlation-Id, X-Request-Id, Retry-After y X-Cache)
+  - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429 + Retry-After)
+  - Caché externa (Redis) en rutas públicas estables (/v1/health y /v1/docs/specs) con TTL 60s y X-Cache: MISS/HIT
   - Validación de JWT RS256 contra OIDC/JWKS de G7 (-> HTTP 401 en rutas protegidas)
   - Rewrite /v1/{ruta} -> /api/v1/{ruta} excluyendo /health y /docs (preservando query params)
-  - Caché deshabilitada por defecto (Cache-Control: no-store)
+  - Caché deshabilitada por defecto en catálogo y rutas privadas (Cache-Control: no-store)
 -->
 <policies>
     <inbound>
         <base />
 
-        <!-- 1. Trazabilidad: conservar o generar X-Correlation-Id y sincronizar alias X-Request-Id -->
+        <!-- 1. Trazabilidad -->
         <set-variable name="correlationId" value='@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", context.Request.Headers.GetValueOrDefault("X-Request-Id", Guid.NewGuid().ToString())))' />
         <set-header name="X-Correlation-Id" exists-action="override">
             <value>@((string)context.Variables["correlationId"])</value>
@@ -22,7 +23,7 @@
             <value>@((string)context.Variables["correlationId"])</value>
         </set-header>
 
-        <!-- 2. Configuración de CORS hacia Vercel y desarrollo local -->
+        <!-- 2. CORS -->
         <cors allow-credentials="true">
             <allowed-origins>
                 <origin>https://g1-marketplace-frontend.vercel.app</origin>
@@ -43,23 +44,32 @@
                 <header>X-Correlation-Id</header>
                 <header>X-Request-Id</header>
                 <header>Retry-After</header>
+                <header>X-Cache</header>
             </expose-headers>
         </cors>
 
-        <!-- 3. Rate Limiting (Plan Consumption): Máximo 60 llamadas por minuto por suscripción (HTTP 429) -->
+        <!-- 3. Rate Limiting (60 req/min por suscripción -> HTTP 429 + Retry-After) -->
         <rate-limit calls="60" renewal-period="60" retry-after-header-name="Retry-After" />
 
-        <!-- 4. Validación de Token JWT (G7 Auth Service) en rutas protegidas -->
+        <!-- 4. Caché externa (Redis) solo para rutas públicas estables (/v1/health y /v1/docs/specs) -->
+        <set-variable name="isCacheableRoute" value='@(context.Request.Method == "GET" && (context.Request.OriginalUrl.Path.ToLower() == "/v1/health" || context.Request.OriginalUrl.Path.ToLower() == "/v1/docs/specs"))' />
         <choose>
-            <!-- Omitir validación en rutas públicas: health, catálogo público, docs de Swagger, preflight -->
-            <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") || 
-                               context.Request.OriginalUrl.Path.ToLower().Contains("/docs") || 
-                               context.Request.OriginalUrl.Path.ToLower().Contains("/catalog") || 
+            <when condition='@((bool)context.Variables["isCacheableRoute"])'>
+                <set-variable name="cacheStatus" value="HIT" />
+                <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" caching-type="external" />
+                <set-variable name="cacheStatus" value="MISS" />
+            </when>
+        </choose>
+
+        <!-- 5. Validación JWT (G7 Auth Service) en rutas protegidas -->
+        <choose>
+            <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") ||
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/docs") ||
+                               context.Request.OriginalUrl.Path.ToLower().Contains("/catalog") ||
                                context.Request.Method == "OPTIONS")'>
-                <!-- Ruta pública: permitir paso directo -->
             </when>
             <otherwise>
-                <validate-jwt header-name="Authorization" failed-validation-httpcode="401" 
+                <validate-jwt header-name="Authorization" failed-validation-httpcode="401"
                               failed-validation-error-message="Acceso no autorizado: Token JWT invalido, expirado o ausente">
                     <openid-config url="https://g7-auth-service.onrender.com/api/v1/auth/.well-known/openid-configuration" />
                     <issuers>
@@ -69,7 +79,7 @@
             </otherwise>
         </choose>
 
-        <!-- 5. Reescribir el prefijo público /v1 al prefijo Nest /api/v1; health y docs no tienen prefijo api. -->
+        <!-- 6. Rewrite /v1 -> /api/v1 (excluyendo /health y /docs) -->
         <choose>
             <when condition='@(context.Request.Url.Path.ToLower() == "/v1/health" || context.Request.Url.Path.ToLower().StartsWith("/v1/health/") || context.Request.Url.Path.ToLower() == "/v1/docs" || context.Request.Url.Path.ToLower().StartsWith("/v1/docs/"))'>
                 <rewrite-uri template='@(context.Request.Url.Path.Substring(3))' copy-unmatched-params="true" />
@@ -86,15 +96,27 @@
 
     <outbound>
         <base />
-        <!-- Reflejar el mismo UUID en X-Correlation-Id y X-Request-Id + no-store -->
+        <choose>
+            <when condition='@((bool)context.Variables.GetValueOrDefault("isCacheableRoute", false))'>
+                <cache-store duration="60" caching-type="external" />
+                <set-header name="X-Cache" exists-action="override">
+                    <value>@((string)context.Variables.GetValueOrDefault("cacheStatus", "MISS"))</value>
+                </set-header>
+                <set-header name="Cache-Control" exists-action="override">
+                    <value>public, max-age=60</value>
+                </set-header>
+            </when>
+            <otherwise>
+                <set-header name="Cache-Control" exists-action="skip">
+                    <value>no-store</value>
+                </set-header>
+            </otherwise>
+        </choose>
         <set-header name="X-Correlation-Id" exists-action="override">
             <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
         </set-header>
         <set-header name="X-Request-Id" exists-action="override">
             <value>@((string)context.Variables.GetValueOrDefault("correlationId", Guid.NewGuid().ToString()))</value>
-        </set-header>
-        <set-header name="Cache-Control" exists-action="skip">
-            <value>no-store</value>
         </set-header>
     </outbound>
 
