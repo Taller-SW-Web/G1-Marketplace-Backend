@@ -1,9 +1,10 @@
 import { CatalogError } from './errors';
-import { createClientCredentialsTokenProvider } from './client-credentials-token';
+import { createClientCredentialsTokenProvider, SERVICE_SCOPE } from './client-credentials-token';
 import type { CatalogEnvironment, CatalogFetch } from './types';
 
 /** Shared authentication policy for catalog reads and F011. No automatic mode changes. */
-export function createG6Auth(env: CatalogEnvironment, fetchImpl: CatalogFetch, timeoutMs: number) {
+export function createG6Auth(env: CatalogEnvironment, fetchImpl: CatalogFetch, timeoutMs: number,
+  requiredScopes: readonly string[] = [SERVICE_SCOPE]) {
   const mode = env.PRODUCTOS_AUTH_MODE ?? 'service-token';
   const unavailable = (reason: string) => new CatalogError('CATALOG_UNAVAILABLE', 503, reason);
   if (!['service-token', 'demo-no-auth', 'public-read-only', 'client-credentials'].includes(mode) ||
@@ -21,7 +22,7 @@ export function createG6Auth(env: CatalogEnvironment, fetchImpl: CatalogFetch, t
         tokenUrl.pathname !== '/api/v1/auth/token' || tokenUrl.search || tokenUrl.hash ||
         !env.PRODUCTOS_CLIENT_SECRET) throw unavailable('PROVIDER_NOT_APPROVED');
     serviceTokens = createClientCredentialsTokenProvider({ tokenUrl, clientSecret: env.PRODUCTOS_CLIENT_SECRET,
-      timeoutMs, fetchImpl });
+      timeoutMs, fetchImpl, scopes: requiredScopes });
   }
   const staticToken = env.PRODUCTOS_SERVICE_TOKEN;
   return {
