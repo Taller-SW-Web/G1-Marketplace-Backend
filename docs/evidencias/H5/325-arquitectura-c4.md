@@ -1,6 +1,78 @@
 # #325 — Arquitectura C4 de la compra
 
-Diagrama de trabajo actualizado con los recorridos que ya tienen evidencia comunicada. APIM, RabbitMQ y webhook aparecen; faltan nombres/URLs desplegados y vistas C4 formales de contexto, contenedores y componentes.
+Vistas de contexto, contenedores y componentes para los sistemas confirmados: APIM, Marketplace BFF, RabbitMQ, consumidor de usuarios y webhook de Ventas. Las relaciones marcadas con evidencia enlazan a corridas o reportes; las conexiones de contexto no implican que todos los saltos se hayan medido en una sola traza distribuida.
+
+## Contexto — sistemas y actores
+
+```mermaid
+flowchart LR
+    Customer[Persona compradora]
+    APIM[APIM — gateway]
+    Marketplace[Marketplace]
+    G7[G7 Seguridad]
+    Rabbit[(RabbitMQ)]
+    Sales[Ventas]
+
+    Customer -->|API de compra / lectura| APIM
+    APIM --> Marketplace
+    Marketplace -->|checkout y consultas de pedidos| Sales
+    G7 -->|usuario.creado v1| Rabbit
+    Rabbit -->|marketplace.usuarios| Marketplace
+    Sales -->|ShipmentStatusUpdated| Marketplace
+```
+
+## Contenedores — unidades desplegables observadas
+
+```mermaid
+flowchart LR
+    APIM[APIM — gateway]
+    BFF[Marketplace BFF]
+    G7[G7 — productor de usuarios]
+    Rabbit[(RabbitMQ — exchange / cola marketplace.usuarios)]
+    Consumer[Marketplace — consumidor / inbox]
+    SalesAPI[Ventas — API de pedidos]
+    SalesWebhook[Ventas — productor de webhook]
+    Webhook[Marketplace — endpoint de webhook]
+    Store[(Persistencia de eventos)]
+
+    APIM -->|HTTP| BFF
+    BFF -->|POST checkout / GET orders| SalesAPI
+    G7 -->|usuario.creado v1; routing usuario.*| Rabbit
+    Rabbit -->|entrega a marketplace.usuarios| Consumer
+    SalesWebhook -->|ShipmentStatusUpdated| Webhook
+    Webhook --> Store
+```
+
+## Componentes — responsabilidades dentro del Marketplace
+
+```mermaid
+flowchart LR
+    APIM[APIM]
+    subgraph Marketplace[Marketplace]
+        Routes[Controladores BFF / rutas]
+        SalesAdapter[Adaptador de Ventas]
+        RabbitConsumer[Consumidor RabbitMQ]
+        Inbox[Inbox / deduplicación]
+        HookHandler[Handler del webhook]
+        EventStore[Persistencia de eventos]
+    end
+    Sales[Ventas]
+    Broker[(RabbitMQ)]
+
+    APIM --> Routes
+    Routes --> SalesAdapter
+    SalesAdapter --> Sales
+    Broker --> RabbitConsumer
+    RabbitConsumer --> Inbox
+    Sales --> HookHandler
+    HookHandler --> EventStore
+```
+
+Los nombres de los componentes internos son descriptivos y se deben contrastar con el código y el despliegue antes de tratarlos como nombres oficiales. Los diagramas muestran las responsabilidades observadas; no aseguran que la compra, el evento de usuario y el webhook compartan un `correlation-id`.
+
+### Vista de recorrido resumida
+
+El diagrama de abajo reúne los saltos con evidencia comunicada; no representa una traza única.
 
 ```mermaid
 flowchart LR
