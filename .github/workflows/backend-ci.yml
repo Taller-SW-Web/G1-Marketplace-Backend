@@ -118,3 +118,7 @@ jobs:
           npm run prisma:deploy
       - name: Run PostgreSQL integration suite with deterministic HTTP doubles
         run: npm run test:integration:ci
+      - name: Verify shipment webhook baseline and one-shot QA failure
+        env:
+          RUN_H5_WEBHOOK_POSTGRES: 'true'
+        run: npx jest --config ./test/jest-e2e.json --runInBand --runTestsByPath test/ventas-shipment-webhook.postgres.e2e-spec.ts
