@@ -1078,9 +1078,9 @@ describe('CheckoutService', () => {
       expect(result.status).toBe(200);
       expect(result.data).toMatchObject({ state: 'SUCCEEDED', order: { state: 'PAGADO' } });
       expect(gateway.getOrder).toHaveBeenCalledTimes(3);
-      expect(gateway.getOrder).toHaveBeenNthCalledWith(1, 'PED-2026-00002', 'synthetic-customer-jwt');
-      expect(gateway.getOrder).toHaveBeenNthCalledWith(2, 'PED-2026-00002', 'synthetic-customer-jwt');
-      expect(gateway.getOrder).toHaveBeenNthCalledWith(3, 'PED-2026-00002', 'synthetic-customer-jwt');
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(1, 'PED-2026-00002', 'synthetic-customer-jwt', 60_000);
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(2, 'PED-2026-00002', 'synthetic-customer-jwt', 57_500);
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(3, 'PED-2026-00002', 'synthetic-customer-jwt', 55_000);
     } finally {
       jest.useRealTimers();
     }

@@ -223,10 +223,10 @@ export class MarketplaceGateway {
     });
   }
 
-  getOrder(orderId: string, customerAccessToken?: string): Promise<SalesOrder> {
+  getOrder(orderId: string, customerAccessToken?: string, remainingMs?: number): Promise<SalesOrder> {
     if (this.usesG5Sales()) {
       if (!this.g5Sales || !customerAccessToken) throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
-      return this.g5Sales.getOrder(orderId, customerAccessToken);
+      return this.g5Sales.getOrder(orderId, customerAccessToken, remainingMs);
     }
     return this.request('get', `http://sales.mock/orders/${encodeURIComponent(orderId)}`);
   }

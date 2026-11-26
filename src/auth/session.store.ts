@@ -70,6 +70,23 @@ export class SessionStore {
         try { session = { id, expiresAt: row.expiresAt, data: this.decrypt(id, row.encrypted) }; }
         catch { /* A tampered row or changed key never grants a session. */ }
       }
+      if (row && session && session.data.kind === 'session') {
+        const userId = session.data.tokens.usuario.id;
+        const userState = await tx.securityUserState?.findUnique({
+          where: { userId },
+          select: { status: true, invalidatedAt: true },
+        });
+        const restricted = userState && (
+          userState.status === 'BLOCKED'
+          || userState.status === 'DEACTIVATED'
+          || (userState.invalidatedAt !== null && row.createdAt.getTime() < userState.invalidatedAt.getTime())
+        );
+        if (restricted) {
+          // Invalidates both customer_id-linked sessions and legacy customer_id=NULL sessions on read.
+          await tx.authSession.delete({ where: { id } });
+          return (await operation(null, Boolean(row))).result;
+        }
+      }
       // rowExisted lets callers tell an absent session from one that exists but cannot be read (expired, tampered, key changed).
       const change = await operation(session, Boolean(row));
       if (row && (!session || change.remove)) await tx.authSession.delete({ where: { id } });

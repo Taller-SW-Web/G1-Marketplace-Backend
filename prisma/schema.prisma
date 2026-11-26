@@ -210,12 +210,14 @@ model ShipmentEventInbox {
   @@map("shipment_event_inbox")
 }
 
-// Pending C-002 handoff. The source event has no recipient data.
+// C-002 handoff. The source event has no recipient data.
 model ShipmentMailNotice {
-  eventId  String             @id @map("event_id") @db.VarChar(255)
-  queuedAt DateTime           @default(now()) @map("queued_at") @db.Timestamptz(6)
-  sentAt   DateTime?          @map("sent_at") @db.Timestamptz(6)
-  event    ShipmentEventInbox @relation(fields: [eventId], references: [eventId], onDelete: Restrict)
+  eventId           String             @id @map("event_id") @db.VarChar(255)
+  queuedAt          DateTime           @default(now()) @map("queued_at") @db.Timestamptz(6)
+  attemptedAt       DateTime?          @map("attempted_at") @db.Timestamptz(6)
+  sentAt            DateTime?          @map("sent_at") @db.Timestamptz(6)
+  providerMessageId String?            @map("provider_message_id") @db.VarChar(512)
+  event             ShipmentEventInbox @relation(fields: [eventId], references: [eventId], onDelete: Restrict)
 
   @@index([sentAt, queuedAt], map: "shipment_mail_notice_pending_idx")
   @@map("shipment_mail_notice")
