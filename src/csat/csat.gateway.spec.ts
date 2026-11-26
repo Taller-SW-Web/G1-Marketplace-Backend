@@ -1,8 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { SalesCsatGateway } from './csat.gateway';
 
-function makeConfig(overrides: Record<string, string | number> = {}) {
-  const values: Record<string, string | number> = {
+function makeConfig(overrides: Record<string, string | number | undefined> = {}) {
+  const values: Record<string, string | number | undefined> = {
     CSAT_SALES_BASE_URL: 'https://sales.example.test',
     CSAT_POSTVENTA_BASE_URL: 'https://postventa.example.test',
     HTTP_TIMEOUT_MS: 3000,
