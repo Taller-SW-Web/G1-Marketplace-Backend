@@ -1,3 +1,15 @@
+## [1.13.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.12.0...v1.13.0) (2026-11-26)
+
+### Features
+
+* **rabbitmq:** admitir un usuario de pruebas compartido ([18ba05c](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/18ba05c3bd18362d75f8b9c690e85adc34ce73b9)), closes [#313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313)
+* **rabbitmq:** preparar el broker de pruebas de Seguridad ([b232e28](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/b232e28752aefc523fae5e3fe030b60ae3abeb9e)), closes [#313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313)
+
+### Bug Fixes
+
+* **rabbitmq:** align DLX topology and retry permissions ([8c64511](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/8c64511acbf3f682619ec76d3420da77004d1db3))
+* **rabbitmq:** etiquetar el transporte de publicación y lectura ([8c430e1](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/commit/8c430e1ae3a9f15efe4888bc8dd15b6f7e49f3bd))
+
 ## [1.12.0](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/compare/v1.11.0...v1.12.0) (2026-11-24)
 
 ### Features
