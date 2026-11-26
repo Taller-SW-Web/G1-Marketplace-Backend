@@ -1,38 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { CheckoutQuote } from './checkout.types';
 
+interface StoredQuote {
+  customerId: string;
+  quote: CheckoutQuote;
+}
+
 @Injectable()
 export class QuotesService {
-  private readonly quotes = new Map<string, Map<string, CheckoutQuote>>();
+  private readonly quotes = new Map<string, StoredQuote>();
   private readonly activeQuoteByCustomer = new Map<string, string>();
 
   replace(customerId: string, quote: CheckoutQuote): CheckoutQuote {
     const previousId = this.activeQuoteByCustomer.get(customerId);
-    const customerQuotes = this.quotes.get(customerId) ?? new Map<string, CheckoutQuote>();
-    if (previousId) customerQuotes.delete(previousId);
-    customerQuotes.set(quote.quoteId, quote);
-    this.quotes.set(customerId, customerQuotes);
+    if (previousId) this.quotes.delete(previousId);
+    this.quotes.set(quote.quoteId, { customerId, quote });
     this.activeQuoteByCustomer.set(customerId, quote.quoteId);
     return quote;
   }
 
   get(customerId: string, quoteId: string): CheckoutQuote | undefined {
-    const customerQuotes = this.quotes.get(customerId);
-    if (!customerQuotes) return undefined;
-    const quote = customerQuotes.get(quoteId);
-    if (!quote) return undefined;
-    if (Date.parse(quote.expiresAt) <= Date.now()) {
-      customerQuotes.delete(quoteId);
+    const stored = this.quotes.get(quoteId);
+    if (!stored || stored.customerId !== customerId) return undefined;
+    if (Date.parse(stored.quote.expiresAt) <= Date.now()) {
+      this.quotes.delete(quoteId);
       if (this.activeQuoteByCustomer.get(customerId) === quoteId) {
         this.activeQuoteByCustomer.delete(customerId);
       }
       return undefined;
     }
-    return quote;
+    return stored.quote;
   }
 
   invalidate(customerId: string): void {
-    this.quotes.delete(customerId);
+    const quoteId = this.activeQuoteByCustomer.get(customerId);
+    if (quoteId) this.quotes.delete(quoteId);
     this.activeQuoteByCustomer.delete(customerId);
   }
 }

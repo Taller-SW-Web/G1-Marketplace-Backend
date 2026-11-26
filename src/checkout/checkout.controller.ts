@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -30,17 +29,14 @@ export class CheckoutController {
   constructor(private readonly checkout: CheckoutService) {}
 
   @Get('delivery-addresses')
-  @Header('Cache-Control', 'no-store, private')
   async listAddresses(@Req() request: AuthenticatedRequest) {
     const addresses = await this.checkout.listAddresses(
-      this.customerId(request),
       this.accessToken(request),
     );
     return { data: addresses };
   }
 
   @Post('delivery-addresses')
-  @Header('Cache-Control', 'no-store, private')
   async createAddress(
     @Req() request: AuthenticatedRequest,
     @Body() input: CreateDeliveryAddressDto,
@@ -59,12 +55,10 @@ export class CheckoutController {
     @Req() request: AuthenticatedRequest,
     @Body() input: CreateQuoteDto,
   ) {
-    const sessionHash = this.cartSession(request);
     const quote = await this.checkout.createQuote(
       this.customerId(request),
       this.accessToken(request),
       input,
-      sessionHash,
     );
     return { data: quote };
   }
@@ -88,7 +82,6 @@ export class CheckoutController {
       this.customerId(request),
       input,
       this.header(request, 'idempotency-key'),
-      this.cartSession(request),
     );
     return { data: operation };
   }
@@ -103,7 +96,6 @@ export class CheckoutController {
       this.customerId(request),
       input,
       this.header(request, 'idempotency-key'),
-      this.cartSession(request),
     );
     response.status(result.status);
     return { data: result.data };
@@ -122,11 +114,7 @@ export class CheckoutController {
     ) operationId: string,
     @Res({ passthrough: true }) response: StatusResponse,
   ) {
-    const result = await this.checkout.getOperation(
-      this.customerId(request),
-      operationId,
-      this.cartSession(request),
-    );
+    const result = await this.checkout.getOperation(this.customerId(request), operationId);
     response.status(result.status);
     return { data: result.data };
   }
@@ -147,11 +135,5 @@ export class CheckoutController {
     const headers = request.headers;
     const value = headers[name] ?? headers[name.toLowerCase()];
     return Array.isArray(value) ? value[0] : value;
-  }
-
-  private cartSession(request: AuthenticatedRequest): string | undefined {
-    const cookie = this.header(request, 'cookie');
-    const session = cookie && /(?:^|;\s*)cart_session=([A-Za-z0-9_-]{16,128})(?:;|$)/.exec(cookie);
-    return session?.[1];
   }
 }

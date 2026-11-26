@@ -8,7 +8,7 @@ export interface ProductProjection {
   brand: string | null;
   image: { url: string; alt: string } | null;
   price: { amount: number; currency: string } | null;
-  availability: 'AVAILABLE' | 'OUT_OF_STOCK' | 'UNDETERMINED' | 'UNAVAILABLE';
+  availability: 'AVAILABLE' | 'OUT_OF_STOCK' | 'UNAVAILABLE';
 }
 export interface CommerceQuote {
   amount: number;

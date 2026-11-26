@@ -25,15 +25,18 @@
  */
 
 import {
+  CallHandler,
   Controller,
+  ExecutionContext,
   Get,
+  Injectable,
   Param,
-  Req,
   UseFilters,
   UseInterceptors,
+  type NestInterceptor,
 } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { ProblemDetailsFilter } from '../http/problem-details.filter';
-import { CatalogSourceInterceptor } from './catalog-source.interceptor';
 import type { ProductDetailResponseDTO } from './product-detail.dto';
 import { CatalogException, ERROR_CODES } from './product-detail.errors';
 import { ProductDetailService } from './product-detail.service';
@@ -71,9 +74,26 @@ function validateSlug(slug: string): SlugValidation {
 }
 
 /**
- * El origen MOCK/REAL (`X-Catalog-Source`) lo fija `CatalogSourceInterceptor`,
- * compartido con los endpoints F-012…F-015.
+ * Origen de las respuestas del catálogo para el header `X-Catalog-Source`
+ * (consumido por el proxy compartido del frontend `/api/catalog/...`).
+ * MOCK mientras I-01 esté bloqueado; REAL cuando opere el adaptador.
  */
+function catalogSource(): 'MOCK' | 'REAL' {
+  return (process.env.BFF_MODE ?? 'mock') === 'mock' ? 'MOCK' : 'REAL';
+}
+
+/**
+ * Cabecera de origen en éxito y error de este endpoint (staged en la
+ * respuesta por Express; aplica también cuando se lanza una excepción).
+ */
+@Injectable()
+class CatalogSourceInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler<unknown>): Observable<unknown> {
+    const response = context.switchToHttp().getResponse<{ setHeader(name: string, value: string): void }>();
+    response.setHeader('X-Catalog-Source', catalogSource());
+    return next.handle();
+  }
+}
 
 @Controller('api/v1/catalog/products')
 @UseInterceptors(CatalogSourceInterceptor)
@@ -82,7 +102,7 @@ export class ProductDetailController {
   constructor(private readonly productDetail: ProductDetailService) {}
 
   @Get(':slug')
-  async getBySlug(@Param('slug') slug: string, @Req() request?: { requestId?: string }): Promise<ProductDetailResponseDTO> {
+  async getBySlug(@Param('slug') slug: string): Promise<ProductDetailResponseDTO> {
     // Validar slug ANTES de llamar al servicio
     const validation = validateSlug(slug);
     if (!validation.valid) {
@@ -90,7 +110,7 @@ export class ProductDetailController {
     }
 
     try {
-      return await this.productDetail.getBySlug(slug, request?.requestId);
+      return await this.productDetail.getBySlug(slug);
     } catch (error) {
       if (error instanceof CatalogException) throw error;
 

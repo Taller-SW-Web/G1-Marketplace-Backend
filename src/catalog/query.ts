@@ -1,21 +1,6 @@
 import { CatalogError } from "./errors";
 import type { CatalogQuery } from "./types";
-const allowedKeys = new Set(["q", "page", "pageSize", "categoryIds", "brandIds", "minPrice", "maxPrice", "sort"]);
-
-function identifier(value: string | null): string | undefined {
-  if (value === null) return undefined;
-  // Published G6 contract accepts one category and one brand, never CSV/local filtering.
-  if (!/^[\p{L}\p{N}_-]{1,120}$/u.test(value)) throw new CatalogError("INVALID_FILTER", 400);
-  return value;
-}
-
-function money(value: string | null): number | undefined {
-  if (value === null) return undefined;
-  if (!/^\d{1,13}(?:\.\d{1,2})?$/.test(value)) throw new CatalogError("INVALID_PRICE_RANGE", 400);
-  const amount = Number(value);
-  if (!Number.isSafeInteger(Math.round(amount * 100))) throw new CatalogError("INVALID_PRICE_RANGE", 400);
-  return amount;
-}
+const allowedKeys = new Set(["q", "page", "pageSize", "categoryIds", "sort"]);
 
 function integer(value: string | null, fallback: number, min: number, max: number) {
   if (value === null) return fallback;
@@ -34,13 +19,11 @@ export function parseQuery(params: URLSearchParams): CatalogQuery {
   const q = (params.get("q") || "").trim().replace(/\s+/gu, " ");
   if (q && (Array.from(q).length < 2 || Array.from(q).length > 120))
     throw new CatalogError("INVALID_SEARCH_QUERY", 400);
-  const categoryId = identifier(params.get("categoryIds"));
-  const brandId = identifier(params.get("brandIds"));
-  const minPrice = money(params.get("minPrice"));
-  const maxPrice = money(params.get("maxPrice"));
-  if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice)
-    throw new CatalogError("INVALID_PRICE_RANGE", 400);
-  const sort = params.get("sort") ?? undefined;
+  const categoryId = params.get("categoryIds") || undefined;
+  // G6 currently publishes a single categoriaId; never filter an incomplete page locally.
+  if (categoryId && !/^[\p{L}\p{N}_-]{1,120}$/u.test(categoryId))
+    throw new CatalogError("INVALID_FILTER", 400);
+  const sort = params.get("sort") || undefined;
   if (sort !== undefined && sort !== "NAME_ASC" && sort !== "NAME_DESC")
     throw new CatalogError("INVALID_SORT", 400);
   return {
@@ -48,9 +31,6 @@ export function parseQuery(params: URLSearchParams): CatalogQuery {
     page: integer(params.get("page"), 0, 0, 1000000),
     pageSize: integer(params.get("pageSize"), 24, 1, 48),
     categoryId,
-    brandId,
-    minPrice,
-    maxPrice,
     sort,
   };
 }
