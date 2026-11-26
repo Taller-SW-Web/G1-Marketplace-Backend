@@ -3,7 +3,7 @@ name: BE 312 APIM QA evidence
 on:
   push:
     branches: [docs/h5-312-apim-traffic-evidence]
-    paths: [.github/workflows/apim-312-evidence.yml]
+    paths: [.github/workflows/apim-312-evidence.yml, scripts/verify-apim-policies.mjs]
 
 permissions:
   contents: read

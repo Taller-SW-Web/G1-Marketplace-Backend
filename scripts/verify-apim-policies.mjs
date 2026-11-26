@@ -6,12 +6,12 @@ const subscriptionKey = process.env.APIM_SUBSCRIPTION_KEY?.trim();
 const runRateLimit = process.env.APIM_RUN_RATE_LIMIT === 'true';
 const jwtRejection = 'Acceso no autorizado: Token JWT invalido, expirado o ausente';
 
-async function callApim(baseUrl, path) {
+async function callApim(baseUrl, path, timeoutMs = 10_000) {
   const correlationId = `apim-312-${randomUUID()}`;
   const timestamp = new Date().toISOString();
   const response = await fetch(`${baseUrl}${path}`, {
     headers: { 'api-key': subscriptionKey, 'X-Correlation-Id': correlationId },
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(timeoutMs),
     redirect: 'error',
   });
   const body = await response.text();
@@ -40,7 +40,7 @@ async function main() {
     if (!passed) failures.push(name);
   }
 
-  const health = await call('/health');
+  const health = await callApim(baseUrl, '/health', 45_000);
   check('subscription', health.status === 200, health);
   if (health.status !== 200) throw new Error('La suscripción debe obtener HTTP 200 en /health para continuar.');
 
