@@ -2,6 +2,8 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
+import { createConfiguredCommercialMailTransport } from '../src/notifications/commercial-mail-transport';
+import { processC002QaNotice } from '../src/webhooks/ventas/c002-qa.worker';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ShipmentWebhookController } from '../src/webhooks/ventas/shipment-webhook.controller';
 import {
@@ -16,6 +18,7 @@ const eventIds = [
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
 ];
 
 function createEvent(eventId: string, overrides: Partial<ShipmentStatusUpdatedEvent['data']> = {}): ShipmentStatusUpdatedEvent {
@@ -76,6 +79,7 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
   });
 
   afterEach(async () => {
+    await prisma.shipmentMailNotice.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.shipmentEventInbox.deleteMany({ where: { eventId: { in: eventIds } } });
     jest.restoreAllMocks();
   });
@@ -105,6 +109,90 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
 
     const stored = await prisma.shipmentEventInbox.findUnique({ where: { eventId: eventIds[1] } });
     expect(stored).toMatchObject({ orderId: 'PED-2099-99999', payload: shipmentEvent });
+  });
+
+  const qaSettings = {
+    orderId: 'PED-2026-00001',
+    to: 'comprador-qa@example.org',
+    eventAfter: new Date('2000-01-01T00:00:00Z'),
+    webOrigin: 'https://marketplace.example.org',
+  };
+
+  function stubBrevo(response: () => Response) {
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockImplementation(async () => response());
+    const transport = createConfiguredCommercialMailTransport({
+      MAIL_PROVIDER: 'brevo',
+      BREVO_ENABLED: 'true',
+      BREVO_API_KEY: 'unit-test-only',
+      BREVO_SENDER_EMAIL: 'marketplace-qa@example.org',
+    }, fetchImpl);
+    return { fetchImpl, transport };
+  }
+
+  it('sends C-002 once after DESPACHADO across repeats and concurrent consumers', async () => {
+    const event = createEvent(eventIds[0], { publicStatus: 'DESPACHADO' });
+    await postEvent(event).expect(200);
+    await postEvent(event).expect(200, { data: { accepted: true, duplicate: true } });
+    expect(await prisma.shipmentMailNotice.count({ where: { eventId: event.eventId } })).toBe(1);
+
+    // These events must remain unclaimed: a different order, an older receipt
+    // and a state for which the database never queues C-002.
+    await postEvent(createEvent(eventIds[1], { orderId: 'PED-2026-00002', publicStatus: 'DESPACHADO' })).expect(200);
+    await postEvent(createEvent(eventIds[2], { publicStatus: 'DESPACHADO' })).expect(200);
+    await prisma.shipmentEventInbox.update({
+      where: { eventId: eventIds[2] },
+      data: { receivedAt: new Date('1999-12-31T23:59:59Z') },
+    });
+    await postEvent(createEvent(eventIds[3], { publicStatus: 'ENTREGADO' })).expect(200);
+
+    const providerId = '<qa-c002@provider.example.org>';
+    const { fetchImpl, transport } = stubBrevo(() => Response.json({ messageId: providerId }, { status: 201 }));
+    const queue = prisma.shipmentMailNotice;
+    const results = await Promise.all([
+      processC002QaNotice(queue, qaSettings, transport),
+      processC002QaNotice(queue, qaSettings, transport),
+    ]);
+    expect(results.filter(result => result.status === 'sent')).toHaveLength(1);
+    await expect(processC002QaNotice(queue, qaSettings, transport)).resolves.toEqual({ status: 'idle' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, request] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe('https://api.brevo.com/v3/smtp/email');
+    expect(JSON.parse(String(request?.body))).toMatchObject({
+      to: [{ email: qaSettings.to }],
+      textContent: expect.stringContaining(`/mis-pedidos/${qaSettings.orderId}/seguimiento`),
+    });
+    await expect(queue.findUnique({ where: { eventId: event.eventId } })).resolves.toMatchObject({
+      attemptedAt: expect.any(Date),
+      sentAt: expect.any(Date),
+      providerMessageId: providerId,
+    });
+    for (const eventId of [eventIds[1], eventIds[2]]) {
+      await expect(queue.findUnique({ where: { eventId } })).resolves.toMatchObject({
+        attemptedAt: null,
+        sentAt: null,
+        providerMessageId: null,
+      });
+    }
+    await expect(queue.findUnique({ where: { eventId: eventIds[3] } })).resolves.toBeNull();
+  });
+
+  it('keeps an unconfirmed delivery claimed without marking it sent or retrying', async () => {
+    const event = createEvent(eventIds[0], { publicStatus: 'DESPACHADO', estimatedDeliveryDate: null });
+    await postEvent(event).expect(200);
+    const { fetchImpl, transport } = stubBrevo(() => Response.json({}, { status: 503 }));
+    const queue = prisma.shipmentMailNotice;
+    await expect(processC002QaNotice(queue, qaSettings, transport)).resolves.toEqual({
+      status: 'unconfirmed',
+      eventId: event.eventId,
+    });
+    await expect(processC002QaNotice(queue, qaSettings, transport)).resolves.toEqual({ status: 'idle' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await expect(queue.findUnique({ where: { eventId: event.eventId } })).resolves.toMatchObject({
+      attemptedAt: expect.any(Date),
+      sentAt: null,
+      providerMessageId: null,
+    });
   });
 
   it('returns 503 when the inbox insert fails and leaves no row', async () => {

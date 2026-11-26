@@ -89,6 +89,15 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     throw new Error('HTTP_TIMEOUT_MS must be an integer between 1 and 30000');
   }
   if (authEnabled === 'true' && httpTimeoutMs > 5000) throw new Error('G7 session flow requires HTTP_TIMEOUT_MS <= 5000');
+  const salesTimeouts = {
+    G5_SALES_TIMEOUT_MS: Number(config.G5_SALES_TIMEOUT_MS ?? 30_000),
+    G7_SERVICE_TOKEN_TIMEOUT_MS: Number(config.G7_SERVICE_TOKEN_TIMEOUT_MS ?? 15_000),
+  };
+  for (const [name, value] of Object.entries(salesTimeouts)) {
+    if (!Number.isInteger(value) || value < 100 || value > 60_000) {
+      throw new Error(`${name} must be an integer between 100 and 60000`);
+    }
+  }
   const checkoutSalesSource = String(config.CHECKOUT_SALES_SOURCE ?? 'mock');
   if (!['mock', 'g5'].includes(checkoutSalesSource)) throw new Error('CHECKOUT_SALES_SOURCE must be mock or g5');
   const g5Approved = String(config.G5_SALES_INTEGRATION_APPROVED ?? 'false');
@@ -132,7 +141,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   }
   return {
     ...config, PORT: port, H3_SANDBOX_ENABLED: sandbox, CORS_ORIGINS: origins, AUTH_ENABLED: authEnabled,
-    NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs,
+    NODE_ENV: nodeEnv, USE_MOCKS: useMocks === 'true', HTTP_TIMEOUT_MS: httpTimeoutMs, ...salesTimeouts,
     CHECKOUT_SALES_SOURCE: checkoutSalesSource, G5_SALES_INTEGRATION_APPROVED: g5Approved,
     G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: g5ProductFallback,
     ORDERS_SOURCE: ordersSource,
