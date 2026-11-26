@@ -10,6 +10,7 @@ export const SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY = 'descartado';
 export const SECURITY_USER_EVENT_TYPES = [
   'usuario.creado',
   'usuario.desactivado',
+  'usuario.eliminado',
   'usuario.reactivado',
   'usuario.bloqueado',
   'usuario.desbloqueado',
@@ -74,6 +75,8 @@ function validEventData(eventType: SecurityUserEventType, data: JsonObject): boo
       return isStringArray(data.roles, ROLE_PATTERN);
     case 'usuario.desactivado':
       return isNonEmptyString(data.motivo);
+    case 'usuario.eliminado':
+      return data.motivo === undefined || isNonEmptyString(data.motivo);
     case 'usuario.bloqueado':
       return typeof data.automatico === 'boolean'
         && (data.hasta === null || validUtcTimestamp(data.hasta));

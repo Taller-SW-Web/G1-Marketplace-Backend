@@ -38,11 +38,18 @@ export class SessionStore {
     return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8')) as SessionData;
   }
 
-  async create(data: SessionData, expiresAt: Date): Promise<string> {
+  async create(data: SessionData, expiresAt: Date, customerId?: string): Promise<string> {
     const opaque = randomBytes(32).toString('base64url');
     const id = sessionHash(opaque);
-    await this.prisma.authSession.create({ data: { id, encrypted: this.encrypt(id, data), expiresAt } });
+    await this.prisma.authSession.create({
+      data: { id, customerId: customerId ?? null, encrypted: this.encrypt(id, data), expiresAt },
+    });
     return opaque;
+  }
+
+  async removeByCustomerId(customerId: string): Promise<number> {
+    const result = await this.prisma.authSession.deleteMany({ where: { customerId } });
+    return result.count;
   }
 
   async remove(opaque: string | undefined): Promise<void> {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityUserEvent } from './security-user-event';
 
@@ -16,8 +17,15 @@ export class SecurityUserEventInboxService {
   constructor(private readonly prisma: PrismaService) {}
 
   async record(event: SecurityUserEvent): Promise<RecordSecurityUserEventResult> {
+    return this.recordWithClient(this.prisma, event);
+  }
+
+  async recordWithClient(
+    client: Prisma.TransactionClient | PrismaService,
+    event: SecurityUserEvent,
+  ): Promise<RecordSecurityUserEventResult> {
     try {
-      await this.prisma.securityUserEventInbox.create({
+      await client.securityUserEventInbox.create({
         data: {
           eventId: event.eventId,
           eventType: event.eventType,
@@ -29,7 +37,7 @@ export class SecurityUserEventInboxService {
     } catch (error) {
       if (!this.isUniqueConflict(error)) throw error;
 
-      const existing = await this.prisma.securityUserEventInbox.findUnique({
+      const existing = await client.securityUserEventInbox.findUnique({
         where: { eventId: event.eventId },
         select: { eventType: true, eventVersion: true, payloadSha256: true },
       });

@@ -3,6 +3,7 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
@@ -12,6 +13,7 @@ import {
   ConsumeMessage,
 } from 'amqplib';
 import { SecurityUserEventIdentityConflictError, SecurityUserEventInboxService } from './security-user-event-inbox.service';
+import { SecurityUserReactionService } from './security-user-reaction.service';
 import {
   parseSecurityUserEvent,
   SECURITY_USER_EVENTS_BINDING,
@@ -52,6 +54,7 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   constructor(
     private readonly config: ConfigService,
     private readonly inbox: SecurityUserEventInboxService,
+    @Optional() private readonly reactions?: SecurityUserReactionService,
   ) {
     this.enabled = this.config.get<boolean>('SECURITY_EVENTS_ENABLED', false);
     this.rabbitUrl = this.config.get<string>('RABBITMQ_URL', '');
@@ -187,7 +190,9 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
 
     let result: 'recorded' | 'duplicate';
     try {
-      result = await this.inbox.record(parsed.event);
+      result = this.reactions
+        ? await this.reactions.handleEvent(parsed.event)
+        : await this.inbox.record(parsed.event);
     } catch (error) {
       if (error instanceof SecurityUserEventIdentityConflictError) {
         await this.moveToDlqOrRedeliver(channel, message, 'event_id_payload_conflict');
