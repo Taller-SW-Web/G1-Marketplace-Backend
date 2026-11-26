@@ -112,7 +112,7 @@ Ensayo del 26 de noviembre de 2026 con el pedido sintético `PED-2026-90001`. Am
 | Hora de Lima | Acción | Resultado observado |
 | --- | --- | --- |
 | 17:07:59 | Ventas envió `DESPACHADO`. | Evento inicial del ensayo QA. |
-| 17:08:37 | El worker procesó el aviso en Render. | Estado `sent`, Brevo HTTP 201 y recepción en el buzón QA. |
+| 17:08:37 | El worker procesó el aviso en Render. | Estado `sent` y Brevo HTTP 201. |
 | 17:09:12 | Ventas reenvió el mismo `eventId`. | El buzón conservó un correo total y los logs mostraron un solo registro de envío para ese evento. |
 
 - [x] Señal integrada `DESPACHADO` recibida y procesada en Render.
