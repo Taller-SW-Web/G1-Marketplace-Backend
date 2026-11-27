@@ -32,8 +32,8 @@ function buildModuleSpecs(env = process.env) {
       token: env.G6_SANDBOX_TOKEN,
       apiKey: env.G6_SANDBOX_API_KEY,
       checks: [
-        { id: 'G6-POS', label: 'Lectura pública catálogo', path: '/api/v1/catalog/products?page=0&pageSize=1', expectedStatuses: [200] },
-        { id: 'G6-NEG', label: 'Parámetro de paginación inválido', path: '/api/v1/catalog/products?page=-1&pageSize=1', expectedStatuses: [400, 422] },
+        { id: 'G6-POS', label: 'Lectura pública catálogo G6', path: '/api/v1/productos?canal=MARKETPLACE&pagina=1&tamanio=1', expectedStatuses: [200] },
+        { id: 'G6-NEG', label: 'Parámetro de paginación inválido', path: '/api/v1/productos?canal=MARKETPLACE&pagina=-1&tamanio=1', expectedStatuses: [400, 422] },
       ],
     },
     {
@@ -55,7 +55,7 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G5_SANDBOX_API_KEY,
       checks: [
         { id: 'G5-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G5-NEG', label: 'Orden protegida sin JWT', path: '/api/v1/orders/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
+        { id: 'G5-NEG', label: 'Pedido protegido sin JWT', path: '/api/v1/pedidos/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
       ],
     },
     {
@@ -178,12 +178,13 @@ export async function runRealSandboxSuite({
     }
 
     const allReal = checks.every((c) => c.source === 'REAL');
+    const anyHttpFail = checks.some((c) => c.status === 'FAIL');
     const allPassed = checks.every((c) => c.passed);
     modules.push({
       module: spec.module,
       name: spec.name,
-      source: allReal ? 'REAL' : 'NO_DISPONIBLE',
-      status: allPassed ? 'PASS' : allReal ? 'FAIL' : 'NO_DISPONIBLE',
+      source: anyHttpFail || allReal ? 'REAL' : 'NO_DISPONIBLE',
+      status: anyHttpFail ? 'FAIL' : allPassed ? 'PASS' : 'NO_DISPONIBLE',
       checks,
     });
   }

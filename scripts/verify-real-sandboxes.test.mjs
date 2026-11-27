@@ -20,14 +20,14 @@ test('executes REAL checks, propagates X-Correlation-Id, and omits secrets/PII',
     const correlationId = init.headers['X-Correlation-Id'];
     assert.ok(correlationId.startsWith('h5-298-'));
 
-    if (url.pathname.includes('/catalog/products') && url.searchParams.get('page') === '-1') {
+    if (url.pathname.includes('/api/v1/productos') && url.searchParams.get('pagina') === '-1') {
       return new Response(JSON.stringify({ code: 'INVALID' }), {
         status: 400,
         headers: { 'x-correlation-id': correlationId },
       });
     }
-    if (url.pathname.includes('/catalog/products')) {
-      return new Response(JSON.stringify({ data: [] }), {
+    if (url.pathname.includes('/api/v1/productos')) {
+      return new Response(JSON.stringify({ items: [] }), {
         status: 200,
         headers: { 'x-correlation-id': correlationId },
       });
@@ -90,4 +90,33 @@ test('handles transport timeout cleanly as NO_DISPONIBLE', async () => {
   assert.equal(g5.source, 'NO_DISPONIBLE');
   assert.equal(g5.status, 'NO_DISPONIBLE');
   assert.equal(g5.checks[0].status, 'TIMEOUT');
+});
+
+test('marks module as FAIL when one check returns unexpected HTTP and another times out (local HTTP double)', async () => {
+  const { createServer } = await import('node:http');
+  const server = createServer((req, res) => {
+    if (req.url === '/health') {
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'internal' }));
+      return;
+    }
+    // Leave /api/v1/pedidos/... hanging to trigger AbortSignal.timeout
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  try {
+    const report = await runRealSandboxSuite({
+      env: { G5_SANDBOX_URL: `http://127.0.0.1:${port}` },
+      timeoutMs: 120,
+    });
+    const g5 = report.modules.find((m) => m.module === 'G5');
+    assert.equal(g5.status, 'FAIL');
+    assert.equal(g5.checks[0].status, 'FAIL');
+    assert.equal(g5.checks[0].httpStatus, 500);
+    assert.equal(g5.checks[1].status, 'TIMEOUT');
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
