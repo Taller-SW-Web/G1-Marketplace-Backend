@@ -39,6 +39,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   let getStatus = 200;
   let getRetryAfter: string | undefined;
   let getRequests = 0;
+  let slowBodyMs = 0;
   let responseBody: unknown;
   let lastRequest: { method?: string; url?: string; authorization?: string | string[]; idempotencyKey?: string | string[]; body?: unknown } = {};
   const created = new Map<string, string>();
@@ -77,6 +78,20 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
         }
         created.set(key, fingerprint);
         response.writeHead(previous ? 200 : postStatus, { 'content-type': 'application/json' });
+        if (slowBodyMs > 0) {
+          // cabeceras al instante y cuerpo en partes con pausas menores que el timeout de inactividad de Axios:
+          // el socket nunca queda inactivo, pero la respuesta completa tarda más que el plazo total
+          const full = JSON.stringify(responseBody);
+          const parts = full.match(/[\s\S]{1,20}/g) ?? [full];
+          let sent = 0;
+          const timer = setInterval(() => {
+            response.write(parts[sent]);
+            sent += 1;
+            if (sent === parts.length) { clearInterval(timer); response.end(); }
+          }, slowBodyMs);
+          response.on('close', () => clearInterval(timer));
+          return;
+        }
         response.end(JSON.stringify(responseBody));
       });
     });
@@ -102,6 +117,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       fechaCreacion: '2026-11-24T10:15:00.000Z',
     };
     lastRequest = {};
+    slowBodyMs = 0;
     created.clear();
   });
 
@@ -185,6 +201,22 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       const recovered = await client.createOrder(payload, idempotencyKey, Date.now() + 40_000);
       expect(recovered).toMatchObject({ pedidoId: 'PED-2026-00006', estado: 'CREADO' });
       expect(posts).toEqual([{ idempotencyKey }]);
+    });
+
+    it('enforces an absolute deadline until the whole body is read and keeps the same key for recovery', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const client = budgetProvider(getAccessToken);
+      slowBodyMs = 60; // cada parte tarda 60 ms (< 180 ms de plazo) pero el cuerpo completo supera el plazo total
+      const startedAt = Date.now();
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() + 180))
+        .rejects.toMatchObject({ status: 504, message: expect.stringContaining('SALES_TIMEOUT') });
+      expect(Date.now() - startedAt).toBeLessThan(400);
+      // el POST sí llegó a Ventas: se conserva la clave y la recuperación crea una sola alta
+      expect(created.size).toBe(1);
+      expect(lastRequest).toMatchObject({ method: 'POST', idempotencyKey });
+      slowBodyMs = 0;
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() + 5_000)).resolves.toMatchObject({ pedidoId: 'PED-2026-00001' });
+      expect(created.size).toBe(1);
     });
 
     it('limits the POST to the remaining budget instead of the configured 30 s', async () => {

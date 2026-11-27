@@ -121,11 +121,12 @@ export class G5SalesProvider {
       const response = method === 'get'
         ? await firstValueFrom(this.http.get<unknown>(url.href, {
             headers: { Accept: 'application/json', Authorization: `Bearer ${bearerToken}`, ...extraHeaders },
-            timeout: timeoutMs, maxRedirects: 0, proxy: false,
+            timeout: timeoutMs, signal: AbortSignal.timeout(timeoutMs), maxRedirects: 0, proxy: false,
           }))
         : await firstValueFrom(this.http.post<unknown>(url.href, body, {
             headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`, ...extraHeaders },
-            timeout: timeoutMs, maxRedirects: 0, proxy: false,
+            // `timeout` de Axios no cubre un cuerpo que llega por partes: la señal fija un plazo absoluto hasta terminar de leerlo.
+            timeout: timeoutMs, signal: AbortSignal.timeout(timeoutMs), maxRedirects: 0, proxy: false,
           }));
       if (method === 'get' && response.status !== 200) {
         throw new ProviderError(503, 'SALES_RESPONSE_INVALID');
@@ -153,7 +154,7 @@ export class G5SalesProvider {
       if (status === 400 && providerCode && /^[A-Z0-9_]{1,64}$/u.test(providerCode)) {
         throw new ProviderError(400, providerCode);
       }
-      const timedOut = axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT';
+      const timedOut = axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ERR_CANCELED';
       throw new ProviderError(timedOut ? 504 : 503, timedOut ? 'SALES_TIMEOUT' : 'SALES_UNAVAILABLE');
     }
   }
