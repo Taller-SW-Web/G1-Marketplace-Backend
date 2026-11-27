@@ -244,3 +244,12 @@ model SecurityUserState {
 
   @@map("security_user_states")
 }
+
+model ShipmentWebhookQaFailure {
+  orderId       String   @id @map("order_id") @db.VarChar(20)
+  eventId       String   @map("event_id") @db.VarChar(255)
+  correlationId String   @map("correlation_id") @db.VarChar(64)
+  consumedAt    DateTime @default(now()) @map("consumed_at") @db.Timestamptz(6)
+
+  @@map("shipment_webhook_qa_failure")
+}
