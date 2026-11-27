@@ -1,64 +1,66 @@
 # Checklist del congelamiento H5 · Viernes 27/11/2026
 
-Jim registra el candidato y Andrés lo revisa. Estado al jueves 26/11/2026 a las 19:30 (Lima). Código congelado a las **13:00**, evidencia congelada a las **15:00**, informe con go/no-go a las **17:00**. Cada línea distingue **REAL** (servicio de otro equipo o de producción) de **MOCK** (simulado) y de **LAB** (laboratorio local de G1).
+Jim registra el candidato y Andrés lo revisa. **Estado al viernes 27/11/2026, ~19:00 (Lima).** Código congelado a las 13:00, evidencia congelada a las 15:00, informe go/no-go (#392) en la PR #435. Cada línea distingue **REAL** (servicio de otro equipo o producción), **MOCK** (simulado) y **LAB** (laboratorio local de G1). Lo que el PO no pudo comprobar hoy se marca **NO VERIFICADO**, no como hecho.
 
-## Referencias al corte del 26/11
+## Referencias al corte del 27/11
 
-| Repositorio | `develop` | `main` (desplegado) | Última etiqueta |
-|---|---|---|---|
-| Backend | `a57035c` | `f17896d` (corte del 26/11 a las 14:49; Render lo despliega solo) | `v1.18.0` |
-| Frontend | `e933d60` | `50eb973` | `v1.8.0` |
-| SPECS | `aafa006` | `bc79ee2` | — |
+| Repositorio | `develop` | `main` | En ejecución | Última etiqueta |
+|---|---|---|---|---|
+| Backend | `2d2fcc9` | `bcac2f6` | **`bcac2f6`** en Render (Deploy #30, 13:52–13:54 Lima; confirmado por Andrés) | `v1.21.0` (con SBOM y SARIF de Trivy adjuntos) |
+| Frontend | `2eda3b1` | `ce72b5d` | **Promovido a Production por el PO** (despliegue de `main` #188); `/registro` verificado desde fuera con el formulario real | `v1.9.0` (sin adjuntos) |
+| SPECS | `aafa006` | `bc79ee2` | — | — |
 
-El candidato final se registra al cerrar el corte a `main` del viernes: SHA de los tres repositorios, URL y último despliegue funcional restaurable.
+`develop` y `main` divergieron (BE: 66 y 76 commits; FE: 19 y 4). **Decisión del PO:** no se corta `develop` → `main` en el Backend antes de la presentación; se hará como release normal después, con Andrés. **Candidato final para la presentación = lo que hay hoy en `main`.**
 
 ## Hecho, con evidencia
 
-- [x] **Compra REAL con Ventas.** `PED-2026-00092` creado a las 15:06:11 (`POST /checkout/orders` → 202), confirmado en la base de Ventas y en **PAGADO** a las 15:17:04. Lectura por el BFF con la cuenta A (15:26 y 18:38, HTTP 200) y repetición idempotente sin duplicado (15:46:09). Cotización y revalidación **MOCK**. Informes en `docs/evidencias/H5/integracion-real/` (BE #405).
-- [x] **Ronda 1 REAL por el BFF con Seguridad (16:00).** 19 de 19 casos, 16:00:23–16:00:32 Lima, sin 429 (BE #405). Sin la rama con MFA ni el registro nuevo.
-- [x] **Ronda 3 REAL por el BFF con Seguridad (20:20), con MFA.** 24 de 24 casos, 20:20:27–20:21:03 Lima, sin 429, mismo BFF `f17896d` y origen de Vercel: registro nuevo 201 pendiente de verificación, login con MFA de la cuenta B (desafío 200, OTP por correo 200, sesión solo tras verificar), contraseña incorrecta 401, logout y refresh, direcciones y recuperación neutra (BE #26, #30, #34, #38; informe en `integracion-real/bff/2026-11-27/`). Por separado, aislamiento de B a las 19:34: `GET /orders/me` 200 con 0 pedidos y `GET /orders/PED-2026-00092` 403 (`84fc5c34-cedf-4d73-8962-4dbb0c4996ff`).
-- [x] **Webhook de Ventas (H-05).** 7 eventos reales persistidos en `shipment_event_inbox` (11:05:47–11:05:50), 401 con token ausente o incorrecto, duplicado detectado (`duplicate: true`) (BE #318, #357, #365).
-- [x] **Correo C-002.** `DESPACHADO` de un pedido de prueba: envío 17:07:59 Lima → HTTP 200 `accepted:true, duplicate:false`; reenvío del mismo `eventId` 17:09:12 → HTTP 200 `duplicate:true`. Llegó un solo correo por Brevo (BE #162, BE #381). En un ensayo previo al corte de C-002, el reenvío (16:13:01) también devolvió `duplicate:true` y no generó correo.
-- [x] **RabbitMQ con Seguridad (G7), recepción y recuperación manual.** Entrega automática REAL de `usuario.creado` v1 (publicado 18:50:05, registrado 18:50:08, una fila) con BE #409 (`769e3b7`). Seis rechazos directos a DLQ sin retry; dos lotes manuales de tres, una fila por ID y DLQ preservada. Total: 8 filas / 8 IDs únicos. Ver [matriz asíncrona](asincrono/README.md); esto no acredita redelivery ni backoff automáticos.
-- [x] **Performance.** k6 local en Docker con terceros simulados: carga, estrés con quiebre a 800 VUs, recuperación, spike, soak de 5 min y antes/después de la caché; reporte en `docs/evidencias/H5/performance/be-391/` (BE #396). **LAB**, no producción.
-- [x] **Gobierno del repositorio.** Regla `develop-governance-h5` (1 aprobación y checks obligatorios), CODEOWNERS (FE #175) y pipeline unificado en `develop` (BE #359).
-- [x] **Credencial del broker.** Rotada al terminar la sesión con G7; la nueva se entrega solo a quien haga #316.
+- [x] **Compra REAL con Ventas.** `PED-2026-00092` (BE #405), lectura por el BFF con la cuenta A, 15:15 Lima: 200, EN_PREPARACION. Cotización y revalidación **MOCK**.
+- [x] **Ronda 1 y ronda 3 REAL por el BFF con Seguridad (26/11).** 19/19 (16:00) y 24/24 con MFA (20:20), sin 429, commit `f17896d`. Informes en `docs/evidencias/H5/integracion-real/`.
+- [x] **Cadena REAL Ventas → Despacho → G1: `PED-2026-90013` hasta ENTREGADO** (18:13:41Z). Mis pedidos REAL: 200 para el titular, **403 para otro cliente** (cuenta E; la cuenta B pide MFA y no se automatiza).
+- [x] **Reintento idempotente del webhook de Ventas (BE #320), REAL, controlado.** 503 armado 18:13:17.856Z (`requestId a287fca4-69f8-4d0a-bd79-3ac30941e68f`) → 200 18:13:23.317Z (`d91d4ec1-5a43-4b6d-9d1e-a8c4992cf5a5`), mismo `eventId`, **1 fila** por `eventId` en `shipment_event_inbox`. Caso `PED-2026-90012`: REAL no controlado. Detalle en el informe #392 (PR #435).
+- [x] **CSAT del `PED-2026-90013`, REAL (prompt sembrado manualmente).** Registrada en Ventas a las 21:16:59Z (puntaje 5); el BFF respondió 503 por el timeout de 5 s (`a837d22a-…`, 5669 ms) y la segunda llamada devolvió **409 `CSAT_ALREADY_SUBMITTED`** (21:21:06Z, `a0b8e514-5a32-481d-9430-2dce6613d862`). Hallazgo: ningún código del repo crea la fila `post_delivery_prompts` en SHOWN.
+- [x] **Catálogo REAL por el APIM de G6** (inicio, filtros y listado, 200; `ord-001` destacado). Lectura de solo lectura 15:15 Lima: 10 de 10 con 200. Validación del token de G7 (`aud=api-productos`, `catalogo:leer`): verificada por Seguridad.
+- [x] **Incidente de G6 (causa externa)** y **503 del catálogo 13:09:36–13:15:53 Lima** (`PROVIDER_INVALID_RESPONSE`): documentados en el informe #392. Causa aguas arriba del segundo, sin determinar.
+- [x] **Webhook de Ventas (H-05).** Eventos reales persistidos, 401 con token ausente o incorrecto, duplicado detectado.
+- [x] **OTP con diseño nuevo.** Correo recibido 15:31 Lima; Seguridad confirma Live en G7 (`3d2b564`).
+- [x] **Gobierno del repositorio.** Ruleset `develop-governance-h5` activo (1 aprobación, CODEOWNERS, checks obligatorios), `main` y `develop` protegidas, environment `production` con revisores (BE y FE), pipeline unificado en `develop` (BE #359, FE #165), Dependabot activo en BE.
+- [x] **Performance.** k6 local en Docker con terceros simulados (BE #396, #345): **LAB**, caché apagada (TTL=0).
+- [x] **Informe de pruebas go/no-go (#392).** PR #435, aprobada por el PO; incluye la sección del PO con **GO condicionado**.
+- [x] **Credencial del broker.** Rotada al terminar la sesión con G7.
 
-## Pendiente antes de las 13:00 (código)
+## Pendiente o con desviación (código)
 
-- [ ] **Corte `develop` → `main`** con todo lo anterior (incluye BE #409, #403 y #389). Esperar el despliegue y comprobar `/health`, la compra (lectura de `PED-2026-00092`) y el catálogo (inicio y filtros 200).
-- [ ] **Mecanismo del 503 controlado (BE #320).** Apagado por defecto, de un solo uso, solo para un `orderId` sintético, con migración aditiva. Revisión de Jim y despliegue antes de las 10:30.
-- [ ] **Listado del catálogo (BE #213).** G6 responde, pero el BFF rechaza el host de las imágenes (`UNAPPROVED_MEDIA_HOST`). Giuliano confirma los dominios exactos y **solo Jim** actualiza `PRODUCTOS_MEDIA_HOSTS` en Render con esos dominios; no se amplía la lista sin esa confirmación. Después se verifica `/catalog/products` con 200.
-- [ ] **Validación del token de catálogo (BE #403).** Comprobar con un token REAL de G7 que el formato de los claims (`scope` y `aud`) coincide con lo que valida el BFF, y tras el corte verificar inicio y filtros con 200. Si el smoke falla, **no se retira la validación**: se diagnostica la causa (formato de claims, secreto, host) y, si hay que volver atrás, se redespliega el SHA anterior.
-- [ ] **`.releaserc.json`** sin los plugins `git`, `changelog` y `npm` (Andrés), para que semantic-release no intente empujar a una rama protegida.
-- [ ] **Rediseño del Frontend** (FE #164 → #166 → #167) con revisión y regresión de login y checkout entre cada paso; si a las 11:00 no están los tres, congelar el último SHA verificado.
-- [ ] **Variables de Render conservadas** tras cada cambio: `CHECKOUT_SALES_SOURCE=g5`, `CHECKOUT_ADDRESS_SOURCE=g7`, `ORDERS_SOURCE=real`, `G5_SALES_INTEGRATION_APPROVED=true`, `G5_CONTRACT_PRODUCT_FALLBACK_ENABLED=false`, `CHECKOUT_G5_TEST_FIXTURE`, las de C-002 y CSAT, y `PRODUCTOS_CLIENT_SECRET` igual a `G7_SERVICE_CLIENT_SECRET`.
+- [~] **`.releaserc.json` sin los plugins `git`, `changelog` y `npm`: hecho (BE #436, FE #192, fusionadas 27/11).** El GH013 se resolvió, pero **el job «Versionado» sigue en rojo** en `develop` (BE run 46080624663, FE run 46080625214) por `fatal: tag already exists`: `develop` y `main` divergieron. Se corrige reconciliando las ramas en el corte posterior a la presentación. Último CI-CD de `develop` totalmente verde en BE: la fusión de #418.
+- [x] **Frontend promovido a Production en Vercel.** El sitio mostraba un build anterior al 21/10; tras promover `main` (#188), `/registro` sirve el formulario real y el BFF responde 10 de 10 en 200.
+- [ ] **Rediseño del Frontend (FE #164 → #166 → #167).** NO VERIFICADO por el PO hoy; FE #164/#174 aparecían conflictivas.
+- [ ] **Variables de Render.** `ORDERS_SOURCE=real` corregido tras el 503 de Mis pedidos. El resto (`CHECKOUT_SALES_SOURCE`, `G5_SALES_INTEGRATION_APPROVED`, etc.) **NO VERIFICADO por el PO**; no se imprimen valores.
+- [ ] **PR preparadas, no integradas:** BE #429 (Fase 1 del runner, con conflicto), #430 y #400 (OpenAPI desactualizado), #395 y la PR de documentación de #413 (post-freeze, sin fusión antes del sábado), FE #172 y #163.
 
-## Pendiente antes de las 15:00 (evidencia)
+## Pendiente o con desviación (evidencia)
 
-- [ ] **Entrega `DESPACHADO` y `ENTREGADO` REAL** del pedido `PED-2026-00092` (Ventas y Despacho): aporta la evidencia de **seguimiento** (BE #319 y el estado del pedido) y habilita el CSAT. **No cierra por sí sola** BE #116, #117 ni FE #60: esas issues conservan sus criterios propios (aislamiento y dirección ajena por el BFF, homologación G-ADDRESS, logs del corte, retest de V-010 y revisión independiente). Se verifica por lectura del BFF, sin crear otro pedido.
-- [ ] **CSAT:** `POST` con la cuenta A → 201 y repetición → 409 `CSAT_ALREADY_SUBMITTED` (requiere `ENTREGADO`).
-- [ ] **Aislamiento con la cuenta B:** `GET /orders/me` sin el pedido de A y `GET /orders/PED-2026-00092` → 403.
-- [ ] **Ronda 3 con Seguridad** (propuesta viernes 09:00–09:30): registro nuevo, camino con MFA, JWT inválido o expirado, CSRF de logout y recuperación con enlace vencido.
-- [ ] **APIM por política (BE #394) — NOT_RUN.** Ventana 27/11, 10:00–10:30 Lima, pendiente confirmar suscripción QA, revisión activa y logs del BFF. El export XML también está pendiente. Las rutas de docs propuestas para MISS/HIT están excluidas por #308; no usarlas. Ver [matriz APIM](apim/README.md).
-- [ ] **Resiliencia en RabbitMQ compartido (BE #315/#394) — NOT_RUN.** Falta redelivery automática de un duplicado, backoff con agotamiento y caída/recuperación. Mantener la DLQ intacta y separar esas pruebas del [laboratorio y la recuperación manual REAL](asincrono/README.md).
-- [ ] **Ventana con Ventas (BE #320)**, 11:30–12:00 (respaldo 14:00–14:30): un 503 controlado, reintento con el mismo `eventId` y `correlationId`, una sola fila, traza sanitizada. Si Ventas no reintenta, documentarlo como límite.
-- [ ] **Reacción a bloqueo y purga (BE #316)** con la credencial nueva del broker (Leonidas y Diego).
-- [ ] **Rollback ensayado (BE #289)** con Andrés y Saire: SHA anterior y nuevo, `/health` antes y después.
-- [ ] **SAST/DAST (BE #393):** 3 hallazgos de Semgrep clasificados, 2 alertas de ZAP del Top 10, ciclo hallazgo–corrección–retest, Trivy y SBOM.
-- [ ] **Matriz de integración (BE #291), trazabilidad (BE #299) e informe de pruebas con go/no-go (BE #392).**
-- [ ] **E2E del Frontend (FE #138)**: resultado parcial ya registrado (catálogo público REAL; login desde un origen local rechazado por diseño con 403; checkout simulado).
+- [ ] **Ronda 3 y aislamiento con la cuenta B:** ronda 3 hecha el 26/11 (24/24). Aislamiento del 27/11 con la cuenta E (la B pide MFA).
+- [ ] **APIM por política (BE #394): NOT_RUN** (confirmado por Leonidas el 27/11). Solo hay un 401 sin JWT histórico (25/11 02:57:35.767 UTC) y evidencia parcial de correlación; 429 con `Retry-After`, MISS/HIT y correlación contra logs del BFF no están acreditados; `/v1/docs` está fuera del subset contratado y falta acordar una ruta cacheable válida. **Resiliencia RabbitMQ (BE #315/#394):** el backoff tiene evidencia de **laboratorio local**; la redelivery y el backoff automáticos en el entorno compartido siguen **NOT_RUN**. El reintento del webhook de Ventas (90013) sí está acreditado REAL, pero no demuestra el backoff del consumidor.
+- [ ] **Reacción a bloqueo y purga (BE #316)** con la credencial nueva del broker: NO VERIFICADO.
+- [x] **Rollback ensayado (BE #289), Frontend y Backend.** **Frontend (Vercel):** el PO ejecutó Instant Rollback al despliegue anterior de Production y volvió a promover `main` (#188); funcionó. **Backend (Render):** el PO ensayó el redeploy a un deploy anterior y la vuelta; funcionó. Estado final: **deploy Live `bcac2f6` (Deploy #30), confirmado por Andrés en el panel de Render**; registros de `/health` de Andrés, ambos HTTP 200, `status: UP`, base conectada: 17:42:13 Lima (`X-Request-Id 8b3e5052-b9e0-47bb-b393-5c8959dc1571`) y 18:07:45 Lima (`900c3dc8-6e9d-43db-81e0-13d758c0a10a`); lectura del BFF 10 de 10 con 200 (17:47 Lima). **Límite:** las horas exactas de cada paso del rollback y las capturas del panel están por adjuntar (el PO las informó de memoria).
+- [ ] **SAST/DAST (BE #393):** SAST, secretos, SCA y ZAP baseline están en verde en las PR; la clasificación de hallazgos y el retest están en #393 (NO VERIFICADO por el PO hoy).
+- [ ] **E2E del Frontend (FE #138):** resultado parcial; NO VERIFICADO hoy.
+- [ ] **Ensayo de la demo (BE #326):** personal, por segmento; se cierra con el resultado.
+- [ ] **Ensayo de timeout de direcciones (BE #115, #116)** y **límite de intentos de login (BE #30):** después de la presentación (Seguridad, entorno aislado).
+- [ ] **Revisión de logs (BE #38, #41, #42, #115, #116):** **parcial** (sin datos sensibles visibles; los request IDs del BFF no se pudieron vincular). Ronda con IDs nuevos después de la presentación.
 
-## Firma y etiqueta (15:00–17:00)
+## Firma y etiqueta
 
-- [ ] Registrar la etiqueta efectiva de release, su enlace y el SHA del candidato aprobado.
-- [ ] Anexar el acta del ensayo (BE #326) y el paquete de evidencia (BE #324).
-- [ ] Jim firma; Andrés valida la secuencia de rollback del candidato.
+- [ ] **Etiqueta efectiva del release:** BE `v1.21.0` y FE `v1.9.0`. El versionado de `develop` falla (GH013), por lo que **no se generó una etiqueta nueva** con los cambios posteriores. Se declara.
+- [ ] **Anexar el acta del ensayo (BE #326) y el paquete de evidencia (BE #324).**
+- [ ] **Jim firma; Andrés valida la secuencia de rollback del candidato** (depende de #289).
 
 ## Límites que se declaran en la exposición
 
-- Cotización y revalidación de la compra: **MOCK** (fixture).
-- Catálogo: inicio y filtros **REAL**; listado pendiente por el host de imágenes de G6.
-- Reacción a bloqueo (BE #316) y hasta con 6 decimales: laboratorio.
-- La medición de performance es local con terceros simulados.
-- Pruebas de la cuenta B, CSAT y entrega real de Despacho: según lo que exista a las 15:00; lo que no esté se marca **NO EJECUTADO**, sin sustituirlo por evidencia simulada.
+- Cotización, revalidación y **checkout: MOCK** (fixtures; el modo bff no está activo, Plan B). V-010 / FE #60: pendiente.
+- **Catálogo: inicio, filtros y listado REAL** por el APIM de G6. **Mis pedidos, cadena 90013 y CSAT: REAL** (CSAT con prompt sembrado manualmente).
+- **Correos: Mailpit con fixtures** (BE #433, #323 sigue abierta); no se acredita Gmail/Outlook.
+- Performance: **local con terceros simulados**; caché apagada (TTL=0).
+- «Sin secretos en logs»: **revisión parcial**, no verificada.
+- Frontend desplegado: `main` (#188) promovido a Production el 27/11; el checkout sigue en fixtures (MOCK).
+- Secretos expuestos en un chat el 27/11: **rotación después de la presentación**, coordinada con Seguridad y Andrés.
+- Pruebas de la cuenta B, redelivery/backoff de RabbitMQ y APIM por política: según lo que exista; lo que no, **NO EJECUTADO**.
