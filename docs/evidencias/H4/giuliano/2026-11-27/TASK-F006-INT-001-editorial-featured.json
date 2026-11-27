@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "task": "TASK-F006-INT-001",
+  "timestampUtc": "2026-11-27T19:50:19.215Z",
+  "targetOrigin": "https://g1-marketplace-backend.onrender.com",
+  "route": "GET /api/v1/catalog/home",
+  "expectedProductId": "93f7f500-077d-432e-be98-31cb9ee0d66d",
+  "requestId": "ea051298-488c-476d-85e8-2dcb912fe67c",
+  "status": "BLOCKED",
+  "result": {
+    "outcome": "BLOCKED",
+    "code": "NETWORK_OR_TIMEOUT",
+    "durationMs": 20013
+  },
+  "limits": [
+    "One read-only GET to the G1 BFF; no Authorization, cookies, direct G6 calls, or environment changes.",
+    "No HTTP response was received; the test expectation is not a measured result."
+  ]
+}
