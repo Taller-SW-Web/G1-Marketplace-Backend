@@ -36,3 +36,94 @@ jobs:
         run: |
           npm run docs:openapi
           git diff --exit-code -- docs/contratos/openapi-h3.json
+
+  shipment-webhook-postgres:
+    name: H-05 inbox integration (PostgreSQL 16 disposable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: h5_test
+          POSTGRES_PASSWORD: h5_local_test_only
+          POSTGRES_DB: marketplace_h5_webhook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U h5_test -d marketplace_h5_webhook_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/not_connected
+      TEST_DATABASE_URL: postgresql://h5_test:h5_local_test_only@127.0.0.1:5432/marketplace_h5_webhook_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run prisma:generate
+      - run: npm run test:ventas:webhook:postgres
+      - name: Run BE #316 & BE #317 security user reactions and recovery PostgreSQL 16 integration
+        env:
+          H3_ALLOW_TEST_DATABASE_WRITES: 'true'
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: npx jest --config ./test/jest-integration.json --runInBand test/security-user-reactions.integration-spec.ts test/security-user-event-recovery.integration-spec.ts
+
+  integration-postgres-ci:
+    name: Disposable PostgreSQL 16 integration (migrate + doubles)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: h5_test
+          POSTGRES_PASSWORD: h5_local_test_only
+          POSTGRES_DB: marketplace_h3_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U h5_test -d marketplace_h3_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://h5_test:h5_local_test_only@127.0.0.1:5432/marketplace_h3_test?schema=public
+      TEST_DATABASE_URL: postgresql://h5_test:h5_local_test_only@127.0.0.1:5432/marketplace_h3_test?schema=public
+      H3_ALLOW_TEST_DATABASE_WRITES: 'true'
+      H3_SANDBOX_ENABLED: 'true'
+      H3_JWT_SECRET: isolated-test-fixture-secret-not-for-deployment
+      AUTH_ENABLED: 'false'
+      G7_INTROSPECTION_ENABLED: 'false'
+      G7_REGISTRATION_ENABLED: 'false'
+      G7_RECOVERY_ENABLED: 'false'
+      USE_MOCKS: 'true'
+      WISHLIST_SOURCE: sandbox
+      ORDERS_SOURCE: unconfigured
+      CSAT_ENABLED: 'false'
+      CSAT_INTEGRATION_APPROVED: 'false'
+      CSAT_PROMPT_APPROVED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run prisma:generate
+      - name: Apply Prisma migrations from scratch (and verify idempotency)
+        run: |
+          npm run prisma:deploy
+          npm run prisma:deploy
+      - name: Run PostgreSQL integration suite with deterministic HTTP doubles
+        run: npm run test:integration:ci
+      - name: Verify shipment webhook baseline and one-shot QA failure
+        env:
+          RUN_H5_WEBHOOK_POSTGRES: 'true'
+        run: npx jest --config ./test/jest-e2e.json --runInBand --runTestsByPath test/ventas-shipment-webhook.postgres.e2e-spec.ts

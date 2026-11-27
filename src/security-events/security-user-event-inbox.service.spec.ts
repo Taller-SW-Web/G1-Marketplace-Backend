@@ -15,32 +15,29 @@ const EVENT = parseSecurityUserEvent(JSON.stringify({
 }), 'usuario.creado');
 
 describe('SecurityUserEventInboxService', () => {
-  const create = jest.fn();
+  const queryRaw = jest.fn();
   const findUnique = jest.fn();
   let service: SecurityUserEventInboxService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     service = new SecurityUserEventInboxService({
-      securityUserEventInbox: { create, findUnique },
+      $queryRaw: queryRaw,
+      securityUserEventInbox: { findUnique },
     } as unknown as PrismaService);
   });
 
   it('records only event metadata and a fingerprint, not the source payload', async () => {
-    create.mockResolvedValue({});
+    queryRaw.mockResolvedValue([{ event_id: '22222222-2222-4222-8222-222222222222' }]);
     if (EVENT.kind !== 'known') throw new Error('fixture must be a known event');
 
     await expect(service.record(EVENT.event)).resolves.toBe('recorded');
-    expect(create).toHaveBeenCalledWith({ data: {
-      eventId: EVENT.event.eventId,
-      eventType: EVENT.event.eventType,
-      eventVersion: EVENT.event.version,
-      payloadSha256: EVENT.event.payloadSha256,
-    } });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(findUnique).not.toHaveBeenCalled();
   });
 
-  it('treats the same event id and payload as an idempotent duplicate', async () => {
-    create.mockRejectedValue({ code: 'P2002' });
+  it('treats the same event id and payload as an idempotent duplicate without aborting tx', async () => {
+    queryRaw.mockResolvedValue([]);
     if (EVENT.kind !== 'known') throw new Error('fixture must be a known event');
     findUnique.mockResolvedValue({
       eventType: EVENT.event.eventType,
@@ -52,7 +49,7 @@ describe('SecurityUserEventInboxService', () => {
   });
 
   it('rejects reuse of an event id with different content', async () => {
-    create.mockRejectedValue({ code: 'P2002' });
+    queryRaw.mockResolvedValue([]);
     if (EVENT.kind !== 'known') throw new Error('fixture must be a known event');
     findUnique.mockResolvedValue({
       eventType: EVENT.event.eventType,
@@ -64,7 +61,7 @@ describe('SecurityUserEventInboxService', () => {
   });
 
   it('propagates persistence failures for the consumer reliability policy', async () => {
-    create.mockRejectedValue(new Error('database unavailable'));
+    queryRaw.mockRejectedValue(new Error('database unavailable'));
     if (EVENT.kind !== 'known') throw new Error('fixture must be a known event');
 
     await expect(service.record(EVENT.event)).rejects.toThrow('database unavailable');

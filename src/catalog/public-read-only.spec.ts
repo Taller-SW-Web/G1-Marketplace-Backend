@@ -1,6 +1,7 @@
 import { assertPublicCatalogRead } from './public-read-only';
 import { createProvider, createRealProvider, CONTRACT_SHA, CONTRACT_VERSION } from './provider';
 import { parseQuery } from './query';
+import { catalogTestJwt } from '../../test/fixtures/g7-catalog-jwt';
 
 const id = 'a0000000-0000-4000-8000-000000000001';
 const config = {
@@ -106,9 +107,9 @@ describe('production public catalog configuration', () => {
       if (url.origin === 'https://g7.example') {
         expect(options.method).toBe('POST');
         expect(new Headers(options.headers).has('Authorization')).toBe(false);
-        expect(new URLSearchParams(String(options.body)).get('scope')).toBe('catalogo:leer');
+        expect(new URLSearchParams(String(options.body)).has('scope')).toBe(false);
         tokens.push(url.href);
-        return Response.json({ accessToken: 'synthetic-issued-token', tokenType: 'Bearer',
+        return Response.json({ accessToken: catalogTestJwt(), tokenType: 'Bearer',
           expiresIn: 3600, scopes: ['catalogo:leer'] });
       }
       expect(url.origin).toBe(config.PRODUCTOS_BASE_URL);
@@ -116,7 +117,7 @@ describe('production public catalog configuration', () => {
       const headers = new Headers(options.headers);
       expect(headers.has('Cookie')).toBe(false);
       expect(headers.get('Authorization')).toBe(authMode === 'public-read-only' ? null
-        : authMode === 'service-token' ? 'Bearer synthetic-static-token' : 'Bearer synthetic-issued-token');
+        : authMode === 'service-token' ? 'Bearer synthetic-static-token' : `Bearer ${catalogTestJwt()}`);
       reads.push(options);
       if (url.pathname === '/api/v1/categorias') return Response.json({ categories: [] });
       if (url.pathname === '/api/v1/marcas') return Response.json({ brands: [] });

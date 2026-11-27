@@ -14,7 +14,8 @@ describe('Environment boundaries', () => {
   });
   it('keeps sandbox off by default and supports existing CORS variable', () => {
     expect(validateEnvironment({ ...base, CORS_ORIGINS: 'http://localhost:3000' }))
-      .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'] });
+      .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'],
+        CHECKOUT_SALES_SOURCE: 'mock', G5_SALES_INTEGRATION_APPROVED: 'false', G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false' });
   });
   it.each(['production', '', undefined])('rejects sandbox for NODE_ENV=%s', (environment) => {
     expect(() => validateEnvironment({ ...base, NODE_ENV: environment, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'x'.repeat(32) })).toThrow();
@@ -105,6 +106,43 @@ describe('Environment boundaries', () => {
     expect(() => validateEnvironment({ ...g7, AUTH_SESSION_KEY: '' })).toThrow();
     expect(() => validateEnvironment({ ...g7, G1_WEB_ORIGIN: 'https://g1.example/path' })).toThrow();
     expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '30000' })).toThrow();
+  });
+  it('validates independent checkout timeouts without relaxing the G7 user-session limit', () => {
+    expect(validateEnvironment(g7)).toMatchObject({ G5_SALES_TIMEOUT_MS: 30_000, G7_SERVICE_TOKEN_TIMEOUT_MS: 15_000 });
+    expect(validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '5000', G5_SALES_TIMEOUT_MS: '60000', G7_SERVICE_TOKEN_TIMEOUT_MS: '25000' }))
+      .toMatchObject({ HTTP_TIMEOUT_MS: 5_000, G5_SALES_TIMEOUT_MS: 60_000, G7_SERVICE_TOKEN_TIMEOUT_MS: 25_000 });
+    expect(() => validateEnvironment({ ...g7, G5_SALES_TIMEOUT_MS: '60001' })).toThrow(/G5_SALES_TIMEOUT_MS/);
+    expect(() => validateEnvironment({ ...g7, G7_SERVICE_TOKEN_TIMEOUT_MS: '10.5' })).toThrow(/G7_SERVICE_TOKEN_TIMEOUT_MS/);
+    expect(() => validateEnvironment({ ...g7, HTTP_TIMEOUT_MS: '5800', G5_SALES_TIMEOUT_MS: '30000' })).toThrow(/G7 session flow/);
+  });
+  it('enables G5 checkout only with G7 service credentials, live auth, G7 addresses and explicit approval', () => {
+    const g5 = {
+      ...g7,
+      USE_MOCKS: 'false',
+      CHECKOUT_ADDRESS_SOURCE: 'g7',
+      CHECKOUT_SALES_SOURCE: 'g5',
+      G5_SALES_INTEGRATION_APPROVED: 'true',
+      G7_SERVICE_CLIENT_ID: 'modulo-marketplace',
+      G7_SERVICE_CLIENT_SECRET: 'synthetic-only-service-secret-value-123456',
+      VENTAS_BASE_URL: 'https://g5-api-gateway.example',
+    };
+    expect(validateEnvironment(g5)).toMatchObject({ CHECKOUT_SALES_SOURCE: 'g5', G5_SALES_INTEGRATION_APPROVED: 'true' });
+    expect(() => validateEnvironment({ ...g5, USE_MOCKS: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...g5, G5_SALES_INTEGRATION_APPROVED: 'false' })).toThrow();
+    expect(() => validateEnvironment({ ...g5, CHECKOUT_ADDRESS_SOURCE: 'fixture' })).toThrow();
+    expect(() => validateEnvironment({ ...g5, G7_SERVICE_CLIENT_SECRET: '' })).toThrow();
+    expect(() => validateEnvironment({ ...g5, VENTAS_BASE_URL: 'http://g5.example' })).toThrow();
+    const fixture = {
+      customerId: '11111111-1111-4111-8111-111111111111', sku: 'SKU-TEST', productId: 'PROD-TEST',
+      unitPriceCents: 1500, shippingCents: 0, paymentMethod: 'SIMULADO', expiresAt: '2030-01-01T18:00:00.000Z',
+    };
+    const trial = { ...g5, NODE_ENV: 'production', CHECKOUT_G5_TEST_FIXTURE: JSON.stringify(fixture) };
+    expect(validateEnvironment(trial)).toMatchObject({ USE_MOCKS: false, CHECKOUT_SALES_SOURCE: 'g5' });
+    expect(() => validateEnvironment({ ...trial, USE_MOCKS: 'true' })).toThrow();
+    expect(() => validateEnvironment({ ...trial, CHECKOUT_SALES_SOURCE: 'mock' })).toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
+    expect(() => validateEnvironment({ ...trial, G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'true' })).toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
+    expect(() => validateEnvironment({ ...trial, CHECKOUT_G5_TEST_FIXTURE: JSON.stringify({ ...fixture, unitPriceCents: -1 }) }))
+      .toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
   });
   it('rejects mixing real G7 sessions with mock identity', () => {
     expect(() => validateEnvironment({ ...g7, H3_AUTH_MOCK: 'true' })).toThrow();

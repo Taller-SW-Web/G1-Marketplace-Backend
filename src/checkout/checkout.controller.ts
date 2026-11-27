@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Header,
+  HttpException,
   HttpCode,
   HttpStatus,
   Param,
@@ -22,6 +23,7 @@ import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from './dto/quote
 
 interface StatusResponse {
   status(code: number): unknown;
+  setHeader(name: string, value: string): unknown;
 }
 
 @Controller('api/v1/checkout')
@@ -99,14 +101,21 @@ export class CheckoutController {
     @Body() input: CreateOrderRequestDto,
     @Res({ passthrough: true }) response: StatusResponse,
   ) {
-    const result = await this.checkout.createOrder(
-      this.customerId(request),
-      input,
-      this.header(request, 'idempotency-key'),
-      this.cartSession(request),
-    );
-    response.status(result.status);
-    return { data: result.data };
+    try {
+      const result = await this.checkout.createOrder(
+        this.customerId(request),
+        input,
+        this.header(request, 'idempotency-key'),
+        this.cartSession(request),
+        this.accessToken(request),
+      );
+      this.setRetryAfter(response, result.retryAfterSeconds);
+      response.status(result.status);
+      return { data: result.data };
+    } catch (error) {
+      this.setRetryAfter(response, this.retryAfterFromError(error));
+      throw error;
+    }
   }
 
   @Get('operations/:operationId')
@@ -126,7 +135,9 @@ export class CheckoutController {
       this.customerId(request),
       operationId,
       this.cartSession(request),
+      this.accessToken(request),
     );
+    this.setRetryAfter(response, result.retryAfterSeconds);
     response.status(result.status);
     return { data: result.data };
   }
@@ -153,5 +164,19 @@ export class CheckoutController {
     const cookie = this.header(request, 'cookie');
     const session = cookie && /(?:^|;\s*)cart_session=([A-Za-z0-9_-]{16,128})(?:;|$)/.exec(cookie);
     return session?.[1];
+  }
+
+  private retryAfterFromError(error: unknown): number | undefined {
+    if (!(error instanceof HttpException)) return undefined;
+    const body = error.getResponse();
+    if (typeof body !== 'object' || body === null || !('error' in body) ||
+        typeof body.error !== 'object' || body.error === null || !('retryAfterSeconds' in body.error)) return undefined;
+    return typeof body.error.retryAfterSeconds === 'number' ? body.error.retryAfterSeconds : undefined;
+  }
+
+  private setRetryAfter(response: StatusResponse, seconds?: number): void {
+    if (seconds !== undefined && Number.isInteger(seconds) && seconds >= 0 && seconds <= 86400) {
+      response.setHeader('Retry-After', String(seconds));
+    }
   }
 }
