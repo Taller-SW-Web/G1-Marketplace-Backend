@@ -1,7 +1,7 @@
 # Hito 5 · Insumos del PO para el informe go/no-go (#392)
 
 **Fecha:** viernes 27/11/2026, ~16:45 Lima · **Responsable:** Jim Segovia (PO, G1 Marketplace) · **Para:** Diego (autor del informe)
-**BFF (Render, despliega `main`):** **`bcac2f6` en ejecución (Live), confirmado por Andrés en el panel de Render**: Deploy #30, 13:52–13:54 Lima (18:52–18:54 UTC), trigger «Environment updated». Es también el último merge a `main` (PR #360, 11:45 Lima). · **Frontend (Vercel):** `main` en GitHub = `ce72b5d` (27/11 09:42 Lima, v1.9.0), **pero el sitio publicado muestra un build antiguo** (27/11 ~17:50 Lima: `/registro` sirve la pantalla «planificada para H4», previa al 21/10). Causa y commit desplegado **por confirmar en el panel de Vercel**.
+**BFF (Render, despliega `main`):** **`bcac2f6` en ejecución (Live), confirmado por Andrés en el panel de Render**: Deploy #30, 13:52–13:54 Lima (18:52–18:54 UTC), trigger «Environment updated». Es también el último merge a `main` (PR #360, 11:45 Lima). · **Frontend (Vercel):** promovido a `main` `ce72b5d` (PR #188, 27/11 09:42 Lima, v1.9.0); `/registro` sirve el formulario real.
 
 Etiquetas: **REAL** (contra sistemas reales) · **MOCK** (fixtures o datos simulados) · **LAB** (entorno controlado) · **PEND** (no ejecutado). Este documento no contiene secretos, contraseñas, tokens ni correos personales. Ninguna issue se da por cerrada sin evidencia.
 
