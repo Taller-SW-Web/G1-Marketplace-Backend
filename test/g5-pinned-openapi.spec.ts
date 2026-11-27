@@ -24,6 +24,7 @@ type OpenApiDocument = {
   paths: Record<string, Record<string, any>>;
   components: {
     parameters?: Record<string, any>;
+    responses?: Record<string, any>;
     schemas: Record<string, any>;
   };
 };
@@ -256,7 +257,7 @@ describe('G5 pinned-spec/offline surface validation', () => {
     const score = requestSchema.properties.puntuacion;
 
     expect(operation.operationId).toBe('registrarCsat');
-    expect(operation.security).toContainEqual({ TokenUsuario: ['CLIENTE'] });
+    expect(operation.security).toEqual([{ TokenUsuario: ['CLIENTE'] }]);
     expect(operation.requestBody.content['application/json'].schema.$ref).toBe(
       '#/components/schemas/RegistrarCsatRequest',
     );
@@ -275,5 +276,16 @@ describe('G5 pinned-spec/offline surface validation', () => {
     expect(operation.responses['403'].description).toContain('ACCESO_DENEGADO');
     expect(operation.responses['409'].description).toContain('CSAT_ALREADY_SUBMITTED');
     expect(operation.responses['422'].description).toContain('ORDER_NOT_DELIVERED');
+    for (const status of ['403', '409', '422']) {
+      expect(operation.responses[status].content['application/json'].schema).toEqual({
+        $ref: '#/components/schemas/Error',
+      });
+    }
+    expect(operation.responses['401']).toEqual({ $ref: '#/components/responses/NoAutenticado' });
+    expect(m2.components.responses?.NoAutenticado.description).toContain('TOKEN_INVALIDO');
+    expect(m2.components.responses?.NoAutenticado.content['application/json'].schema).toEqual({
+      $ref: '#/components/schemas/Error',
+    });
+    expect(m2.components.schemas.Error.required).toEqual(['codigo', 'mensaje', 'timestamp']);
   });
 });

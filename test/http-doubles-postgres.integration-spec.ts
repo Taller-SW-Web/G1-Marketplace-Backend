@@ -66,7 +66,7 @@ describe('Deterministic HTTP doubles (timeout, 5xx, duplicate) against PostgreSQ
         }
         if (mode === '409-duplicate') {
           res.writeHead(409, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ code: 'CSAT_ALREADY_SUBMITTED' }));
+          res.end(JSON.stringify({ codigo: 'CSAT_ALREADY_SUBMITTED' }));
           return;
         }
         res.writeHead(201);

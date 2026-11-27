@@ -55,8 +55,8 @@ export class SalesCsatGateway extends CsatGateway {
     // A generic conflict/validation response must never mark the prompt submitted.
     let code: unknown;
     try {
-      const error = await response.json();
-      code = error?.code ?? error?.error?.code;
+      const error = await response.json() as { codigo?: unknown };
+      code = error?.codigo;
     } catch { /* An unrecognized provider error remains unavailable. */ }
     if (response.status === 409 && code === 'CSAT_ALREADY_SUBMITTED') {
       throw new ApiError(409, 'CSAT_ALREADY_SUBMITTED', 'La evaluación ya fue registrada');
