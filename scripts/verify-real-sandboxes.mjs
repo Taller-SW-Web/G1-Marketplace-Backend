@@ -33,7 +33,7 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G6_SANDBOX_API_KEY,
       checks: [
         { id: 'G6-POS', label: 'Lectura pública catálogo', path: '/api/v1/catalog/products?page=0&pageSize=1', expectedStatuses: [200] },
-        { id: 'G6-NEG', label: 'Consulta inválida controlada', path: '/api/v1/catalog/products?q=x', expectedStatuses: [400, 404] },
+        { id: 'G6-NEG', label: 'Parámetro de paginación inválido', path: '/api/v1/catalog/products?page=-1&pageSize=1', expectedStatuses: [400, 422] },
       ],
     },
     {
@@ -44,7 +44,7 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G7_SANDBOX_API_KEY,
       checks: [
         { id: 'G7-POS', label: 'JWKS / OIDC público', path: '/.well-known/jwks.json', expectedStatuses: [200] },
-        { id: 'G7-NEG', label: 'Ruta protegida sin JWT', path: '/api/v1/auth/me', expectedStatuses: [401, 403, 404] },
+        { id: 'G7-NEG', label: 'Ruta protegida sin JWT', path: '/api/v1/auth/me', expectedStatuses: [401, 403] },
       ],
     },
     {
@@ -55,7 +55,7 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G5_SANDBOX_API_KEY,
       checks: [
         { id: 'G5-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G5-NEG', label: 'Orden inexistente / sin auth', path: '/api/v1/orders/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403, 404] },
+        { id: 'G5-NEG', label: 'Orden protegida sin JWT', path: '/api/v1/orders/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
       ],
     },
     {
@@ -66,7 +66,7 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G2_SANDBOX_API_KEY,
       checks: [
         { id: 'G2-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G2-NEG', label: 'Recurso inexistente / sin auth', path: '/api/v1/notifications/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403, 404] },
+        { id: 'G2-NEG', label: 'Recurso protegido sin JWT', path: '/api/v1/notifications/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
       ],
     },
   ];

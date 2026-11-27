@@ -20,7 +20,7 @@ test('executes REAL checks, propagates X-Correlation-Id, and omits secrets/PII',
     const correlationId = init.headers['X-Correlation-Id'];
     assert.ok(correlationId.startsWith('h5-298-'));
 
-    if (url.pathname.includes('/catalog/products') && url.searchParams.get('q') === 'x') {
+    if (url.pathname.includes('/catalog/products') && url.searchParams.get('page') === '-1') {
       return new Response(JSON.stringify({ code: 'INVALID' }), {
         status: 400,
         headers: { 'x-correlation-id': correlationId },
