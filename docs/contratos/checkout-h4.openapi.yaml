@@ -11,21 +11,22 @@ info:
     catalog-cart:
       status: implemented-mock-only
       behavior: Las líneas y la versión provienen del carrito vigente; el cliente no puede enviar importes.
-    dispatch-addresses:
+    shipping-quote:
       status: implemented-mock-only
-      behavior: addressId se valida contra las direcciones del titular antes de cotizar cobertura y envío.
+      behavior: El BFF valida addressId contra las direcciones del titular antes de cotizar. La cotización de envío no tiene proveedor REAL en este corte.
     benefits:
       status: implemented-mock-only
       behavior: El adaptador devuelve elegibilidad y descuento; omitir couponCode solicita una cotización base.
     inventory:
       status: implemented-mock-only
       behavior: La preparación revalida el contexto; PREPARED no representa pedido creado, pago ni reserva externa.
-    sales:
-      status: implemented-configurable-g5
-      behavior: Solo una respuesta autoritativa de Ventas con estado PAGADO permite SUCCEEDED; una respuesta incierta no es éxito.
     G-G6-COMPAT:
       status: pending-checkout-provider-homologation
       closure: Registrar evidencia por frontera; un alta de Ventas no valida catálogo, cotización ni revalidación del checkout.
+  x-g5-compatibility:
+    sales:
+      status: implemented-configurable-g5
+      behavior: Solo una respuesta autoritativa de Ventas con estado PAGADO permite SUCCEEDED; una respuesta incierta no es éxito.
   x-g7-compatibility:
     status: implemented-authenticated-principal
     identity: customerId se deriva del subject autenticado; una operación solo es consultable por su titular.
@@ -51,13 +52,13 @@ paths:
         implementation: 'CheckoutController.listAddresses -> CheckoutService.listAddresses'
         authentication: 'AuthGuard; token Bearer requerido; el proveedor recibe el token en servidor.'
         ownership: 'Las direcciones devueltas pertenecen al titular autenticado; no se acepta customerId del cliente.'
-        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway lista las direcciones del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas.'
         errorCodes:
           '400': [ADDRESS_VALIDATION_ERROR]
           '401': [UNAUTHENTICATED]
           '503': [ADDRESS_SERVICE_UNAVAILABLE]
-        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 200 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
       responses:
         '200':
           description: Direcciones propias
@@ -76,13 +77,13 @@ paths:
         implementation: 'CheckoutController.createAddress -> CheckoutService.createAddress'
         authentication: 'AuthGuard; customerId se deriva del subject y el token se propaga en servidor.'
         ownership: 'No se admiten customerId/userId en el DTO; la dirección se crea para el titular autenticado.'
-        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway crea la dirección del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas. El teléfono del formulario no se reenvía ni se incluye en la respuesta.'
         errorCodes:
           '400': [ADDRESS_VALIDATION_ERROR]
           '401': [UNAUTHENTICATED]
           '503': [ADDRESS_SERVICE_UNAVAILABLE]
-        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 201 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
       requestBody:
         required: true
         content:
@@ -107,7 +108,7 @@ paths:
         implementation: 'CheckoutController.createQuote -> CheckoutService.createQuote'
         authentication: 'AuthGuard; customerId y carrito se resuelven desde el contexto autenticado.'
         ownership: 'addressId debe pertenecer al titular; cartVersion debe coincidir con el carrito vigente.'
-        downstreamCompatibility: 'G6 Catalog/Cart y Dispatch (MOCK only); G7 Security.'
+        downstreamCompatibility: 'Carrito G1 y validación de dirección del titular por la fuente de direcciones configurada (G7 o doble local). Cotización comercial y de envío con fixture/doble; sin ruta externa G6 verificada para cotizar.'
         errorCodes:
           '400': [REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
           '401': [UNAUTHENTICATED]
@@ -115,7 +116,7 @@ paths:
           '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE]
           '503': [ADDRESS_SERVICE_UNAVAILABLE, QUOTE_UNAVAILABLE]
         timeoutBehavior: 'Timeout de direcciones o cotización se normaliza a 503; no se acepta una cotización parcial.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        runtimeEvidence: 'La compra histórica con Ventas REAL usó cotización MOCK aun con direcciones G7 REAL. Cotización REAL NOT_RUN.'
       description: >-
         cartVersion es control optimista; el servidor obtiene el carrito y el
         titular de la sesión autenticada. No se aceptan importes del cliente.
