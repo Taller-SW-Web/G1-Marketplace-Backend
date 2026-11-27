@@ -29,6 +29,14 @@ Pendiente a esta hora: `DESPACHADO` y `ENTREGADO` reales del pedido, la lectura 
 
 [`7f8fc4c5`](./bff/2026-11-26/REAL-2026-11-26T21-00-23.847Z-7f8fc4c5.md): 16:00:23–16:00:32, 19 de 19 casos aprobados, 0 fallos y sin 429, con la autorización de G7 para esa ventana. Se omitieron el registro de una cuenta nueva y la rama con MFA.
 
+## Ronda 3 por el BFF con Seguridad (26/11/2026, 20:20:27–20:21:03 Lima)
+
+[`bd39d232`](./bff/2026-11-27/REAL-2026-11-27T01-20-27.576Z-bd39d232.md): 24 de 30 solicitudes autorizadas por G7, 0 fallos, sin 429, BFF `f17896d` con el origen de Vercel. Cubre registro nuevo (201, pendiente de verificación y sin sesión), correo ya registrado (409 neutro), contraseña incorrecta (401), login sin MFA, **login con MFA** (desafío 200, OTP por correo 200, sesión solo tras verificar el OTP), logout, cookie anterior (refresh 401), direcciones propias (200, 201 y titular ajeno 400) y recuperación neutra (202 y 202).
+
+## Aislamiento entre cuentas A y B (19:33–19:34 Lima)
+
+Con la cuenta B (MFA por correo) por el BFF: `GET /orders/me` → 200 con 0 pedidos y sin `PED-2026-00092` (`af00be48-285e-4d30-9910-2ba235eb8d5c`); `GET /orders/PED-2026-00092` → **403** (`84fc5c34-cedf-4d73-8962-4dbb0c4996ff`). Solo lectura.
+
 ## Límites
 
 - Cuentas de prueba de G7; no hay usuarios reales.
