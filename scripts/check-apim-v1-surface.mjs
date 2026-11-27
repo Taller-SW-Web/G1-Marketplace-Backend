@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import {
   BLOCKED_ROUTES,
+  CONTRACTED_CART_ROUTES,
   SOURCE_CONTRACTS,
   buildOpenApiArtifact,
   expectedOperationKeys,
@@ -25,8 +26,8 @@ assert.equal(
 
 const expectedOperations = expectedOperationKeys(result);
 const parsedRoutes = outputPathOperations(artifact);
-assert.equal(result.contractedOperations.length, 38, 'Deben existir exactamente 38 operaciones contratadas');
-assert.equal(parsedRoutes.operations.length, 38, 'El OpenAPI debe contener exactamente 38 operaciones');
+assert.equal(result.contractedOperations.length, 41, 'Deben existir exactamente 41 operaciones contratadas');
+assert.equal(parsedRoutes.operations.length, 41, 'El OpenAPI debe contener exactamente 41 operaciones');
 assert.deepEqual(parsedRoutes.operations, expectedOperations, 'Las rutas/metodos consolidados deben coincidir con las fuentes');
 assert.equal(new Set(parsedRoutes.paths).size, parsedRoutes.paths.length, 'No debe haber paths duplicados');
 assert.ok(parsedRoutes.paths.every((path) => path.startsWith('/v1/')), 'Todos los paths deben comenzar en /v1');
@@ -63,6 +64,10 @@ for (const blocked of BLOCKED_ROUTES) {
   assert.ok(artifact.includes(`"${blocked.operation}"`), `No se documento el bloqueo de ${blocked.operation}`);
   assert.ok(!parsedRoutes.operations.includes(publicOperation),
     `La ruta sin contrato no debe aparecer en el OpenAPI: ${blocked.operation}`);
+}
+for (const route of CONTRACTED_CART_ROUTES) {
+  assert.ok(expectedOperations.includes(route.publicOperation), `La ruta de carrito contratada debe aparecer en las fuentes: ${route.sourceOperation}`);
+  assert.ok(parsedRoutes.operations.includes(route.publicOperation), `La ruta de carrito contratada debe aparecer en el OpenAPI: ${route.publicOperation}`);
 }
 assert.match(artifact, /^x-source-security-errors:$/m, 'Debe conservarse el catalogo de errores de seguridad de origen');
 
