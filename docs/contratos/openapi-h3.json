@@ -574,6 +574,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INVALID_SKU",
+                  "message": "SKU inválido."
                 }
               }
             }
@@ -584,6 +588,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "UNAUTHENTICATED",
+                  "message": "Token Bearer inválido o expirado."
                 }
               }
             }
@@ -594,6 +602,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "CART_CONFLICT",
+                  "message": "La versión indicada no coincide con la del carrito."
                 }
               }
             }
@@ -604,6 +616,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servidor."
                 }
               }
             }
@@ -680,7 +696,7 @@
             }
           },
           "401": {
-            "description": "Se requiere un titular autenticado.",
+            "description": "Inicia sesión para fusionar el carrito.",
             "content": {
               "application/json": {
                 "schema": {
@@ -699,6 +715,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servidor."
                 }
               }
             }
@@ -778,12 +798,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INVALID_SKU",
+                  "message": "SKU inválido."
                 }
               }
             }
           },
           "401": {
-            "description": "Se requiere un titular autenticado.",
+            "description": "Inicia sesión para mover productos a favoritos.",
             "content": {
               "application/json": {
                 "schema": {
@@ -797,7 +821,7 @@
             }
           },
           "404": {
-            "description": "El SKU no existe en el carrito del titular.",
+            "description": "El ítem no se encuentra en el carrito.",
             "content": {
               "application/json": {
                 "schema": {
@@ -811,7 +835,7 @@
             }
           },
           "409": {
-            "description": "Conflicto de versión del carrito.",
+            "description": "Conflicto de versión en carrito.",
             "content": {
               "application/json": {
                 "schema": {
@@ -830,6 +854,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "code": "INTERNAL_ERROR",
+                  "message": "Error interno del servidor."
                 }
               }
             }
