@@ -2,6 +2,13 @@
 
 **Corte:** 27-nov-2026 · Base revisada: `develop` `24cbe9c71464034e09004a2816e99ece5f5e7562`. Este paquete traza trabajo integrado y gates pendientes; no cierra las issues ni afirma que todos los criterios de F-026 estén satisfechos.
 
+## Diseño, operación y errores documentados
+
+- **Fuentes funcionales/técnicas:** [seguimiento F-026](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/blob/main/plan/seguimiento/F-026-crear-orden-ventas.md), desde donde se enlazan specs funcional, API, UI y React. El frame visual de creación/estado es **V-013** en el [canvas Checkout de Figma](https://www.figma.com/design/k6JZRdgbO7YtZXeFqygE8p/Mockups?node-id=1-5&p=f&t=PXeKrikbDjSdUQ5l-0); es referencia, no aprobación visual.
+- **Operación:** G5 queda detrás de configuración opt-in; el backend persiste `CheckoutOperation`, y ante resultado incierto recupera consultando por la operación/clave existente. El replay usa la misma clave y no debe iniciar un segundo POST cuando el ID externo ya quedó persistido. La ejecución/activación en un entorno compartido queda sujeta a autorización y gates de INT.
+- **Errores y límites:** timeout/resultado incierto no equivale a fallo definitivo ni autoriza crear otro pedido; `FAILED` no equivale a pedido completado; un error del proveedor y la indisponibilidad deben informarse como tales, sin exponer credenciales, PII ni datos sensibles. Las pruebas locales con dobles no demuestran respuesta real de Ventas ante negativos o timeout.
+- **Decisiones registradas:** la compra reportada corresponde a la ruta BFF→Ventas; cotización y revalidación se marcaron MOCK. No se atribuye esa evidencia a G2/G6 ni se infiere despliegue desde pruebas locales/CI.
+
 ## Código y pruebas integradas
 
 | Tarea | Artefacto / evidencia | Qué demuestra y clasificación |
@@ -29,8 +36,8 @@ Ese informe marca explícitamente **cotización y revalidación MOCK**; no las a
 
 ## Validación de esta preparación
 
-- Consulta GitHub: PR #366, #235, #402 y #383 están mergeadas; CI de #402/#383 pasó. El job local de PostgreSQL no se repitió desde esta copia.
-- En el worktree BE disponible faltan `node_modules` (`@swc/jest` y `tsc` no están instalados), por lo que Jest/typecheck local no pudieron ejecutarse aquí. No se cambiaron dependencias ni se modificó configuración para forzar la ejecución.
-- Para revisión formal de código, el nuevo cambio documental debe ir en una PR abierta. Las PRs citadas ya mergeadas solo admiten revisión retrospectiva; no pueden recibir `requested_reviewers` como PR abierta.
+- PR #366, #235, #402 y #383 están mergeadas. Los checks de la PR #425 terminaron en verde en [run 46008814452](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/46008814452), [run 46008814498](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/46008814498), [run 46008814461](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/46008814461) y [run 46008814848](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/46008814848). Los jobs de versionado/publicación quedaron omitidos por tratarse de un evento PR.
+- En esta copia local faltan `node_modules` (`@swc/jest` y `tsc`), por lo que no se repitieron Jest ni typecheck localmente. No se cambiaron dependencias ni se modificó configuración para forzar la ejecución. La evidencia de CI anterior se cita por separado.
+- La PR #425 está abierta para la revisión formal. Las PRs citadas y mergeadas solo admiten revisión retrospectiva; no pueden recibir `requested_reviewers` como PR abierta. Falta aprobación independiente de esta PR por Diego y resolver/registrar sus comentarios.
 
 **Conclusión:** las bases de código y evidencia local están integradas, pero el paquete no convierte #133/#134 en DoD completo. Solicitar revisión independiente del código/evidencia; mantener #133 y #134 abiertos hasta la evidencia faltante o aceptación explícita del alcance.
