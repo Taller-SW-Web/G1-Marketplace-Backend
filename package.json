@@ -55,7 +55,7 @@
     "integracion:bff": "node scripts/bff-integration-real.mjs",
     "integracion:real": "node scripts/g7-integration-real.mjs",
     "test:compra:kit": "node --test test/compra-real.test.mjs",
-    "compra:real": "node scripts/compra-real.mjs"
+    "compra:real": "node scripts/compra-real.mjs",
     "perf:local": "node scripts/performance/http-benchmark.mjs"
   },
   "dependencies": {
