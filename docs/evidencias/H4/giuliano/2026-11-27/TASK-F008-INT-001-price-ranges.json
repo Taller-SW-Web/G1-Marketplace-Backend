@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "task": "TASK-F008-INT-001",
+  "timestampUtc": "2026-11-27T07:32:29.249Z",
+  "targetOrigin": "https://g1-marketplace-backend.onrender.com",
+  "status": "BLOCKED",
+  "results": [
+    {
+      "case": "F008-price-0-60",
+      "requested": {
+        "q": "G6 QA Marketplace Desempate",
+        "minPrice": "0",
+        "maxPrice": "60",
+        "bffPage": 0,
+        "pageSize": 24,
+        "sort": "NAME_ASC"
+      },
+      "g6Mapping": {
+        "canal": "MARKETPLACE",
+        "pagina": 1,
+        "tamanio": 24,
+        "precioMin": "0",
+        "precioMax": "60",
+        "orden": "NOMBRE_ASC"
+      },
+      "expected": {
+        "status": 200,
+        "source": "REAL",
+        "productIds": [
+          "93f7f500-077d-432e-be98-31cb9ee0d66d",
+          "8ad24563-c9da-4305-b650-1dd47a14fffb"
+        ],
+        "page": {
+          "number": 0,
+          "size": 24,
+          "totalElements": 2,
+          "totalPages": 1
+        }
+      },
+      "requestId": "616c7cb6-a759-46a3-9649-e20f676f5824",
+      "outcome": "BLOCKED",
+      "code": "NETWORK_OR_TIMEOUT",
+      "durationMs": 72
+    },
+    {
+      "case": "F008-price-0-45",
+      "requested": {
+        "q": "G6 QA Marketplace Desempate",
+        "minPrice": "0",
+        "maxPrice": "45",
+        "bffPage": 0,
+        "pageSize": 24,
+        "sort": "NAME_ASC"
+      },
+      "outcome": "NOT_RUN_AFTER_BLOCK"
+    }
+  ],
+  "limits": [
+    "G1 query parameters minPrice/maxPrice map to G6 precioMin/precioMax; BFF page=0 maps to G6 pagina=1 and pageSize=24 to tamanio=24.",
+    "The local contract does not publish inclusive/exclusive price-bound semantics. Tested bounds (0–60 and 0–45) do not equal either known product price (39.90 and 49.90), so this run does not infer boundary inclusivity.",
+    "Known product IDs, slugs and prices come from G6 confirmation; the public BFF card does not expose price. This runner sends GET only, omits cookies and Authorization, and does not call G6 directly.",
+    "The earlier 26/11 Render trace covers 0–100 and records 0–60/0–45 results as slugs and totals; the new requests add product IDs and filtered page metadata for 0–60 and 0–45.",
+    "X-Catalog-Source=REAL, IDs and response totals do not independently attest the upstream contract revision, deployed SHA, I-01 approval, dependency #49, UI behavior, or independent acceptance."
+  ]
+}
