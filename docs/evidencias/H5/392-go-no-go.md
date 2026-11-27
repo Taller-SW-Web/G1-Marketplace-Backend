@@ -1,6 +1,6 @@
 # BE #392 — Informe go/no-go
 
-**Estado:** en consolidación; el issue sigue abierto. Ya están disponibles la matriz y los reportes de cobertura de Diego, los casos k6 de Fernando y las evidencias REAL de G7/Ventas/Despacho. Este índice integrado está en [PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/408); aún no está fusionado en `develop`.
+**Estado:** paquete de evidencia integrado en `develop` por [PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/408), merge `7aa625c9ba0cd51d1704a5f0043d16473e790033`; BE #392 sigue abierto. La selección de 15 casos está enlazada abajo; revisión y decisión del PO pendientes.
 
 - [Issue BE #392](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/392)
 - [Matriz F-001..F-040 BE #291/#299 — PR #354](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/aeac35ff99d8bf5a685c6ce43cb5fd2fec8add5e/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md)
@@ -11,16 +11,16 @@
 
 | Requisito | Estado | Evidencia / acción |
 |---|---|---|
-| 15 casos identificados y trazables | 15 casos compilados abajo: 5 funcionales MOCK/LOCAL, 5 de integración REAL reportados y 5 de performance LAB LOCAL | CP-PERF-01..05 ya existe en [BE #396](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/reporte-final.md#casos-de-performance-para-be-392); los funcionales enlazan a las suites de matriz #354 y las integraciones a reportes fuente |
-| Runs y reportes vinculados | Parcial: fuentes ya enlazadas; algunas corridas reales no tienen permalink CI | La matriz, cobertura, k6, compra, BFF, RabbitMQ y webhook están en el [índice H5](README.md); preservar run/registro fuente al congelar |
+| 15 casos identificados y trazables | 15 casos seleccionados: 5 funcionales MOCK/LOCAL, 5 integraciones REAL reportadas y 5 performance LAB LOCAL | [Tabla de casos](392-casos-15.md); la selección no sustituye el mapa completo F-001..F-040 ni declara todas las pruebas ejecutadas en un único run |
+| Runs y reportes vinculados | Parcial: se enlazaron permalinks primarios para G7, webhook y correo; aún falta URL canónica del informe lab y artefactos HTML/trace de #138 | La matriz, cobertura, k6, compra, BFF, RabbitMQ y webhook están en el [índice H5](README.md); conservar el alcance y SHA de cada fuente |
 | Etiquetas de ejecución | Cubierto por matriz | PR #354 distingue `LOCAL`, `PIN`, `BLOCKED`, `NOT-COVERED`; esta tabla agrega `MOCK`, `REAL` o `LAB LOCAL` sin convertir fixtures en REAL |
-| SAST y DAST | Parcial: Backend pasó en CI | [SAST/SCA/Secret Scan del PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45910280893) y [DAST OWASP ZAP](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45910280872); documentar alcance y SHA en el informe congelado |
-| Riesgos, bloqueos y desviaciones | Parcial | Cuenta B 403, CSAT, `DESPACHADO`/`ENTREGADO` de `PED-2026-00092`, `correlation-id`, E2E multi-módulo REAL y consumo automático posterior al fix siguen sin cierre |
-| Recomendación go/no-go | Pendiente | Completar tras consolidar los 15 casos y obtener validación del PO |
+| SAST y DAST | Runs/artefactos y SHA documentados; triage DAST pendiente | [SAST #45920685461 / SARIF #15164033447](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461) y [DAST #45920685529 / artefacto #15164403177](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529); alcance/alertas en [informe H5](informe-pruebas-h5.md#5-cobertura-sast-y-dast) |
+| Riesgos, bloqueos y desviaciones | Parcial | Cuenta B 403, CSAT, `DESPACHADO`/`ENTREGADO` de `PED-2026-00092`, `correlationId` REAL, E2E multi-módulo REAL, automatic retry post-fix y conflictos de PR #354/#358 siguen sin cierre. PR #415 avanza los snapshots contractuales G6 en una rama aislada, pendiente de revisión/merge |
+| Recomendación go/no-go | Pendiente | El PO debe revisar los 15 casos, los límites MOCK/LAB LOCAL, alertas DAST y riesgos de salida; luego registrar recomendación y fecha |
 | Validación del PO | Pendiente | Enlazar la decisión y fecha del PO al informe final |
 
 ## Inventario preliminar de evidencia
 
 Las fuentes disponibles ya están asociadas a los 15 casos de la tabla: compra y BFF; publicación G7, webhook y dedupe de correo; cinco casos k6; suites locales/MOCK FE/BE; cobertura BE/FE. La selección no pretende cubrir las 40 F; esas conservan su estado individual en la matriz de Diego.
 
-La selección de 15 casos está compilada en [392-casos-15.md](392-casos-15.md). La decisión del PO y el tratamiento de los riesgos residuales siguen pendientes; el resultado documental es **PENDIENTE**, no `GO` ni `NO-GO`.
+La selección de 15 casos está compilada en [392-casos-15.md](392-casos-15.md). La decisión del PO y el tratamiento de los riesgos residuales siguen pendientes; el resultado documental es **PENDIENTE**, no `GO` ni `NO-GO`. El run post-merge #45920685386 tuvo bloqueado el paso SemVer/CHANGELOG por la protección de rama (GH013); los trabajos de build/test/seguridad pasaron.
