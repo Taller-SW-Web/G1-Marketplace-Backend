@@ -40,6 +40,8 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   let getRetryAfter: string | undefined;
   let getRequests = 0;
   let slowBodyMs = 0;
+  let withholdFirstCreateResponse = false;
+  let postRequests = 0;
   let responseBody: unknown;
   let lastRequest: { method?: string; url?: string; authorization?: string | string[]; idempotencyKey?: string | string[]; body?: unknown } = {};
   const created = new Map<string, string>();
@@ -68,6 +70,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
           response.end(JSON.stringify(responseBody));
           return;
         }
+        postRequests += 1;
         const key = String(request.headers['idempotency-key'] ?? '');
         const fingerprint = JSON.stringify(body);
         const previous = created.get(key);
@@ -78,6 +81,10 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
         }
         created.set(key, fingerprint);
         response.writeHead(previous ? 200 : postStatus, { 'content-type': 'application/json' });
+        if (withholdFirstCreateResponse && !previous) {
+          // Leave the committed response pending so the client observes its timeout.
+          return;
+        }
         if (slowBodyMs > 0) {
           // cabeceras al instante y cuerpo en partes con pausas menores que el timeout de inactividad de Axios:
           // el socket nunca queda inactivo, pero la respuesta completa tarda más que el plazo total
@@ -108,6 +115,8 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
     getStatus = 200;
     getRetryAfter = undefined;
     getRequests = 0;
+    postRequests = 0;
+    withholdFirstCreateResponse = false;
     responseBody = {
       pedidoId: 'PED-2026-00001',
       estado: 'CREADO',
@@ -233,6 +242,18 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       expect(options.timeout).toBeLessThanOrEqual(5_000);
       expect(options.timeout).toBeGreaterThan(4_000);
     });
+  });
+
+
+  it('reports a lost create response without retrying and accepts an explicit same-key replay', async () => {
+    withholdFirstCreateResponse = true;
+    const client = provider({ G5_SALES_TIMEOUT_MS: 150 });
+    await expect(client.createOrder(payload, idempotencyKey)).rejects.toMatchObject({ status: 504 });
+    expect(postRequests).toBe(1);
+    expect(created.size).toBe(1);
+    await expect(client.createOrder(payload, idempotencyKey)).resolves.toMatchObject({ pedidoId: 'PED-2026-00001' });
+    expect(postRequests).toBe(2);
+    expect(created.size).toBe(1);
   });
 
   it('posts the pinned M1 request verbatim with the same Idempotency-Key and maps 201/200 responses', async () => {

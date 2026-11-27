@@ -9,23 +9,24 @@ export const SOURCE_CONTRACTS = [
   { file: 'product-detail-h4.openapi.yaml', id: 'productDetail', prefix: 'ProductDetail', format: 'yaml' },
 ];
 
-export const BLOCKED_ROUTES = [
+export const CONTRACTED_CART_ROUTES = [
   {
-    operation: 'DELETE /api/v1/carts/current/items/{sku}',
-    source: 'src/cart/cart.controller.ts',
-    marker: "@Delete(['current/items/:sku', 'items/:sku'])",
+    sourceOperation: 'DELETE /api/v1/carts/current/items/{sku}',
+    publicOperation: 'DELETE /v1/carts/current/items/{sku}',
   },
   {
-    operation: 'POST /api/v1/carts/current/merge-anonymous',
-    source: 'src/cart/cart.controller.ts',
-    marker: "@Post(['current/merge-anonymous', 'merge-anonymous'])",
+    sourceOperation: 'POST /api/v1/carts/current/merge-anonymous',
+    publicOperation: 'POST /v1/carts/current/merge-anonymous',
   },
   {
-    operation: 'POST /api/v1/carts/current/items/{sku}/move-to-wishlist',
-    source: 'src/cart/cart.controller.ts',
-    marker: "@Post(['current/items/:sku/move-to-wishlist', 'items/:sku/move-to-wishlist'])",
+    sourceOperation: 'POST /api/v1/carts/current/items/{sku}/move-to-wishlist',
+    publicOperation: 'POST /v1/carts/current/items/{sku}/move-to-wishlist',
   },
 ];
+
+export const BLOCKED_ROUTES = [];
+
+const BLOCKED_OPERATION_KEYS = new Set(BLOCKED_ROUTES.map(({ operation }) => operation));
 
 export const OPENAPI_METHODS = new Set([
   'get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace',
@@ -313,6 +314,33 @@ function methodsInJsonPathItem(pathItem) {
   return Object.keys(pathItem).filter((key) => OPENAPI_METHODS.has(key.toLowerCase())).map((key) => key.toLowerCase());
 }
 
+function allowedMethods(sourcePath, methods) {
+  return methods.filter((method) => !BLOCKED_OPERATION_KEYS.has(`${method.toUpperCase()} ${sourcePath}`));
+}
+
+function filterBlockedYamlMethods(block, sourcePath) {
+  const filtered = [block[0]];
+  let includeCurrentSection = true;
+  for (const line of block.slice(1)) {
+    const parsed = parseYamlKey(line, 4);
+    const key = parsed?.key.toLowerCase();
+    if (key && OPENAPI_METHODS.has(key)) {
+      includeCurrentSection = !BLOCKED_OPERATION_KEYS.has(`${key.toUpperCase()} ${sourcePath}`);
+    } else if (parsed) {
+      // Path-level fields (for example parameters) are not operations and remain in the artifact.
+      includeCurrentSection = true;
+    }
+    if (includeCurrentSection) filtered.push(line);
+  }
+  return filtered;
+}
+
+function filterBlockedJsonMethods(pathItem, methods) {
+  const allowed = new Set(methods);
+  return Object.fromEntries(Object.entries(pathItem).filter(([key]) =>
+    !OPENAPI_METHODS.has(key.toLowerCase()) || allowed.has(key.toLowerCase())));
+}
+
 function mapPathKeyLine(line, publicPath) {
   const colon = line.indexOf(':');
   if (colon < 0) throw new Error(`Clave de ruta YAML inesperada: ${line}`);
@@ -358,8 +386,10 @@ export function buildOpenApiArtifact() {
       }
       const inheritedSecurity = globalSecurityForYaml(source);
       for (const entry of source.document.pathEntries) {
-        const methods = methodsInYamlBlock(entry.lines);
-        let block = [...entry.lines];
+        const allMethods = methodsInYamlBlock(entry.lines);
+        const methods = allowedMethods(entry.key, allMethods);
+        if (methods.length === 0) continue;
+        let block = filterBlockedYamlMethods(entry.lines, entry.key);
         const sourcePath = entry.key;
         const publicPath = publicPathFor(sourcePath);
         if (sourcePath === '/health' && source.id === 'h3') {
@@ -397,7 +427,8 @@ export function buildOpenApiArtifact() {
     }
 
     for (const [sourcePath, originalPathItem] of Object.entries(source.document.paths)) {
-      const methods = methodsInJsonPathItem(originalPathItem);
+      const methods = allowedMethods(sourcePath, methodsInJsonPathItem(originalPathItem));
+      if (methods.length === 0) continue;
       if (sourcePath === '/health' && source.id === 'h3') {
         appendPath(source, sourcePath, methods, []);
         continue;
@@ -407,7 +438,7 @@ export function buildOpenApiArtifact() {
         appendPath(source, sourcePath, methods, []);
         continue;
       }
-      const pathItem = rewriteJsonReferences(originalPathItem, sourceRenames);
+      const pathItem = rewriteJsonReferences(filterBlockedJsonMethods(originalPathItem, methods), sourceRenames);
       if (source.document.security !== undefined && source.document.security.length > 0) {
         for (const method of methods) {
           if (pathItem[method].security === undefined) pathItem[method].security = source.document.security;
@@ -429,8 +460,14 @@ export function buildOpenApiArtifact() {
   }
 
   const contractedOperations = operationSources.filter(({ sourcePath }) => sourcePath.startsWith('/api/v1/'));
-  if (contractedOperations.length !== 38) {
-    throw new Error(`Se esperaban 38 operaciones bajo /api/v1 y se encontraron ${contractedOperations.length}`);
+  if (contractedOperations.length !== 41) {
+    throw new Error(`Se esperaban 41 operaciones bajo /api/v1 y se encontraron ${contractedOperations.length}`);
+  }
+  const contractedOperationKeys = new Set(contractedOperations.map(({ method, sourcePath }) => `${method} ${sourcePath}`));
+  for (const { sourceOperation } of CONTRACTED_CART_ROUTES) {
+    if (!contractedOperationKeys.has(sourceOperation)) {
+      throw new Error(`Falta una ruta de carrito contratada en las fuentes: ${sourceOperation}`);
+    }
   }
   if (sourcePathsOutsideV1.length !== 1 || sourcePathsOutsideV1[0] !== 'GET /health') {
     throw new Error(`Cambió la superficie fuera de /api/v1: ${JSON.stringify(sourcePathsOutsideV1)}`);
@@ -456,7 +493,9 @@ export function buildOpenApiArtifact() {
     }).join('\n')}`;
   }).filter(Boolean).join('\n');
 
-  const blockedText = BLOCKED_ROUTES.map(({ operation }) => `  - ${quote(operation)}`).join('\n');
+  const blockedText = BLOCKED_ROUTES.length > 0
+    ? BLOCKED_ROUTES.map(({ operation }) => `  - ${quote(operation)}`).join('\n')
+    : '  []';
   const sourceText = SOURCE_CONTRACTS.map(({ file }) => `  - ${quote(`docs/contratos/${file}`)}`).join('\n');
   const output = [
     'openapi: 3.1.0',
@@ -464,7 +503,7 @@ export function buildOpenApiArtifact() {
     '  title: "Marketplace BFF APIM /v1 - contracted subset"',
     '  version: "1.0.0"',
     '  description: >-',
-    '    Import candidate containing only the 38 documented /api/v1 operations from the five source contracts.',
+    '    Import candidate containing only the 41 documented /api/v1 operations from the five source contracts.',
     '    This is a contracted subset of the BFF, not the complete BFF contract. It has no backend server URL.',
     '    It does not configure, import, or deploy an APIM API or backend.',
     'x-artifact-scope: "contracted-subset-of-bff-not-complete-contract"',

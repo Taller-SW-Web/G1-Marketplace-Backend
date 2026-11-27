@@ -270,7 +270,7 @@ const document = {
         tags: ['Cart'],
         summary: 'F-018: quitar un ítem del carrito de forma idempotente',
         description:
-          'Elimina la línea del carrito activo del titular o invitado. Si la línea ya no existe, responde 204 sin mutación; no representa un error. If-Match es opcional y compara la versión del carrito; si se reenvía un valor obsoleto, responde 409. Sin If-Match, la operación puede repetirse de forma segura sin Idempotency-Key. Para invitados puede emitir la cookie cart_session.',
+          'Elimina la línea del carrito activo del titular o invitado. Si el carrito no existe o la línea ya no existe, responde 204 sin crear, reclamar ni mutar un carrito. Para invitados, no crea una sesión ni emite cart_session cuando no hay cookie previa. X-Cart-Version se devuelve solo cuando existe un carrito activo. If-Match es opcional y compara la versión del carrito; si se reenvía un valor obsoleto, responde 409. Sin If-Match, la operación puede repetirse de forma segura sin Idempotency-Key.',
         security: [{ bearerAuth: [] }, {}],
         parameters: [
           {
@@ -291,9 +291,7 @@ const document = {
           '204': {
             description: 'Eliminado o ya ausente; sin cuerpo.',
             headers: {
-              'X-Cart-Version': { description: 'Versión actual del carrito.', schema: { type: 'string', pattern: '^[0-9]+$', example: '4' } },
-              'Set-Cookie': { description: 'Cookie de sesión anónima HttpOnly, si aún no existía.', schema: { type: 'string', example: 'cart_session=uuid; Path=/; HttpOnly; SameSite=Lax' } },
-            },
+              'X-Cart-Version': { description: 'Versión actual si existe un carrito activo; ausente si no existe.', schema: { type: 'string', pattern: '^[0-9]+$', example: '4' } },            },
           },
           '400': error('SKU inválido.', 'INVALID_SKU'),
           '401': error('Token Bearer inválido o expirado.', 'UNAUTHENTICATED'),
