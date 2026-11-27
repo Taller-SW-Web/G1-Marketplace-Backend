@@ -12,7 +12,7 @@
     "mock:auth": "node scripts/mock-auth-server.mjs",
     "test:mock-auth": "node --test scripts/mock-auth-server.test.mjs",
     "test:unit": "jest --runInBand",
-    "test:pinned-spec:offline": "jest --runInBand --runTestsByPath test/g5-pinned-openapi.spec.ts",
+    "test:pinned-spec:offline": "jest --runInBand --runTestsByPath test/g5-pinned-openapi.spec.ts test/g6-pinned-openapi.spec.ts",
     "test:g5:sales-adapter:offline": "jest --runInBand --runTestsByPath src/checkout/external/g5-sales.provider.spec.ts",
     "test:ventas:webhook:postgres": "node scripts/test-shipment-webhook-postgres.mjs",
     "test:integration": "ts-node scripts/integration-test.ts",

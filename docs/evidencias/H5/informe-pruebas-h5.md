@@ -1,6 +1,7 @@
 # Informe de pruebas H5 — consolidación de evidencia
 
-**Estado:** borrador consolidado para #324/#392; incluye la selección trazable de 15 casos. La decisión go/no-go y la aprobación del PO continúan pendientes. Hay evidencia REAL publicada de compra y BFF, además de evidencia de RabbitMQ G7, webhook, laboratorio, performance y cobertura.
+**Estado:** consolidación documental posterior al merge de BE #408. El paquete tiene 15 casos seleccionados, permalinks de evidencia primaria y métricas de cobertura/seguridad. La decisión go/no-go y la aprobación del PO continúan pendientes; esta selección no reemplaza la matriz completa de 40 F.
+**Commit del paquete:** head de PR #408 `064385d77b26698000161f0ba36cac6e8e8a2db2`; merge a `develop` `7aa625c9ba0cd51d1704a5f0043d16473e790033`.
 **Corte de evidencia congelada:** viernes 27 de noviembre de 2026, 15:00 (America/Lima).
 **Compra de referencia:** `PED-2026-00092`.
 
@@ -17,7 +18,7 @@ El informe contiene una selección de 5 casos funcionales MOCK/LOCAL, 5 de integ
 | Compra y lecturas con Ventas | BFF con SHA `f17896d`; horas del 26/11 en America/Lima (UTC−5); pedido confirmado por Ventas | [Informe REAL fusionado en Backend develop](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/tree/develop/docs/evidencias/H5/integracion-real) |
 | Ronda Seguridad por BFF | 26/11 16:00:23–16:00:32; cuenta A con autorización de G7 | [Reporte sanitizado BFF](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/develop/docs/evidencias/H5/integracion-real/bff/2026-11-26/REAL-2026-11-26T21-00-23.847Z-7f8fc4c5.md) |
 | Cobertura Backend CI | `develop` SHA `2c359be`, run exitoso; auditoría posterior reporta cifras de una rama aparte | [Run BE #45772947134](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45772947134) · [auditoría](291-292-137-cobertura.md) |
-| Cobertura Frontend CI | PR #174, SHA `f0678f6`, run exitoso y artefacto publicado | [Run FE #45843117746](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746) |
+| Cobertura Frontend CI | SHA `f0678f64d3cfdde57148e810986c448b443cdfc8`; componentes 71.67% líneas / 64.46% ramas (181 archivos), servidor 83.64% líneas / 73.60% ramas (21 archivos) | [Run FE #45843117746](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746), [artefacto #15129776965](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746/artifacts/15129776965) |
 | Performance k6 | Docker local con terceros G5/G6/G7 simulados | [Reporte k6](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/reporte-final.md) |
 
 ## 3. Resultados por tipo y capa
@@ -40,18 +41,25 @@ En los intentos iniciales de compra se registraron un 429 durante el arranque en
 
 Los escenarios pendientes de cuenta B (esperado 403), CSAT y estados de despacho del pedido 00092 están registrados como pendientes, no como fallos observados.
 
-## 5. Cobertura y métricas
+## 5. Cobertura, SAST y DAST
 
 - Backend: el run de `develop` publicó `backend-coverage-report`. La auditoría sobre la rama con cambios de favoritos y CSAT reporta 75.04% de líneas y 68.51% de ramas. No atribuir esas cifras al artefacto del run de `develop` sin cotejar el artefacto exacto.
-- Frontend: el run publicó `frontend-coverage-report` con reportes Vitest; los porcentajes aún deben extraerse del artefacto.
+- Frontend FE #137: run #45843117746, SHA `f0678f64d3cfdde57148e810986c448b443cdfc8`, artefacto #15129776965. Componentes: 71.67% líneas / 64.46% ramas (181 archivos); servidor: 83.64% líneas / 73.60% ramas (21 archivos). Estos porcentajes pertenecen a esa rama/commit.
 - BE #392 señala meta orientativa de ramas ≥80%; la auditoría Backend citada queda por debajo en ramas.
+
+| Control | SHA probado | Run / artefacto | Alcance y resultado |
+|---|---|---|---|
+| SAST Backend — Semgrep | Merge `7aa625c9ba0cd51d1704a5f0043d16473e790033` (PR #408 head `064385d77b26698000161f0ba36cac6e8e8a2db2`) | [Run #45920685461](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461) · [SARIF #15164033447](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461/artifacts/15164033447) | Job correcto; 0 resultados en SARIF para el escaneo ejecutado |
+| DAST Backend — OWASP ZAP | Merge `7aa625c9ba0cd51d1704a5f0043d16473e790033` | [Run #45920685529](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529) · [artefacto #15164403177](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529/artifacts/15164403177) | Alcance `http://127.0.0.1:10000`; 13 alertas reportadas: 2 Medium/High, 1 Medium/Medium, 7 Low y 3 Informational. Aplican sólo a ese target local y corrida. |
+
+La PR #408 tuvo verdes los runs #45920269522, #45920269558, #45920269539, #45920269518 y #45920269579 para lint/integración/build/Docker, backend/PostgreSQL/H-05, SAST/SCA/Gitleaks/cobertura, ZAP y perf smoke. En el run post-merge #45920685386, el paso de Versionado (SemVer + CHANGELOG) fue bloqueado por GH013 porque `develop` requiere cambios por PR; los trabajos de build/test/seguridad pasaron. No contar ese bloqueo de política de rama como fallo de pruebas del paquete.
 
 ## 6. Riesgos residuales
 
 - Obtener logs con `correlation-id` visible en una corrida REAL y completar los runs de las 40 F; `requestId`/`eventId` no bastan por sí solos.
 - Adjuntar evidencia de cuenta B 403, CSAT y `DESPACHADO`/`ENTREGADO` reales del pedido `PED-2026-00092`.
-- Integrar al branch objetivo las PR #354/#358 (matriz y contratos G6) y enlazar el C4 y contratos de eventos aprobados desde SPECS.
-- Extraer métricas FE, completar DAST y consolidar defectos y bloqueos con fuente primaria.
+- #354/#358 siguen abiertas y en conflicto contra `main`; no están en `develop`. #390 se fusionó en `develop` como `f50938bb0820b5a216046f7222a49efc38b19a62` y su CI post-merge pasó; el comentario #317 registra correlación en LAB LOCAL, pero no adjunta el log ni demuestra una traza REAL.
+- Falta completar DAST findings/remediación según el propietario del servicio y resolver el bloqueo de Semantic Release sólo mediante el flujo aprobado por protección de rama.
 
 ## 7. Recomendación go/no-go
 
@@ -63,11 +71,11 @@ Este índice organiza la evidencia de extremo a extremo para la exposición. Cad
 
 | Prioridad | Punto | Documento | Estado |
 |---|---|---|---|
-| 1 | [#324 — Paquete de evidencia H5](#1-324-paquete-de-evidencia-h5) | Este índice | Parcial; enlaces primarios pendientes |
-| 2 | [#299 — Trazabilidad F → prueba → run](299-trazabilidad.md) | [Trazabilidad](299-trazabilidad.md) | PR #354 (HTTP/F matrix) y #390 (consumer correlation) tienen CI; falta merge, runs por F y correlationId REAL |
+| 1 | [#324 — Paquete de evidencia H5](#1-324-paquete-de-evidencia-h5) | Este índice | Evidencia primaria añadida; falta URL exacta del lab y artifacts Playwright #138 |
+| 2 | [#299 — Trazabilidad F → prueba → run](299-trazabilidad.md) | [Trazabilidad](299-trazabilidad.md) | #390 ya está fusionada con CI post-merge verde; matriz #354 sigue abierta/conflictiva; faltan runs por F y correlationId REAL |
 | 3 | [#325 — Arquitectura C4](325-arquitectura-c4.md) | [C4](325-arquitectura-c4.md) | Tres vistas de trabajo agregadas; requiere revisión de Arquitectura y datos de despliegue/APIM |
 | 4 | [#321 — Contrato de eventos](321-contrato-eventos.md) | [Contrato y diagramas A/B](321-contrato-eventos.md) | Acuerdos #20/#22 y esquemas enlazados; falta correlación REAL y enlace de runs post-fix |
-| 5 | [#293 — Contract tests de Productos](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | PR #354/#358 aprobadas y CI verde en `main`; integrar al branch objetivo; sin runtime REAL |
+| 5 | [#293 — Contract tests de Productos y Ofertas](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | PR #415 agrega snapshot G6 `0.7.0-rc.3` y suite offline; CI verde/revisión pendiente. `develop` conserva pin `0.6.0-rc.1`; #354/#358 siguen abiertas/conflictivas; sin runtime REAL |
 
 ### Matriz, cobertura y decisión go/no-go
 
@@ -89,23 +97,23 @@ La secuencia de negocio de referencia es la compra real `PED-2026-00092`, report
 |---|---|---|---|---|
 | Compra real `PED-2026-00092` | [Informe integrado en develop](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/tree/develop/docs/evidencias/H5/integracion-real#compra-real-con-ventas-be-380-397-387); [reporte 6afb7c7c](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/develop/docs/evidencias/H5/integracion-real/compra/2026-11-26/REAL-2026-11-26T20-05-16.062Z-6afb7c7c.md); commit del BFF `f17896d` | README fusionado; horas Lima (UTC−5), `requestId` y pasos anteriores también documentados | `PROD-101`; 139,90 PEN; POST `/api/v1/checkout/orders` 15:06:11→202; `PAGADO` confirmado 15:17:04; lecturas `/api/v1/orders/me` y `/api/v1/orders/PED-2026-00092` 15:26→200; reintento 15:46:09→202, mismo pedido sin duplicado | Ventas REAL; token/dirección G7 REAL; cotización y revalidación MOCK; `DESPACHADO` y `ENTREGADO` del pedido siguen pendientes |
 | Ronda BFF con cuenta A | [Informe integrado en develop](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/tree/develop/docs/evidencias/H5/integracion-real#ronda-por-el-bff-con-seguridad); [reporte 7f8fc4c5](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/develop/docs/evidencias/H5/integracion-real/bff/2026-11-26/REAL-2026-11-26T21-00-23.847Z-7f8fc4c5.md) | README fusionado; ventana en hora de Lima | 26/11 16:00:23–16:00:32; 19/19 OK, 0 fallos, sin 429; autorizada por G7 | Evidencia REAL publicada; omitió registro de cuenta nueva y rama MFA |
-| Evento G7 en RabbitMQ | [BE #313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313) / [acuerdo G7 SPECS #22](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/22) | Outbox y lectura manual | `usuario.creado` v1; evento `5206c121-61e7-4de9-8fe9-0b11306c0daa`, leído de `marketplace.usuarios` y cotejado con outbox el 25/11 23:07 | REAL reportado; falta permalink al comentario fuente de #313 |
+| Evento G7 en RabbitMQ | [Comentario primario BE #313](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/313#issuecomment-7182370357) / [acuerdo G7 SPECS #22](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/22) | Outbox y lectura manual | `usuario.creado` v1; evento `5206c121-61e7-4de9-8fe9-0b11306c0daa`, leído de `marketplace.usuarios` y cotejado con outbox el 25/11 23:07:26 | REAL reportado; no se mostró correlationId |
 | Consumidor G7 / recuperación desde DLQ | [BE #314, actualización REAL](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/314#issuecomment-7205557701) y [BE #315](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/315) | Consulta PostgreSQL de solo lectura reportada | Tres mensajes originales recuperados manualmente con candidato #409; una fila por ID; cuatro filas/cuatro IDs distintos contando la prueba previa | REAL controlado; no demuestra nueva entrega automática, replay automático ni backoff |
-| Webhook de despacho desde Ventas (`ShipmentStatusUpdated`) | BE #318 ([issue](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/318)); permalink de run/comentario: Pendiente | Reporte primario: Pendiente | 7 eventos persistidos entre 11:05:47–11:05:50 (5 `DESPACHADO`, 2 `ENTREGADO`); token incorrecto rechazado con 401 | REAL reportado; pedido al que pertenecen esos eventos: Pendiente |
-| Reintento de correo C-002 | BE #162 ([issue](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162)); permalink de run: Pendiente | Reporte primario: Pendiente | `PED-2026-90001`, evento `c53403f0-a940-44d6-a3f1-4652d301e99a`; envío 17:07:59 y reintento 17:09:12 marcado `duplicate:true`; llegó un solo correo | REAL reportado; evidencia complementaria, no el pedido `00092` |
+| Webhook de despacho desde Ventas (`ShipmentStatusUpdated`) | [Comentario fuente BE #318](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/318#issuecomment-7202913749) | Registro sanitizado del webhook | 7 eventIds únicos, 26/11 11:05:47–11:05:50 (5 `DESPACHADO`, 2 `ENTREGADO`); token incorrecto/ausente 401 | REAL reportado; pedidos `90001`, `90003`, `90005`, `90006`, no `00092` |
+| Reintento de correo C-002 | [Comentario fuente BE #162](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162#issuecomment-7204545580) | Registro de envío/replay | `PED-2026-90001`, evento `c53403f0-a940-44d6-a3f1-4652d301e99a`; segundo envío `duplicate:true`; llegó un solo correo | REAL reportado; no es el pedido `00092` |
 | Contract tests de Ventas | [PR #344](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/344), merge `dc66208`; enlace directo a CI: Pendiente | [Detalle #295](295-contract-tests-ventas.md) | Snapshots OpenAPI offline 6/6; provider local con datos/token sintéticos | Aporta contexto; no equivale a Productos/Ofertas ni a Ventas REAL |
-| Consumidor — pruebas de laboratorio | `H5-evidencia-consumidor-Leonidas.md`; URL del archivo/run: Pendiente | La evidencia documenta RabbitMQ 4.1 y PostgreSQL 16 desechables | Eventos sintéticos; duplicado y recuperación de conexión; ensayo separado con reintentos/DLQ | LAB LOCAL; no presentarlo como integración REAL |
+| Consumidor — pruebas de laboratorio | [Comentario BE #317](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/317#issuecomment-7203197884); nombre reportado `H5-evidencia-consumidor-Leonidas.md` | Comentario fuente; permalink del archivo lab aún no ubicado | RabbitMQ 4.1 y PostgreSQL 16 desechables; 3/3 pruebas aisladas; caída del consumidor, redelivery al reconectar y una fila por evento. El comentario indica mismo ID de correlación en traza, pero no adjunta ID/log/cuerpo | LAB LOCAL; no fue la sesión de 17:15 ni entrega REAL de G7; falta URL canónica del informe |
 | k6 — cinco casos de performance | [BE #396, fusionado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/396) | [CP-PERF-01..05: reporte, pasos y resultados](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/reporte-final.md#casos-de-performance-para-be-392); [datos JSON](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/datos-finales.json) | Cinco casos con precondiciones, pasos, resultados y evidencia; IDs incluidos en [la tabla de #392](392-casos-15.md) | Docker local; G5/G6/G7 simulados; no es integración REAL |
-| E2E FE #138 carrito/checkout | [FE #138, cerrada parcial](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/138); [run Playwright CI](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45902315375/job/140190792229) | Reporte HTML/trazas locales descritos en #138 | Dos casos Playwright MOCK (éxito y error); intento REAL se detuvo con `401 CREDENCIALES_INVALIDAS`, sin crear pedido | Evidencia parcial; no cumple el E2E multi-módulo completo |
-| Matriz de integración BE #291 | [Matriz F-001..F-040 de PR #354](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/aeac35ff99d8bf5a685c6ce43cb5fd2fec8add5e/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md) | [Evidencias adicionales y límites](291-292-137-cobertura.md) | Módulos G6, G7, G5 y G2; conserva `LOCAL`, `PIN`, `BLOCKED`, `NOT-COVERED` | Incorporar evidencia adicional al ID de caso y run cuando la matriz se integre al branch objetivo |
+| E2E FE #138 carrito/checkout | [FE #138, comentario con evidencia parcial](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/138#issuecomment-7205237086); [job Playwright MOCK #140190792229](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45902315375/job/140190792229) | CI no subió artefactos; el comentario reporta HTML y traces locales preservados, pero no incluye enlace/ruta al archivo | Dos casos MOCK; intento REAL en Vercel terminó en `401 CREDENCIALES_INVALIDAS`; no creó pedido. En los checkouts accesibles no encontramos los archivos locales de esa corrida. `playwright-report/h5/index.html` del checkout es de accesibilidad/V-007, no de carrito/checkout | Evidencia parcial; pedir al responsable que adjunte/enlace el HTML y trace local del comentario, sin sustituirlo por otro reporte |
+| Matriz de integración BE #291 | [Matriz F-001..F-040 de PR #354](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/aeac35ff99d8bf5a685c6ce43cb5fd2fec8add5e/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md) | [Evidencias adicionales y límites](291-292-137-cobertura.md) | Módulos G6, G7, G5 y G2; conserva `LOCAL`, `PIN`, `BLOCKED`, `NOT-COVERED`; PR abierta/conflictiva contra `main` | No está incorporada en `develop`; integrar evidencia/run al ID F cuando se resuelva la PR |
 | Cobertura backend BE #292 | [Run de develop #45772947134](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45772947134) | [Auditoría de cobertura](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/b67261f6a19c29a87d368e63e4fc6c32612545f8/docs/evidencias/H5/diego/TASK-H5-TEST-002-COBERTURA-BE.md) | Artefacto `backend-coverage-report`; auditoría de rama reporta 75.04% líneas y 68.51% ramas tras ajustes de favoritos y CSAT | Mantener distinto el artefacto de develop y los porcentajes documentados en la rama |
-| Cobertura frontend FE #137 | [Run CI #45843117746](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746) | Artefacto `frontend-coverage-report` | Run de rama `ci/h5-137-vitest-coverage` reportado como exitoso; Vitest cubre componentes y servidor | Recuperar/enlazar el artefacto y sus métricas antes del corte |
+| Cobertura frontend FE #137 | [Run CI #45843117746](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746); [artefacto #15129776965](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746/artifacts/15129776965) | SHA `f0678f64d3cfdde57148e810986c448b443cdfc8` | Componentes: 71.67% líneas / 64.46% ramas (181 archivos); servidor: 83.64% líneas / 73.60% ramas (21 archivos) | Métricas del run/commit indicado; no asumir que es el estado actual de develop |
 | Go/no-go BE #392 | [Issue BE #392](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/392) | [Informe](392-go-no-go.md) · [tabla 15 casos](392-casos-15.md) | 15 casos seleccionados con pasos, expectativa, resultado y etiquetas | Decisión pendiente de revisión del PO y tratamiento de riesgos de salida |
 | Cuenta B, denegación de pedido ajeno | Run/log: Pendiente | Pendiente | Se espera 403; evidencia aún no recibida | Pendiente |
 | CSAT | Run/reporte: Pendiente | Pendiente | Escenario pendiente de evidencia | Pendiente |
 | `DESPACHADO` y `ENTREGADO` REAL de `PED-2026-00092` | Run/log de Ventas/webhook: Pendiente | Pendiente | README fusionado indica que ambos estados del pedido están pendientes | Pendiente |
-| SAST Backend | [Run #45772947134](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45772947134) y [check del PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45910280893/job/140216718408) | Semgrep/SARIF | Job pasó | Evidencia Backend disponible; registrar alcance y commit probados |
-| DAST Backend | [OWASP ZAP Baseline en PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45910280872/job/140216718161) | [Check del PR #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/408) | Pasó contra staging propio | Añadido al corte; no representa otros entornos |
+| SAST Backend | [Run #45920685461](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461); [SARIF #15164033447](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461/artifacts/15164033447) | Merge SHA `7aa625c9ba0cd51d1704a5f0043d16473e790033` | Semgrep; 0 resultados SARIF en el alcance ejecutado | Resultado de escaneo, no certificación general |
+| DAST Backend | [Run #45920685529](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529); [artefacto #15164403177](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529/artifacts/15164403177) | Merge SHA `7aa625c9ba0cd51d1704a5f0043d16473e790033` | ZAP contra `http://127.0.0.1:10000`; 13 alertas (2 Medium/High, 1 Medium/Medium, 7 Low, 3 Informational) | Alcance local del job; triage/remediación por el equipo responsable |
 
 ### Correlación del paquete
 
@@ -114,14 +122,14 @@ La secuencia de negocio de referencia es la compra real `PED-2026-00092`, report
 | ID de compra | `PED-2026-00092` |
 | `correlation-id` de extremo a extremo | Pendiente; los valores recibidos son `requestId` y `eventId`, no se ha mostrado aún el `correlation-id` en logs |
 | Request IDs de Ventas/BFF | `e1e1933f-0510-4918-af56-34d3a588f064` (POST); `d1750523-fd6b-43f6-b8ac-e9e64a55ee9f` (GET `/orders/me`); `103f155a-6040-4fa9-89de-f7f39fa7ab1e` (GET por pedido); `132ea7e8-9bdc-46ca-af2a-c0a96a6d2c57` (reintento idempotente) |
-| Ambiente y ventana temporal | Compra REAL, 26/11; horas reportadas en tabla (zona horaria pendiente de confirmar) |
-| Commit / release probado | `f17896d` para compra; SHA del deploy BFF: Pendiente |
+| Ambiente y ventana temporal | Compra REAL, 26/11, horas Lima (UTC−5); ver reporte fuente |
+| Commit / release probado | BFF de compra `f17896d7ee24876ffd33db1bb7dd91d65623ed37`; despliegue Render `dep-dc49m1uq1p3s73db96bg` |
 | Carpeta de reportes congelados | Pendiente |
-| Tabla consolidada de resultados | Pendiente |
+| Tabla consolidada de resultados | [Selección de 15 casos para #392](392-casos-15.md); no sustituye los 40 F de #299 |
 
 ## Criterio de congelamiento
 
-Antes del corte, cada entrada debe apuntar a la fuente primaria y declarar `PASS`, `FAIL`, `BLOCKED`, `LAB LOCAL` o `N/A`, junto con hora, zona horaria, ambiente y versión probados. Las evidencias comunicadas por los líderes quedan registradas, pero el paquete sigue parcial hasta añadir los permalinks sanitizados de reportes/comentarios donde hoy figuran como pendientes. El índice debe permitir navegar desde la compra hasta BFF, webhook, consumidor, k6, SAST y DAST sin inferir resultados ausentes.
+Antes del corte, cada entrada debe apuntar a la fuente primaria y declarar `PASS`, `FAIL`, `BLOCKED`, `LAB LOCAL` o `N/A`, junto con hora, zona horaria, ambiente y versión probados. Quedan pendientes la URL canónica del reporte de laboratorio, el HTML/trace real de FE #138 y el `correlation-id` E2E. No inferir resultados ausentes ni atribuir artefactos de otras suites a Playwright #138.
 
 ## Aprobaciones
 
