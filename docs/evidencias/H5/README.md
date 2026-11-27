@@ -10,7 +10,7 @@ Paquete canónico de exposición en `develop`, actualizado después del merge de
 | 2 | BE #299 | [Trazabilidad F → prueba → run](299-trazabilidad.md) | [PR #354](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/354) sigue abierta/conflictiva; [PR #390](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/390) ya está fusionada en `develop` (merge `f50938b`); falta `correlationId` REAL E2E y runs atribuibles a cada F |
 | 3 | BE #325 | [Arquitectura C4](325-arquitectura-c4.md) | Vistas con IDs de APIM, ruta, servicios Render, exchange/queue/DLX y webhook; revisión de Arquitectura pendiente |
 | 4 | BE #321 | [Contratos de eventos y diagramas](321-contrato-eventos.md) | [Acuerdo G7/RabbitMQ SPECS #22](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/22) y [Ventas/webhook SPECS #20](https://github.com/Taller-SW-Web/G1-Marketplace-SPECS/pull/20); enlaces directos a evidencia REAL, con sus límites |
-| 5 | BE #293 | [Contract tests de Productos y Ofertas](293-contract-tests-productos.md) | #354/#358 están abiertas y conflictivas contra `main`; snapshot G6 `0.7.0-rc.3` no está en `develop`, cuyo pin sigue en `0.6.0-rc.1` |
+| 5 | BE #293 | [Contract tests de Productos y Ofertas](293-contract-tests-productos.md) | [PR #415](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/415) agrega snapshot G6 `0.7.0-rc.3` y pruebas offline; CI verde, revisión pendiente. `develop` aún fija `0.6.0-rc.1`; #354/#358 continúan abiertas/conflictivas |
 
 ## Entregables relacionados
 
@@ -22,4 +22,4 @@ Paquete canónico de exposición en `develop`, actualizado después del merge de
 
 ## Bloqueos registrados
 
-Falta el `correlation-id` REAL visible de extremo a extremo, la cuenta B con 403, CSAT, `DESPACHADO`/`ENTREGADO` del pedido `PED-2026-00092`, la revisión de Arquitectura, la decisión del PO para go/no-go y la URL exacta del informe LAB LOCAL. #354/#358 siguen conflictivas. #390 ya se fusionó; #317 reporta una traza de correlación en LAB LOCAL, pero no adjunta el ID/log y no sustituye la entrega REAL. FE #138 dice que conserva HTML/trazas localmente, pero no están subidos ni enlazados; el HTML hallado en el checkout corresponde a accesibilidad/V-007, no a esa corrida.
+Falta el `correlation-id` REAL visible de extremo a extremo, la cuenta B con 403, CSAT, `DESPACHADO`/`ENTREGADO` del pedido `PED-2026-00092`, la revisión de Arquitectura, la decisión del PO para go/no-go y la URL exacta del informe LAB LOCAL. #354/#358 siguen conflictivas; #415 aporta un avance aislado para snapshot G6, con CI verde y revisión pendiente. #390 ya se fusionó; #317 reporta una traza de correlación en LAB LOCAL, pero no adjunta el ID/log y no sustituye la entrega REAL. FE #138 dice que conserva HTML/trazas localmente, pero no están subidos ni enlazados; el HTML hallado en el checkout corresponde a accesibilidad/V-007, no a esa corrida.

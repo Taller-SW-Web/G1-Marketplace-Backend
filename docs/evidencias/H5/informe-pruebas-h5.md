@@ -75,7 +75,7 @@ Este índice organiza la evidencia de extremo a extremo para la exposición. Cad
 | 2 | [#299 — Trazabilidad F → prueba → run](299-trazabilidad.md) | [Trazabilidad](299-trazabilidad.md) | #390 ya está fusionada con CI post-merge verde; matriz #354 sigue abierta/conflictiva; faltan runs por F y correlationId REAL |
 | 3 | [#325 — Arquitectura C4](325-arquitectura-c4.md) | [C4](325-arquitectura-c4.md) | Tres vistas de trabajo agregadas; requiere revisión de Arquitectura y datos de despliegue/APIM |
 | 4 | [#321 — Contrato de eventos](321-contrato-eventos.md) | [Contrato y diagramas A/B](321-contrato-eventos.md) | Acuerdos #20/#22 y esquemas enlazados; falta correlación REAL y enlace de runs post-fix |
-| 5 | [#293 — Contract tests de Productos](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | PR #354/#358 abiertas/conflictivas; develop conserva pin G6 `0.6.0-rc.1`; sin runtime REAL |
+| 5 | [#293 — Contract tests de Productos y Ofertas](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | PR #415 agrega snapshot G6 `0.7.0-rc.3` y suite offline; CI verde/revisión pendiente. `develop` conserva pin `0.6.0-rc.1`; #354/#358 siguen abiertas/conflictivas; sin runtime REAL |
 
 ### Matriz, cobertura y decisión go/no-go
 

@@ -15,7 +15,7 @@
 | Runs y reportes vinculados | Parcial: se enlazaron permalinks primarios para G7, webhook y correo; aún falta URL canónica del informe lab y artefactos HTML/trace de #138 | La matriz, cobertura, k6, compra, BFF, RabbitMQ y webhook están en el [índice H5](README.md); conservar el alcance y SHA de cada fuente |
 | Etiquetas de ejecución | Cubierto por matriz | PR #354 distingue `LOCAL`, `PIN`, `BLOCKED`, `NOT-COVERED`; esta tabla agrega `MOCK`, `REAL` o `LAB LOCAL` sin convertir fixtures en REAL |
 | SAST y DAST | Runs/artefactos y SHA documentados; triage DAST pendiente | [SAST #45920685461 / SARIF #15164033447](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685461) y [DAST #45920685529 / artefacto #15164403177](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45920685529); alcance/alertas en [informe H5](informe-pruebas-h5.md#5-cobertura-sast-y-dast) |
-| Riesgos, bloqueos y desviaciones | Parcial | Cuenta B 403, CSAT, `DESPACHADO`/`ENTREGADO` de `PED-2026-00092`, `correlationId` REAL, E2E multi-módulo REAL, automatic retry post-fix y conflictos de PR #354/#358 siguen sin cierre |
+| Riesgos, bloqueos y desviaciones | Parcial | Cuenta B 403, CSAT, `DESPACHADO`/`ENTREGADO` de `PED-2026-00092`, `correlationId` REAL, E2E multi-módulo REAL, automatic retry post-fix y conflictos de PR #354/#358 siguen sin cierre. PR #415 avanza los snapshots contractuales G6 en una rama aislada, pendiente de revisión/merge |
 | Recomendación go/no-go | Pendiente | El PO debe revisar los 15 casos, los límites MOCK/LAB LOCAL, alertas DAST y riesgos de salida; luego registrar recomendación y fecha |
 | Validación del PO | Pendiente | Enlazar la decisión y fecha del PO al informe final |
 
