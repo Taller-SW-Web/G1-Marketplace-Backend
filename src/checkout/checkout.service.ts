@@ -29,6 +29,29 @@ const SALES_ORDER_ID = /^PED-\d{4}-\d{5}$/;
 const G5_POLL_INTERVAL_MS = 2500;
 const G5_POLL_MAX_MS = 60_000;
 
+/**
+ * Tiempo máximo que el BFF espera a que Ventas confirme el estado del pedido antes de responder 202.
+ * Configurable con G5_ORDER_POLL_MAX_MS (1 000 a 60 000 ms); un valor ausente o inválido conserva los 60 s.
+ */
+/**
+ * Presupuesto total (ms) de una creación de pedido: token técnico + alta en Ventas + espera del estado.
+ * Con G5_ORDER_TOTAL_BUDGET_MS (5 000 a 120 000 ms) la espera del estado se recorta para no superarlo; sin la variable
+ * o con un valor inválido no hay presupuesto y solo rige G5_ORDER_POLL_MAX_MS.
+ */
+export function orderTotalBudgetMs(env: NodeJS.ProcessEnv = process.env): number | undefined {
+  const raw = env.G5_ORDER_TOTAL_BUDGET_MS;
+  if (raw === undefined || raw === '') return undefined;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 5_000 && value <= 120_000 ? value : undefined;
+}
+
+export function orderPollMaxMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.G5_ORDER_POLL_MAX_MS;
+  if (raw === undefined || raw === '') return G5_POLL_MAX_MS;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 1_000 && value <= G5_POLL_MAX_MS ? value : G5_POLL_MAX_MS;
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -338,6 +361,8 @@ export class CheckoutService {
     sessionHash?: string,
     accessToken?: string,
   ): Promise<ApiResult<CheckoutOperationView>> {
+    const totalBudgetMs = orderTotalBudgetMs();
+    const budgetDeadline = totalBudgetMs === undefined ? undefined : Date.now() + totalBudgetMs;
     this.assertIdempotencyKey(idempotencyKey, true);
     let operation = await this.prisma.checkoutOperation.findFirst({
       where: { id: input.checkoutOperationId, customerId },
@@ -482,6 +507,7 @@ export class CheckoutService {
           paymentMethod,
           deliveryRecipient: input.deliveryRecipient,
           customerAccessToken: accessToken,
+          ...(budgetDeadline === undefined ? {} : { deadlineAt: budgetDeadline }),
         });
       } catch (error) {
         this.throwProviderError(error, 'ORDER_CREATION_PENDING');
@@ -496,7 +522,7 @@ export class CheckoutService {
       });
     }
 
-    const result = await this.refreshOrder(operation, accessToken);
+    const result = await this.refreshOrder(operation, accessToken, budgetDeadline);
     return result;
   }
 
@@ -568,7 +594,7 @@ export class CheckoutService {
     };
   }
 
-  private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>, accessToken?: string): Promise<ApiResult<CheckoutOperationView>> {
+  private async refreshOrder(operation: Prisma.CheckoutOperationGetPayload<object>, accessToken?: string, budgetDeadline?: number): Promise<ApiResult<CheckoutOperationView>> {
     if (!operation.externalOrderId && !operation.orderIdempotencyKey) {
       return {
         status: 202,
@@ -580,7 +606,7 @@ export class CheckoutService {
     try {
       order = operation.externalOrderId
         ? this.gateway.usesG5Sales?.()
-          ? await this.pollG5Order(operation.externalOrderId, accessToken)
+          ? await this.pollG5Order(operation.externalOrderId, accessToken, budgetDeadline)
           : await this.gateway.getOrder(operation.externalOrderId, accessToken)
         : await this.gateway.getOrderByIdempotencyKey(operation.orderIdempotencyKey!, operation.customerId);
     } catch (error) {
@@ -799,8 +825,8 @@ export class CheckoutService {
     };
   }
 
-  private async pollG5Order(orderId: string, accessToken?: string): Promise<SalesOrder> {
-    const deadline = Date.now() + G5_POLL_MAX_MS;
+  private async pollG5Order(orderId: string, accessToken?: string, budgetDeadline?: number): Promise<SalesOrder> {
+    const deadline = Math.min(Date.now() + orderPollMaxMs(), budgetDeadline ?? Number.POSITIVE_INFINITY);
     let lastOrder: SalesOrder | undefined;
     while (Date.now() < deadline) {
       try {

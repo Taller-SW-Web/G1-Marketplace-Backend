@@ -42,7 +42,27 @@ export class G7SalesTokenProvider {
 
   constructor(private readonly config: ConfigService) {}
 
-  async getAccessToken(): Promise<string> {
+  /**
+   * Devuelve el token técnico. Con `remainingMs` no espera más de ese tiempo (presupuesto total del pedido): la solicitud
+   * compartida a G7 sigue su curso para los demás, pero quien llama recibe SALES_TIMEOUT sin iniciar nada más.
+   */
+  async getAccessToken(remainingMs?: number): Promise<string> {
+    if (remainingMs === undefined) return this.resolveAccessToken();
+    if (remainingMs <= 0) throw new ProviderError(504, 'SALES_TIMEOUT');
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        this.resolveAccessToken(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new ProviderError(504, 'SALES_TIMEOUT')), remainingMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  private async resolveAccessToken(): Promise<string> {
     if (this.config.get<string>('G5_SALES_INTEGRATION_APPROVED') !== 'true' ||
         this.config.get<string>('CHECKOUT_SALES_SOURCE') !== 'g5' ||
         this.config.get<string>('AUTH_ENABLED') !== 'true' ||
