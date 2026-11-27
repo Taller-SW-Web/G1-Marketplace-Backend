@@ -1,47 +1,54 @@
 # Guion de ensayo H5 · Viernes 27/11/2026
 
-Jim conduce y Andrés verifica. Preparar dos cuentas sintéticas, un SKU de prueba y una dirección ficticia. Anotar al iniciar FE, BE y entorno de cada tramo. Mantener credenciales fuera de pantalla y del acta.
+Jim conduce y Andrés verifica. Estado al jueves 26/11/2026 a las 19:30 (Lima). Al iniciar se anotan los SHA de FE, BE y SPECS del candidato y el entorno de cada tramo. Las credenciales quedan fuera de pantalla y del acta. Cada resultado se etiqueta **REAL**, **MOCK** o **LAB**.
 
-**Calendario (Lima).** Miércoles 25/11: atender la revisión del receptor del webhook, desplegarlo si se aprueba y probar RabbitMQ con G7 a las 18:00, hora por confirmar. Jueves 26/11: respaldo para la prueba conjunta a las 11:00 y objetivo de tener todos los componentes desplegados y probados. Viernes 27/11: corregir, ensayar, firmar y congelar el código. Sábado 28/11: presentar, con RabbitMQ de Seguridad y webhook de Ventas como parte del punto 4.
+## Datos de prueba
+
+| Dato | Valor |
+|---|---|
+| Cuentas de G7 | Cuenta A (cliente sin MFA, dueña del pedido real) y cuenta B (con MFA por correo); las contraseñas no se muestran |
+| Pedido real | `PED-2026-00092`, `PROD-101` / `SKU-AUR-01`, 139,90 PEN (129,90 + envío 10,00), tarjeta de crédito, entrega a domicilio |
+| Pedido de muestra para correo | `PED-2026-90001` (solo C-002 de QA) |
+| Frontend desplegado | `https://g1-marketplace-frontend.vercel.app` |
+| BFF desplegado | `https://g1-marketplace-backend.onrender.com` (el servicio gratuito tarda en despertar: abrir `/health` unos minutos antes) |
+| Ventas | `https://g5-api-gateway.onrender.com` (también duerme: llamar a su `/actuator/health` antes) |
+
+No se crea una compra nueva durante el ensayo: el fixture de homologación venció el 26/11 a las 17:30 y un segundo pedido real no está acordado con Ventas.
+
+## Recorrido (14 minutos)
 
 | Tiempo | Acción | Resultado visible |
 |---|---|---|
-| 0–1 min | Presentar candidato y distinguir CI, MOCK y REAL. | Abren las referencias del paquete [#324](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/324) y se identifican sus SHAs. |
-| 1–4 min | Mostrar registro y confirmación, login con MFA y recuperación según el recorrido de Seguridad de abajo. | Estado por operación y origen visible. **REAL directo G7** acreditado al corte. Recorrido **REAL FE/BFF** pendiente de homologar. |
-| 4–6 min | Mostrar alta y lista propia con A y rechazo al intentar consultar las direcciones de A con B. En V-010, seleccionar una dirección con etiqueta opcional y sin teléfono, y mostrar indisponibilidad y cotización con fixtures. | G7 directo **REAL** acreditó 201/200/403. V-010 con fixtures y cotización son **MOCK**. |
-| 6–7 min | Abrir catálogo, ficha del producto y carrito con el SKU de prueba. | Se ve la línea en el carrito y se identifica el origen **MOCK** o **REAL** de los datos. |
-| 7–9 min | Mostrar CI/CD, Prism **MOCK**, seguridad, performance y APIM con evidencia por tramo. | Run, SHA y entorno identificados. |
-| 9–11 min | Punto 4A. Seguridad → Marketplace por RabbitMQ. | Publicación, recepción y recuperación acreditadas por traza **REAL** si la prueba se completa. |
-| 11–13 min | Punto 4B. Despacho → Ventas → Marketplace por webhook. | Entrega, deduplicación y recuperación acreditadas por traza **REAL** si la prueba se completa. |
-| 13–14 min | Repasar gates y contingencias. | Cada pendiente tiene responsable y próxima prueba. |
+| 0–1 min | Presentar el candidato y distinguir CI, MOCK, REAL y LAB. | Se abren las referencias del paquete [#324](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/324) y los SHA. |
+| 1–4 min | **Punto 1.** Pipeline unificado, gates que rompen el build, SAST/SCA/secretos, DAST, SBOM y rollback ensayado. | Runs y reportes por SHA; hallazgo → corrección → retest. |
+| 4–6 min | **Punto 2.** Matriz módulo × operación × caso: G7 (login, MFA, direcciones por el BFF: ronda de las 16:00 con 19 de 19 sin MFA y ronda de las 20:20 con MFA con 24 de 24), Ventas (compra real) y Despacho (webhook). | Informes REAL en `docs/evidencias/H5/integracion-real/` y requestId. |
+| 6–8 min | Demo en vivo: catálogo (inicio y filtros REAL), ficha, carrito, login de la cuenta A y **Mis pedidos** con `PED-2026-00092` en su estado actual (`PAGADO` o el que haya llegado). | Se ve el pedido real de la cuenta A; el checkout se muestra con la etiqueta MOCK de cotización. |
+| 8–10 min | **Punto 3.** Reporte k6: carga, estrés con quiebre a 800 VUs, recuperación, spike, soak y antes/después de la caché. | Gráficos p50/p95/p99, errores y recursos; declarar **LAB**. |
+| 10–12 min | **Punto 4A.** Seguridad → Marketplace por RabbitMQ. | `usuario.creado` real de G7 recibido y registrado en 3 s; hallazgo de la fecha (seis eventos descartados), corrección #409 y recuperación manual; laboratorio de duplicados y reconexión. |
+| 12–13 min | **Punto 4B.** Despacho → Ventas → Marketplace por webhook. | 7 eventos reales, 401 con token incorrecto, duplicado detectado (`duplicate:true`, HTTP 200, requestId `a588984b-7010-47bb-8205-a7343afd0b5a`, 17:09:12 del `eventId` `c53403f0…`), correo C-002 único; reintento tras un 503 controlado si la ventana de #320 se ejecutó. |
+| 13–14 min | Repasar los límites y qué quedó pendiente, con responsable. | Cada pendiente indica quién y cuándo. |
 
-## Seguridad
+## Seguridad (apoyo del punto 2)
 
-| Paso | Evidencia REAL directa de G7 al corte | Recorrido del candidato y respaldo |
+| Paso | Evidencia REAL | Límite |
 |---|---|---|
-| Registro y confirmación | Alta 201, duplicado 409 y confirmación 204 en la mini-ronda después de un 410 inicial. Vencimiento de 24 h sin ejecutar en REAL. | Mostrar confirmación y retorno por FE/BFF como **REAL** tras prueba desplegada. Si sigue pendiente, usar V-001/V-002 **MOCK** y la traza sanitizada de G7 directo. |
-| Login con MFA | Login con desafío, solicitud OTP 202 y verificación 200. Logout 204 y refresh de la sesión cerrada 401. | Mostrar desafío y acceso de la cuenta de prueba por FE/BFF tras verificarlo. Respaldo con vista **MOCK** y traza **REAL directa**. |
-| Recuperación y restablecimiento | Solicitud 202 para cuenta conocida y para correo no registrado. Reset 204, reutilización 401 y expirado 410. | Mostrar solicitud, enlace y retorno por FE/BFF tras verificarlo. Usar vistas **MOCK** y trazas **REAL directas** si falta el recorrido. Mostrar las nuevas plantillas únicamente después de verificar recepción **REAL** tras el despliegue de G7. |
-| Titularidad de la dirección | Alta 201, lista propia 200 y lista ajena 403 `SCOPE_INSUFICIENTE`. Control propio de B 200. | Mostrar el 403 con B por el BFF si se acredita G-ADDRESS. Si sigue pendiente, usar V-010 **MOCK** y la traza del 403 **REAL directo**. Cotización **MOCK** por separado. |
-
-La [matriz de cierre](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/351) contiene fecha, resultados y trazas. Jim y G7 verifican el recorrido desplegado y el timeout con autorización específica. Andrés revisa G-AUTH y G-ADDRESS. La compra A/B **REAL** con Ventas depende de [BE #133](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/133).
+| Login, sesión y MFA | Ronda 1 (16:00, 19 de 19, sin MFA): login, contraseña incorrecta 401, sesión, logout, refresh rechazado y Origin ajeno rechazado (BE #405). Ronda 3 (20:20, 24 de 24, con MFA): registro nuevo 201, login con MFA de la cuenta B (desafío, OTP por correo y sesión solo tras verificar), recuperación neutra 202 (`integracion-real/bff/2026-11-27/`). | OTP incorrecto o vencido, JWT inválido o expirado y el límite efectivo no se probaron. |
+| Titularidad de la dirección | Alta 201, lista propia 200, titular ajeno 400 y sin sesión 401 por el BFF; lista ajena 403 en la ronda directa a G7 del 23/11. | El 403 con el token de otro usuario por el BFF depende de la prueba con la cuenta B. |
+| Origen no autorizado | Un login desde `http://127.0.0.1:3101` devolvió 403 `FORBIDDEN` del BFF (18:12:10, FE #138). | Es una protección por diseño. |
 
 ## Punto 4 · Intercambios asíncronos
 
-| Intercambio | Demostración prevista | Contingencia |
+| Intercambio | Qué se demuestra | Etiqueta |
 |---|---|---|
-| A · RabbitMQ con Seguridad (G7) | G7 registra y verifica una cuenta de prueba para generar `usuario.creado`. G1 coteja el `eventoId` recibido en `marketplace.usuarios` con el publicado por G7. Si BE #314/#315 ya está integrado y desplegado con `RABBITMQ_URL`, mostrar el consumo, deduplicación, reintentos, descarte y recuperación de mensajes acumulados. Publicación **REAL desde G7** y recepción por el consumidor pendientes. | Mostrar la traza **REAL** de la prueba conjunta si existe. Si falta, mostrar la prueba **REAL del broker de G1** con el evento sintético publicado y leído por los scripts de G1 (`routed: true`, descarte vacío). Identificar qué falta probar con G7 y con el consumidor. Toda reproducción local con dobles se muestra como **MOCK**. |
-| B · Webhook con Ventas (G5) | Coordinar el envío de los siete eventos previstos por Ventas. Correlacionar la entrega con cabecera `X-Webhook-Token` y la persistencia en `shipment_event_inbox`. Comprobar deduplicación por `eventId`, reintento tras fallo y recuperación. La prueba **REAL** sigue pendiente de atender los cambios de [BE #357](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/357), aplicar la migración, desplegar y cargar `VENTAS_WEBHOOK_HEADER=x-webhook-token` y `VENTAS_WEBHOOK_TOKEN` en Render. | Si falla en vivo, mostrar traza **REAL** sanitizada de un ensayo anterior del webhook si existe. Si falta esa traza, usar emisor local **MOCK** y explicar el pendiente de Ventas. Si también falta la reproducción, mostrar el contrato H-05 y el paso pendiente. |
+| A · RabbitMQ con Seguridad (G7) | Entrega automática de `usuario.creado` con el consumidor corregido; seis descartes reales por la validación de fecha y su recuperación manual; duplicados, backoff, DLQ y reconexión. | REAL (entrega y recuperación) y LAB (resiliencia). La reacción a bloqueo y purga (#316) solo se muestra si se ejecutó. |
+| B · Webhook con Ventas (G5) | 7 eventos reales persistidos, `X-Webhook-Token`, deduplicación y correo C-002 único. | REAL. El `DESPACHADO` y `ENTREGADO` del pedido real y el reintento ante 503 (#320) se muestran solo si llegaron. |
 
-Para la prueba conjunta propuesta, Jim coordina en privado con Christian (G7) la URL AMQP y la credencial temporal. Brenis aceptó el broker aislado de G1 el 24/11 a las 23:40 Lima. El plan gratuito requiere un usuario compartido, como excepción al diseño de dos usuarios con permisos mínimos. Jim rota la credencial al terminar la prueba. La hora sigue pendiente de confirmación de G7.
+## Contingencias
 
-## Preparación y evidencia comprobada
-
-- V-010: usar el snapshot FE `e56a13e040ba9641b600fbc937dc3863b0ecc6e7` de `develop`, que incluye el merge [FE #158](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/158) `10a1356` y [FE #160](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/160) `685ccec`. Con `CHECKOUT_MODE=local-fixtures` y `NEXT_PUBLIC_CHECKOUT_MODE=local-fixtures`, abrir `/checkout/direccion`. El [check de #158](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45081960719) y el [E2E FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45087296873) prueban carrito/checkout en sus revisiones, por separado del ensayo completo.
-- Cuenta: [FE #159](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/pull/159) `5bd2629` incorporó V-001–V-004. Consultar [capturas y reproducción **MOCK**](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/blob/5bd2629/docs/evidencias/H5/UX-010-cuenta-V001-V004/README.md). G-AUTH REAL permanece pendiente.
-- Retest BFF: FE sin teléfono ya está alineado con [BE #331](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/331) `a40429d`, documentado en [BE #333](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/333) `f11139f`. Repetir en modo `backend-mock` con el BE del candidato y base y sesión locales, según el [procedimiento FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/blob/e56a13e/src/features/checkout/README.md). Por el BFF desplegado, homologar alta y listado **REAL** con control de titularidad ([#115](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/115)). Usar fixtures para la cotización **MOCK**.
-- Exhibir [CI-CD BE](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45087270842), [CI-CD FE](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45087296978) y las [pruebas Prism **MOCK**](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/44975254262). Los runs no sustituyen el acta de ensayo.
+- Si el BFF o Ventas están dormidos, mostrar primero la evidencia grabada del informe y volver a intentar en vivo.
+- Si el listado del catálogo sigue en 503 (host de imágenes de G6), mostrar inicio y filtros REAL y declarar el listado como pendiente.
+- Si no llegaron `DESPACHADO` o `ENTREGADO`, el estado del pedido se muestra como `PAGADO`, sin simular el cambio.
 
 ## Acta para registrar al terminar
 
-Fecha/hora, asistentes, entorno, SHA FE/BE/SPECS, resultado por tramo con etiqueta MOCK o REAL, enlaces sanitizados, incidencias y retest. Andrés valida el acta de [#326](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/326). **Ensayo completo aún pendiente de registro**.
+Fecha y hora, asistentes, entorno, SHA FE/BE/SPECS, resultado por tramo con etiqueta MOCK, REAL o LAB, enlaces sanitizados, incidencias y retest. Andrés valida el acta de [#326](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/326).
