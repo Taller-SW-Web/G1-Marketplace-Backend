@@ -261,6 +261,7 @@ export class MarketplaceGateway {
     paymentMethod?: string;
     deliveryRecipient?: string;
     customerAccessToken?: string;
+    deadlineAt?: number;
     total: Money;
   }): Promise<SalesOrder> {
     if (!this.g5Sales || !input.customerAccessToken) throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');

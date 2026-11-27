@@ -733,7 +733,7 @@ describe('CheckoutService', () => {
         return { count: 1 };
       });
       prisma.checkoutOperation.update.mockImplementation(async ({ data }) => { Object.assign(operation, data); return operation; });
-      const order = { pedidoId: 'PED-2026-00005', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: new Date().toISOString() };
+      const order = { pedidoId: 'PED-2026-00005', estado: 'CREADO' as const, total: { amount: 355, currency: 'PEN' as const }, createdAt: new Date().toISOString() };
       gateway.createOrder.mockResolvedValue(order);
       gateway.getOrder.mockResolvedValue(order);
       await service.createOrder(customerId, {
