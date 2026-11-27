@@ -7,24 +7,13 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 
 ---
 
-## 1. Creación de la Instancia en Azure Portal (Paso a Paso)
+## 1. Instancia APIM existente
 
-> [!CAUTION]
-> **Plan Obligatorio: Consumption.**  
-> NO seleccionar *Developer*, *Basic* ni *Standard*, ya que tienen costo por hora elevado.  
-> El plan **Consumption (Serverless)** incluye **1,000,000 de llamadas gratis al mes** y se despliega en solo ~5 minutos.
+El responsable de APIM confirmó por escrito que la instancia ya existe y está en línea. **No crear una instancia duplicada.** Los siguientes datos son la configuración confirmada, no el resultado de una consulta hecha por este runbook:
 
 1. Ingresar a [Azure Portal](https://portal.azure.com).
-2. En la barra superior buscar **API Management services** y hacer clic en **Crear**.
-3. Rellenar los campos:
-   - **Suscripción:** Tu suscripción de Azure for Students o Pay-As-You-Go.
-   - **Grupo de recursos:** Crear nuevo llamado `rg-marketplace-g1`.
-   - **Nombre del servicio:** `apim-g1-marketplace-20` (desplegado en `West US`, plan `Consumption`).
-   - **Región:** `East US` (o la región más cercana con cupo).
-   - **Nombre de la organización:** `G1 Marketplace`
-   - **Correo electrónico de administrador:** Tu correo.
-   - **Plan de tarifa (Pricing tier):** Seleccionar **Consumption**.
-4. Clic en **Revisar y crear** $\rightarrow$ **Crear**.
+2. Abrir **API Management services** y localizar `apim-g1-marketplace-20` en `rg-marketplace-g1`.
+3. Confirmar visualmente región `West US` y plan `Consumption` antes de cualquier acción de configuración.
 
 ---
 
@@ -40,61 +29,50 @@ Este directorio contiene las políticas como código y las instrucciones para lo
    - Jim Segovia
 5. Clic en **Review + assign**.
 
-> 📷 **Captura 1 para Issue #307:** Pantalla de vista general donde se observe el nombre `apim-g1-marketplace`, el plan `Consumption` y la lista de IAM con el equipo.
+> 📷 **Captura 1 para Issue #307:** Pantalla de vista general donde se observe el nombre `apim-g1-marketplace-20`, el plan `Consumption` y la lista de IAM con el equipo.
 
 ---
 
 ## 3. Importar el API del Backend (OpenAPI)
 
 1. En el menú lateral de APIM, ir a **APIs**.
-2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI**.
-3. Seleccionar **Full** y configurar:
-   - **OpenAPI specification:** Ingresar una de las URLs reales de Swagger de Render (ej. `https://g1-marketplace-backend.onrender.com/docs/specs/openapi-catalogo-h4.json` o `/docs/specs/openapi-h3.json`) o crear una API HTTP apuntando a `https://g1-marketplace-backend.onrender.com`.
+2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI** e importar el archivo local `docs/apim/marketplace-bff-v1.subset.openapi.yaml`.
+3. Configurar el API confirmado:
    - **Display name:** `G1 Marketplace Backend API`
-   - **Name:** `marketplace-api`
+   - **Name / API ID:** `marketplace-api`
    - **API URL suffix:** `v1`
-   - **Web service URL:** `https://g1-marketplace-backend.onrender.com`
-4. Clic en **Create**.
+   - **Web service URL (`serviceUrl`):** `https://g1-marketplace-backend.onrender.com` (origen, sin prefijo de ruta)
+   - **Gateway público:** `https://apim-g1-marketplace-20.azure-api.net/v1`
+4. La importación de este OpenAPI exacto de 34 operaciones no está acreditada por este runbook. El responsable informó que el routing/rewrite de `marketplace-api` se actualizó en el commit `df137b1` de la PR #359; esto no confirma que se importara este subset.
+
+El OpenAPI candidato contiene solo 34 operaciones contratadas; la importación de ese archivo no queda acreditada por este runbook. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones contratadas `/v1/...` a `/api/v1/...` y conserva query params.
 
 ---
 
 ## 4. Aplicar la Política (`policies/api-policy.xml`)
 
+**No aplicar ni reemplazar la policy desde esta rama.** El archivo `azure-apim/policies/api-policy.xml` de esta PR no contiene la revisión `df137b1` reportada por el responsable APIM en la PR #359. Primero deben reconciliarse las ramas y confirmarse una sola policy canónica; cualquier cambio en Azure requiere autorización expresa. El rewrite candidato de `docs/apim/v1-backend-rewrite.policy.xml` es un artefacto distinto; no sustituir con él la policy canónica.
+
 1. En la lista de APIs, seleccionar **`G1 Marketplace Backend API`** (nivel de API $\rightarrow$ **All operations**; no usar *All APIs* porque `<rate-limit>` en plan Consumption solo aplica a nivel de API/Producto/Operación).
 2. En la sección **Inbound processing**, hacer clic en el ícono de código `</>` (Code editor).
-3. Reemplazar el contenido con el XML ubicado en [`azure-apim/policies/api-policy.xml`](./policies/api-policy.xml).
-4. Guardar los cambios (**Save**).
+3. Aplicar la versión acordada solo después de reconciliar las ramas y recibir autorización expresa; no sobrescribir la policy actual usando el XML de esta rama, que aún no incluye `df137b1`.
 
 ---
 
 ## 5. Pruebas de Validación y Evidencias
 
-**No ejecutar sin autorización expresa para una ventana de pruebas no productiva.** La instancia confirmada es `apim-g1-marketplace-20` (`rg-marketplace-g1`, West US, Consumption); API ID `marketplace-api`, sufijo `v1`. El header de suscripción activo es `api-key`. Para QA, leer `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets en el entorno aprobado; no copiar el valor al repositorio, consola compartida, logs o evidencias. Las suscripciones individuales confirmadas son `web-frontend-g1`, `ci-qa-smoke` y `demo-team`.
+El header de suscripción confirmado es `api-key`. Para el smoke de QA usar únicamente `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets; no copiar ni imprimir su valor. No utilizar `Ocp-Apim-Subscription-Key`, la suscripción all-access ni `/v1/health` como endpoint de prueba.
 
-### A. Prueba de Rate Limiting (Issue #309)
-Solo durante una ventana autorizada, ejecutar una ráfaga de más de 60 peticiones en menos de un minuto contra una operación contratada. `/v1/health` no pertenece al subconjunto OpenAPI y no debe usarse como ruta de prueba.
-```powershell
-$KEY = $env:APIM_QA_SUBSCRIPTION_KEY
-if (-not $KEY) { throw "APIM_QA_SUBSCRIPTION_KEY no está configurada en el entorno autorizado" }
-1..65 | ForEach-Object { curl.exe -s -o NUL -H "api-key: $KEY" -w "Req $_ -> HTTP %{http_code}`n" "https://apim-g1-marketplace-20.azure-api.net/v1/catalog/products?page=0&pageSize=10" }
-```
-* **Resultado esperado:** APIM devuelve **`429 Too Many Requests`** al superar el límite; las respuestas previas dependen de la disponibilidad del origen.
+### A. Rate limiting (Issue #309)
+La prueba de más de 60 llamadas requiere autorización expresa y una ventana QA aprobada. Está pendiente; este runbook no contiene ni ejecuta una ráfaga. Debe apuntar a una operación contratada, por ejemplo `GET /v1/catalog/products?page=0&pageSize=10`; el status previo al límite depende de la disponibilidad del BFF.
 
-### B. Prueba de Validación JWT contra G7 (Issue #309)
-Hacer una petición a la operación contratada y protegida de favoritos, sin token:
-```powershell
-curl.exe -i -H "api-key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/wishlist"
-```
-* **Resultado esperado:** Código **`401 Unauthorized`** con el mensaje:
-  `Acceso no autorizado: Token JWT invalido, expirado o ausente`.
+### B. Validación JWT contra G7
+Usar `GET /v1/wishlist` sin JWT con la suscripción QA. Resultado esperado: **401 Unauthorized**. La ruta `/v1/cart` no corresponde al caso contractual documentado para este smoke.
 
-### C. Correlación
-Enviar `X-Correlation-Id` con un identificador de prueba aprobado. Confirmar en el backend que APIM lo refleja como `X-Request-Id` y que la respuesta pública conserva `X-Correlation-Id`. No reutilizar identificadores reales de usuarios.
+### C. Rewrite y correlación
+El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica las 34 operaciones. No repetir hasta que el responsable de G6 confirme disponibilidad.
 
-### D. Smoke QA manual
-En **Actions → CI-CD → Run workflow**, seleccionar la rama aprobada y `RUN_APIM_QA_SMOKE`. El job usa `APIM_QA_SUBSCRIPTION_KEY` desde Actions Secrets y ejecuta solo los dos GET anteriores (productos y wishlist). No muestra body ni clave; no despliega ni ejecuta carga. La ejecución requiere ventana/autorización QA y no sustituye la validación de todas las operaciones.
-
-**Última revalidación:** después de la corrección confirmada por el owner (policy en repo, commit `df137b1`), run `45536575477` obtuvo `503` en catálogo (esperado `200`), con ambos headers de correlación coincidentes, y `401` en wishlist (esperado `401`). El smoke queda **parcial, no aprobado**: la ruta ya no devolvió `404`, pero el catálogo sigue no disponible. El owner identificó el `503` como `CATALOG_UNAVAILABLE` de G6; el smoke no registra el body para verificar esa causa. Build/tests pasaron; no hubo deploy ni carga. La ejecución anterior `45528575052` sí había devuelto `404` en ambos GET y `X-Request-Id` no coincidía.
+**Límite de la evidencia:** esta sección registra resultados previos; no autoriza ni ejecuta pruebas, ráfagas, smoke ni cambios en APIM. Cualquier revalidación requiere una ventana QA autorizada.
 
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
