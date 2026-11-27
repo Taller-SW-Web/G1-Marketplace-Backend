@@ -36,6 +36,25 @@ import {
   SECURITY_USER_EVENT_RETRY_COUNT_HEADER,
 } from './security-user-event-reliability';
 
+export interface SecurityUserEventMetrics {
+  processedTotal: number;
+  duplicateTotal: number;
+  ignoredUnknownTotal: number;
+  retriedTotal: number;
+  deadLetteredTotal: number;
+  reconnectsTotal: number;
+  lastEventId?: string;
+  lastProcessedAt?: string;
+}
+
+function sanitizeCorrelationId(raw: unknown, fallback: string): string {
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (/^[A-Za-z0-9._:-]{1,64}$/.test(trimmed)) return trimmed;
+  }
+  return fallback;
+}
+
 @Injectable()
 export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SecurityUserEventConsumerService.name);
@@ -43,6 +62,14 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
   private readonly rabbitUrl: string;
   private readonly prefetch: number;
   private readonly retrySettings: SecurityUserEventRetrySettings;
+  private readonly metrics: SecurityUserEventMetrics = {
+    processedTotal: 0,
+    duplicateTotal: 0,
+    ignoredUnknownTotal: 0,
+    retriedTotal: 0,
+    deadLetteredTotal: 0,
+    reconnectsTotal: 0,
+  };
   private connection?: ChannelModel;
   private channel?: ConfirmChannel;
   private consumerTag?: string;
@@ -64,6 +91,10 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       backoffBaseMs: this.config.get<number>('SECURITY_EVENTS_BACKOFF_BASE_MS', 1000),
       backoffMaxMs: this.config.get<number>('SECURITY_EVENTS_BACKOFF_MAX_MS', 30000),
     };
+  }
+
+  getMetrics(): SecurityUserEventMetrics {
+    return { ...this.metrics };
   }
 
   async onModuleInit(): Promise<void> {
@@ -152,7 +183,11 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       );
       this.consumerTag = consumer.consumerTag;
       this.reconnectAttempt = 0;
-      this.logger.log('RabbitMQ user-event consumer connected');
+      if (isReconnect) this.metrics.reconnectsTotal += 1;
+      this.logger.log(JSON.stringify({
+        event: isReconnect ? 'security_user_consumer_reconnected' : 'security_user_consumer_connected',
+        reconnectsTotal: this.metrics.reconnectsTotal,
+      }));
     } catch (error) {
       if (channel) {
         try { await channel.close(); } catch { /* already closed */ }
@@ -174,20 +209,31 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
 
   private async handleMessage(channel: ConfirmChannel, message: ConsumeMessage): Promise<void> {
     const routingKey = message.fields.routingKey;
+    const headerCorr = message.properties.headers?.['x-correlation-id'];
+    const rawCorrelation = message.properties.correlationId ?? headerCorr;
     let parsed: SecurityUserEventParseResult;
     try {
       parsed = parseSecurityUserEvent(message.content, routingKey);
     } catch (error) {
       const reason = error instanceof SecurityUserEventValidationError ? error.reasonCode : 'invalid_event';
-      await this.moveToDlqOrRedeliver(channel, message, reason);
+      const correlationId = sanitizeCorrelationId(rawCorrelation, 'uncorrelated');
+      await this.moveToDlqOrRedeliver(channel, message, reason, correlationId);
       return;
     }
     if (parsed.kind === 'unknown') {
       channel.ack(message);
-      this.logger.warn(`Ignored unknown security event type: ${parsed.eventType}`);
+      this.metrics.ignoredUnknownTotal += 1;
+      const correlationId = sanitizeCorrelationId(rawCorrelation, 'uncorrelated');
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_ignored_unknown',
+        correlationId,
+        eventType: parsed.eventType,
+        ignoredUnknownTotal: this.metrics.ignoredUnknownTotal,
+      }));
       return;
     }
 
+    const correlationId = sanitizeCorrelationId(rawCorrelation, parsed.event.eventId);
     let result: 'recorded' | 'duplicate';
     try {
       result = this.reactions
@@ -195,16 +241,35 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
         : await this.inbox.record(parsed.event);
     } catch (error) {
       if (error instanceof SecurityUserEventIdentityConflictError) {
-        await this.moveToDlqOrRedeliver(channel, message, 'event_id_payload_conflict');
+        await this.moveToDlqOrRedeliver(channel, message, 'event_id_payload_conflict', correlationId);
         return;
       }
-      await this.retryOrDeadLetter(channel, message, parsed.event.eventType, 'inbox_persistence_failure');
+      await this.retryOrDeadLetter(channel, message, parsed.event.eventType, 'inbox_persistence_failure', correlationId);
       return;
     }
 
     channel.ack(message);
-    if (result === 'recorded') this.logger.log(`Recorded security event type ${parsed.event.eventType}`);
-    else this.logger.debug(`Acknowledged duplicate security event type ${parsed.event.eventType}`);
+    this.metrics.lastEventId = parsed.event.eventId;
+    this.metrics.lastProcessedAt = new Date().toISOString();
+    if (result === 'recorded') {
+      this.metrics.processedTotal += 1;
+      this.logger.log(JSON.stringify({
+        event: 'security_user_event_processed',
+        correlationId,
+        eventId: parsed.event.eventId,
+        eventType: parsed.event.eventType,
+        processedTotal: this.metrics.processedTotal,
+      }));
+    } else {
+      this.metrics.duplicateTotal += 1;
+      this.logger.debug(JSON.stringify({
+        event: 'security_user_event_duplicate',
+        correlationId,
+        eventId: parsed.event.eventId,
+        eventType: parsed.event.eventType,
+        duplicateTotal: this.metrics.duplicateTotal,
+      }));
+    }
   }
 
   private async assertRetryQueues(channel: ConfirmChannel): Promise<void> {
@@ -229,11 +294,12 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     message: ConsumeMessage,
     eventType: SecurityUserEventType,
     reason: string,
+    correlationId = 'uncorrelated',
   ): Promise<void> {
     try {
       const retryCount = readSecurityUserEventRetryCount(message.properties.headers, this.retrySettings.maxRetries);
       if (retryCount >= this.retrySettings.maxRetries) {
-        await this.moveToDlqOrRedeliver(channel, message, 'retry_exhausted');
+        await this.moveToDlqOrRedeliver(channel, message, 'retry_exhausted', correlationId);
         return;
       }
 
@@ -242,10 +308,18 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       const delay = calculateSecurityUserEventBackoff(nextRetry, this.retrySettings);
       await this.publishToRetryQueue(channel, message, queue, nextRetry, reason);
       channel.ack(message);
-      this.logger.warn(`Scheduled security event retry ${nextRetry} after ${delay}ms`);
+      this.metrics.retriedTotal += 1;
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_retried',
+        correlationId,
+        eventType,
+        retryCount: nextRetry,
+        delayMs: delay,
+        retriedTotal: this.metrics.retriedTotal,
+      }));
     } catch (error) {
       if (error instanceof SecurityUserEventRetryMetadataError) {
-        await this.moveToDlqOrRedeliver(channel, message, error.message);
+        await this.moveToDlqOrRedeliver(channel, message, error.message, correlationId);
         return;
       }
       this.logger.error('Could not confirm retry publication; forcing broker redelivery');
@@ -253,11 +327,22 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     }
   }
 
-  private async moveToDlqOrRedeliver(channel: ConfirmChannel, message: ConsumeMessage, reason: string): Promise<void> {
+  private async moveToDlqOrRedeliver(
+    channel: ConfirmChannel,
+    message: ConsumeMessage,
+    reason: string,
+    correlationId = 'uncorrelated',
+  ): Promise<void> {
     try {
       // The source queue's configured DLX routes rejected messages to seguridad.usuarios.dlq.
       channel.nack(message, false, false);
-      this.logger.warn(`Rejected security event for dead-letter routing (${reason})`);
+      this.metrics.deadLetteredTotal += 1;
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_dead_lettered',
+        correlationId,
+        reason,
+        deadLetteredTotal: this.metrics.deadLetteredTotal,
+      }));
     } catch {
       this.logger.error('Could not reject security event; forcing broker redelivery');
       await this.forceRedelivery(channel);
