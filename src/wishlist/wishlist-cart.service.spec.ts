@@ -1,4 +1,5 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { WishlistCartService } from './wishlist-cart.service';
 
 describe('WishlistCartService transaction boundary', () => {
@@ -65,5 +66,59 @@ describe('WishlistCartService transaction boundary', () => {
     expect(catalog.quote).toHaveBeenNthCalledWith(1, 'SKU-1', 1);
     expect(catalog.quote).toHaveBeenNthCalledWith(2, 'SKU-1', 2);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws 409 CART_CONFLICT when favorite does not exist before or inside transaction', async () => {
+    const prismaMissing = {
+      wishlistItem: { findUnique: jest.fn(async () => null) },
+      $transaction: jest.fn(),
+    };
+    const svcMissing = new WishlistCartService(prismaMissing as never, {} as never, {} as never);
+    await expect(svcMissing.add('customer', 'product'))
+      .rejects.toMatchObject({ status: 409, response: { code: 'CART_CONFLICT' } });
+
+    const txEmpty = { $executeRaw: jest.fn(async () => 0), $queryRaw: jest.fn(async () => []) };
+    const prismaEmptyTx = {
+      wishlistItem: { findUnique: jest.fn(async () => ({ id: 'favorite' })) },
+      $transaction: jest.fn(async (work) => work(txEmpty)),
+    };
+    const cart = { getActiveItemQuantity: jest.fn(async () => 0), lockOwner: jest.fn(async () => undefined) };
+    const catalog = { resolveSku: jest.fn(async () => 'SKU-1'), quote: jest.fn(async () => ({ amount: 10, currency: 'PEN', version: 1 })) };
+    const svcEmptyTx = new WishlistCartService(prismaEmptyTx as never, cart as never, catalog as never);
+    await expect(svcEmptyTx.add('customer', 'product'))
+      .rejects.toMatchObject({ status: 409, response: { code: 'CART_CONFLICT' } });
+  });
+
+  it('maps STOCK_LIMIT_REACHED, COMMERCE_DATA_UNAVAILABLE, exhausted retries, and Prisma lock errors', async () => {
+    const baseDeps = () => ({
+      prisma: {
+        wishlistItem: { findUnique: jest.fn(async () => ({ id: 'favorite' })) },
+        $transaction: jest.fn(),
+      },
+      cart: { getActiveItemQuantity: jest.fn(async () => 0) },
+      catalog: { resolveSku: jest.fn(async () => 'SKU-1'), quote: jest.fn(async () => ({ amount: 10, currency: 'PEN', version: 1 })) },
+    });
+
+    const d1 = baseDeps();
+    d1.prisma.$transaction.mockRejectedValue(new ConflictException({ code: 'CART_CHANGED_RETRY' }));
+    await expect(new WishlistCartService(d1.prisma as never, d1.cart as never, d1.catalog as never).add('c', 'p'))
+      .rejects.toMatchObject({ status: 409, response: { code: 'CART_CHANGED_RETRY' } });
+
+    const d2 = baseDeps();
+    d2.prisma.$transaction.mockRejectedValue(new ConflictException({ code: 'STOCK_LIMIT_REACHED' }));
+    await expect(new WishlistCartService(d2.prisma as never, d2.cart as never, d2.catalog as never).add('c', 'p'))
+      .rejects.toMatchObject({ status: 409, response: { code: 'STOCK_LIMIT_REACHED' } });
+
+    const d3 = baseDeps();
+    d3.prisma.$transaction.mockRejectedValue(new ServiceUnavailableException({ code: 'COMMERCE_DATA_UNAVAILABLE' }));
+    await expect(new WishlistCartService(d3.prisma as never, d3.cart as never, d3.catalog as never).add('c', 'p'))
+      .rejects.toMatchObject({ status: 503, response: { code: 'COMMERCE_DATA_UNAVAILABLE' } });
+
+    const d4 = baseDeps();
+    d4.prisma.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('lock', { code: 'P2034', clientVersion: '5.22.0' }),
+    );
+    await expect(new WishlistCartService(d4.prisma as never, d4.cart as never, d4.catalog as never).add('c', 'p'))
+      .rejects.toMatchObject({ status: 409, response: { code: 'CART_CONFLICT' } });
   });
 });

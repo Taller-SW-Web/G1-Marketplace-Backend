@@ -31,3 +31,13 @@ Para cerrar #320, queda coordinar con Leo y Ventas el cotejo de una traza saniti
 - `npm run lint` (`tsc --noEmit`): **PASS** (`0` errores)
 - El caso de reintento por `503` corre con `npm run test:ventas:webhook:postgres` en el job `H-05 inbox integration (PostgreSQL 16 disposable)` de GitHub Actions. Los casos de duplicado y rechazo están en `test/shipment-webhook-correlation.e2e-spec.ts`.
 - `npm run test:unit`: **PASS** (`61/61` suites, `715/715` tests)
+
+## 5. Ensayo coordinado de reintento en el servicio actual de G1
+
+El receptor conserva la URL que usa Ventas. La migración aditiva `20261127000100_shipment_webhook_qa_failure` crea una tabla separada del inbox y C-002. La prueba de regresión del flujo apagado corre dentro del job `integration-postgres-ci` de BE #383 con PostgreSQL 16 desechable y comprueba siete recepciones, `duplicate: true` y la cola C-002.
+
+- `VENTAS_WEBHOOK_QA_503_ENABLED=true` habilita el mecanismo. Si la variable falta o está apagada, el receptor no accede a la tabla de control.
+- `VENTAS_WEBHOOK_QA_503_ORDER_ID` debe ser un pedido de prueba acordado con Ventas: del espacio sintético `PED-2099-xxxxx` o del rango de pedidos de prueba de Ventas `PED-AAAA-9xxxx` (para el ensayo, `PED-2026-90009`), distinto del configurado para C-002 y nunca un pedido real (`PED-2026-00092` queda fuera). Cada pedido sintético tiene un único uso persistente.
+- `VENTAS_WEBHOOK_QA_503_EXPIRES_AT` fija el vencimiento en ISO 8601 UTC, con sufijo `Z`.
+
+Para un evento válido y autenticado, el primer intento elegible guarda `eventId` y `correlationId` en la tabla de control, registra `shipment_webhook_qa_503` y devuelve `503` antes de insertar en el inbox. El reintento usa el flujo normal. Antes de la ventana, verificar que la migración esté aplicada, confirmar con Ventas que reintenta ante `503`, aplicar solo las tres variables en una actualización y verificar `/health` tras el despliegue. Después de la ventana, retirar las tres variables y volver a verificar `/health`. Si Ventas no reintenta ante `503`, usar el E2E de #399 y la evidencia del duplicado real.

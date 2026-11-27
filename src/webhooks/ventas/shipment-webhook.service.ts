@@ -1,11 +1,12 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, ServiceUnavailableException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   parseShipmentStatusUpdatedEvent,
   SHIPMENT_EVENT_SINK,
   type ShipmentEventSink,
 } from './shipment-event';
+import { ShipmentWebhookQaFailure } from './shipment-webhook-qa-failure';
 
 function sanitizeCorrelationId(headers: Record<string, string | string[] | undefined>): string {
   const raw = headers['x-correlation-id'] ?? headers['x-request-id'];
@@ -23,6 +24,7 @@ export class ShipmentWebhookService {
   constructor(
     private readonly config: ConfigService,
     @Inject(SHIPMENT_EVENT_SINK) private readonly sink: ShipmentEventSink,
+    @Optional() private readonly qaFailure?: ShipmentWebhookQaFailure,
   ) {}
 
   async receive(headers: Record<string, string | string[] | undefined>, body: unknown) {
@@ -44,6 +46,13 @@ export class ShipmentWebhookService {
     if (!event) {
       this.logger.warn(JSON.stringify({ event: 'shipment_webhook_rejected', correlationId, code: 'INVALID_SHIPMENT_EVENT' }));
       throw new BadRequestException({ error: { code: 'INVALID_SHIPMENT_EVENT' } });
+    }
+
+    if (await this.qaFailure?.consume(event, correlationId)) {
+      this.logger.warn(JSON.stringify({
+        event: 'shipment_webhook_qa_503', correlationId, eventId: event.eventId, orderId: event.data.orderId,
+      }));
+      throw new ServiceUnavailableException({ error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' } });
     }
 
     const result = await this.sink.accept(event).catch((error: unknown) => {
