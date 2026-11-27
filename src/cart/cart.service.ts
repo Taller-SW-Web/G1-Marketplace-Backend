@@ -374,7 +374,7 @@ export class CartService {
     customerId?: string;
     sku: string;
     expectedVersion?: number;
-  }): Promise<{ mutated: boolean; version: number }> {
+  }): Promise<{ mutated: boolean; version: number | null }> {
     return this.prisma.$transaction(async (tx) => {
       return this.removeItemFromCartInTransaction(tx, params);
     });
@@ -388,7 +388,7 @@ export class CartService {
       sku: string;
       expectedVersion?: number;
     },
-  ): Promise<{ mutated: boolean; version: number }> {
+  ): Promise<{ mutated: boolean; version: number | null }> {
     const { sessionHash, customerId, sku, expectedVersion } = params;
 
     if (!sku || typeof sku !== 'string' || sku.trim() === '') {
@@ -406,8 +406,29 @@ export class CartService {
       });
     }
 
-    await this.lockOwner(tx, { sessionHash, customerId });
-    const cart = await this.getOrCreateCart(tx, { sessionHash, customerId });
+    if (customerId || sessionHash) {
+      await this.lockOwner(tx, { sessionHash, customerId });
+    }
+
+    let cart: CartWithItems | null = null;
+    if (customerId) {
+      cart = await tx.cart.findFirst({
+        where: { customerId, state: CartState.ACTIVE },
+        include: { items: true },
+      });
+    }
+    if (!cart && sessionHash) {
+      cart = await tx.cart.findFirst({
+        where: {
+          anonymousSessionHash: sessionHash,
+          ...(customerId ? { customerId: null } : {}),
+          state: CartState.ACTIVE,
+        },
+        include: { items: true },
+      });
+    }
+
+    if (!cart) return { mutated: false, version: null };
 
     if (expectedVersion !== undefined && cart.version !== expectedVersion) {
       throw new ConflictException({
@@ -428,6 +449,14 @@ export class CartService {
     if (!existingItem) {
       // Idempotente (RN-F018-03 / API-CA-F018-01): si ya no existe, resultado final seguro sin mutación
       return { mutated: false, version: cart.version };
+    }
+
+    if (customerId && !cart.customerId) {
+      cart = await tx.cart.update({
+        where: { id: cart.id },
+        data: { customerId, anonymousSessionHash: null },
+        include: { items: true },
+      });
     }
 
     await tx.cartItem.delete({

@@ -14,6 +14,7 @@ describe('CartController (e2e)', () => {
     addItemToCart: jest.fn(),
     getCurrentCart: jest.fn(),
     updateItemQuantity: jest.fn(),
+    removeItemFromCart: jest.fn(),
   };
 
   const issuer = 'http://127.0.0.1:4010';
@@ -121,6 +122,23 @@ describe('CartController (e2e)', () => {
     expect(res.body.data.items[0].sku).toBe('SKU-001');
     expect(res.headers['set-cookie']).toBeDefined();
     expect(res.headers['set-cookie'][0]).toContain('cart_session=');
+  });
+
+  it('DELETE of an absent item without a cart does not mint a guest session cookie', async () => {
+    mockCartService.removeItemFromCart.mockResolvedValue({ mutated: false, version: null });
+
+    const res = await request(app.getHttpServer())
+      .delete('/api/v1/carts/current/items/SKU-ABSENT')
+      .expect(204);
+
+    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(res.headers['x-cart-version']).toBeUndefined();
+    expect(mockCartService.removeItemFromCart).toHaveBeenCalledWith({
+      sessionHash: undefined,
+      customerId: undefined,
+      sku: 'SKU-ABSENT',
+      expectedVersion: undefined,
+    });
   });
 
   it('resolves a MOCK productId to its server-owned SKU before adding it', async () => {

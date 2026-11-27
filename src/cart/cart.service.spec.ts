@@ -320,6 +320,31 @@ describe('CartService - F-018: removeItemFromCart', () => {
     expect(mockTx.cart.update).not.toHaveBeenCalled();
   });
 
+  it('does not create a cart when deleting an item for an owner with no active cart', async () => {
+    mockTx.cart.findFirst.mockResolvedValueOnce(null);
+
+    const result = await service.removeItemFromCartInTransaction(mockTx, {
+      customerId: 'cust-without-cart',
+      sku: 'SKU-NOT-IN-CART',
+    });
+
+    expect(result).toEqual({ mutated: false, version: null });
+    expect(mockTx.cart.create).not.toHaveBeenCalled();
+    expect(mockTx.cartItem.findUnique).not.toHaveBeenCalled();
+    expect(mockTx.cartItem.delete).not.toHaveBeenCalled();
+  });
+
+  it('does not look up or create a cart for an anonymous DELETE without an existing session', async () => {
+    const result = await service.removeItemFromCartInTransaction(mockTx, {
+      sku: 'SKU-NOT-IN-CART',
+    });
+
+    expect(result).toEqual({ mutated: false, version: null });
+    expect(mockTx.cart.findFirst).not.toHaveBeenCalled();
+    expect(mockTx.cart.create).not.toHaveBeenCalled();
+    expect(mockTx.cartItem.findUnique).not.toHaveBeenCalled();
+  });
+
   it('deletes existing CartItem and increments Cart.version (RN-F018-01 / CA-F018-01)', async () => {
     mockTx.cart.findFirst.mockResolvedValueOnce(sampleCart);
     mockTx.cartItem.findUnique.mockResolvedValueOnce(sampleItem);
