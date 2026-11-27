@@ -46,9 +46,9 @@ Para #308, usar como referencia solamente el [subset contratado de PR #348](http
    - **API URL suffix:** `v1`
    - **Web service URL (`serviceUrl`):** `https://g1-marketplace-backend.onrender.com` (origen, sin prefijo de ruta)
    - **Gateway público:** `https://apim-g1-marketplace-20.azure-api.net/v1`
-4. La importación de este OpenAPI exacto de 34 operaciones no está acreditada por este runbook. El responsable informó que el routing/rewrite de `marketplace-api` se actualizó en el commit `df137b1` de la PR #359; esto no confirma que se importara este subset.
+4. La importación de este OpenAPI exacto de 41 operaciones no está acreditada por este runbook. El responsable informó que el routing/rewrite de `marketplace-api` se actualizó en el commit `df137b1` de la PR #359; esto no confirma que se importara este subset.
 
-El OpenAPI candidato contiene solo 34 operaciones contratadas; la importación de ese archivo no queda acreditada por este runbook. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones contratadas `/v1/...` a `/api/v1/...` y conserva query params.
+El OpenAPI candidato contiene solo 41 operaciones contratadas; la importación de ese archivo no queda acreditada por este runbook. No incluye `/health`, `/docs` ni `/docs/specs/*`; no agregar `/v1/health` ni `/v1/docs` por medio del rewrite genérico. El candidato offline `docs/apim/v1-backend-rewrite.policy.xml` mapea únicamente las operaciones contratadas `/v1/...` a `/api/v1/...` y conserva query params.
 
 ---
 
@@ -75,4 +75,10 @@ La prueba de más de 60 llamadas requiere autorización expresa y una ventana QA
 Usar únicamente una operación contratada y el caso QA previamente aprobado. Sin JWT se espera `401 Unauthorized`; no usar `/v1/cart` ni rutas fuera del subset.
 
 ### C. Rewrite y correlación
-El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica la superficie completa. No repetir hasta que el responsable de G6 confirme disponibilidad.
+El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica las 41 operaciones. No repetir hasta que el responsable de G6 confirme disponibilidad.
+
+**Límite de la evidencia:** esta sección registra resultados previos; no autoriza ni ejecuta pruebas, ráfagas, smoke ni cambios en APIM. Cualquier revalidación requiere una ventana QA autorizada.
+
+> 📷 **Capturas para Issue #309:**
+> 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
+> 2. Terminal mostrando la respuesta `HTTP 429` al superar la cuota.

@@ -66,8 +66,10 @@ for (const blocked of BLOCKED_ROUTES) {
     `La ruta sin contrato no debe aparecer en el OpenAPI: ${blocked.operation}`);
 }
 for (const route of CONTRACTED_CART_ROUTES) {
-  assert.ok(expectedOperations.includes(route.publicOperation), `La ruta de carrito contratada debe aparecer en las fuentes: ${route.sourceOperation}`);
-  assert.ok(parsedRoutes.operations.includes(route.publicOperation), `La ruta de carrito contratada debe aparecer en el OpenAPI: ${route.publicOperation}`);
+  assert.ok(expectedOperations.includes(route.publicOperation),
+    `La ruta de carrito contratada debe aparecer en las fuentes: ${route.sourceOperation}`);
+  assert.ok(parsedRoutes.operations.includes(route.publicOperation),
+    `La ruta de carrito contratada debe aparecer en el OpenAPI: ${route.publicOperation}`);
 }
 assert.match(artifact, /^x-source-security-errors:$/m, 'Debe conservarse el catalogo de errores de seguridad de origen');
 
@@ -150,6 +152,12 @@ console.log(`Contracted operations /api/v1 -> /v1: ${parsedRoutes.operations.len
 console.log(`OpenAPI paths: ${parsedRoutes.paths.length}`);
 console.log(`Resolved local component references: ${findComponentReferences(artifact).length}`);
 console.log('Excluded source operation: GET /health');
-console.log('Explicitly blocked BFF routes:');
-for (const { operation } of BLOCKED_ROUTES) console.log(`  BLOCKED ${operation}`);
+if (BLOCKED_ROUTES.length === 0) {
+  console.log('No implemented-but-uncontracted BFF routes are blocked.');
+} else {
+  console.log('Explicitly blocked BFF routes:');
+  for (const { operation } of BLOCKED_ROUTES) console.log(`  BLOCKED ${operation}`);
+}
+console.log('Newly contracted cart routes:');
+for (const { publicOperation } of CONTRACTED_CART_ROUTES) console.log(`  INCLUDED ${publicOperation}`);
 console.log('No backend host, Azure call, import, or deployment was performed.');

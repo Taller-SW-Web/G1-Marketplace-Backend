@@ -101,10 +101,10 @@ describe('SalesCsatGateway (F-040)', () => {
     global.fetch = jest.fn(async () => new Response(null, { status: 403 })) as unknown as typeof fetch;
     await expect(gateway.submit(payload, 'tok')).rejects.toMatchObject({ status: 403, response: { code: 'ORDER_FORBIDDEN' } });
 
-    global.fetch = jest.fn(async () => new Response(JSON.stringify({ error: { code: 'CSAT_ALREADY_SUBMITTED' } }), { status: 409 })) as unknown as typeof fetch;
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ codigo: 'CSAT_ALREADY_SUBMITTED' }), { status: 409 })) as unknown as typeof fetch;
     await expect(gateway.submit(payload, 'tok')).rejects.toMatchObject({ status: 409, response: { code: 'CSAT_ALREADY_SUBMITTED' } });
 
-    global.fetch = jest.fn(async () => new Response(JSON.stringify({ code: 'ORDER_NOT_DELIVERED' }), { status: 422 })) as unknown as typeof fetch;
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ codigo: 'ORDER_NOT_DELIVERED' }), { status: 422 })) as unknown as typeof fetch;
     await expect(gateway.submit(payload, 'tok')).rejects.toMatchObject({ status: 422, response: { code: 'ORDER_NOT_DELIVERED' } });
 
     global.fetch = jest.fn(async () => new Response('oops', { status: 409 })) as unknown as typeof fetch;

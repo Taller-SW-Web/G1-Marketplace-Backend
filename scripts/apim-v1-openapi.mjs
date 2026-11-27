@@ -25,6 +25,7 @@ export const CONTRACTED_CART_ROUTES = [
 ];
 
 export const BLOCKED_ROUTES = [];
+
 const BLOCKED_OPERATION_KEYS = new Set(BLOCKED_ROUTES.map(({ operation }) => operation));
 
 export const OPENAPI_METHODS = new Set([
@@ -461,6 +462,12 @@ export function buildOpenApiArtifact() {
   const contractedOperations = operationSources.filter(({ sourcePath }) => sourcePath.startsWith('/api/v1/'));
   if (contractedOperations.length !== 41) {
     throw new Error(`Se esperaban 41 operaciones bajo /api/v1 y se encontraron ${contractedOperations.length}`);
+  }
+  const contractedOperationKeys = new Set(contractedOperations.map(({ method, sourcePath }) => `${method} ${sourcePath}`));
+  for (const { sourceOperation } of CONTRACTED_CART_ROUTES) {
+    if (!contractedOperationKeys.has(sourceOperation)) {
+      throw new Error(`Falta una ruta de carrito contratada en las fuentes: ${sourceOperation}`);
+    }
   }
   if (sourcePathsOutsideV1.length !== 1 || sourcePathsOutsideV1[0] !== 'GET /health') {
     throw new Error(`Cambió la superficie fuera de /api/v1: ${JSON.stringify(sourcePathsOutsideV1)}`);
