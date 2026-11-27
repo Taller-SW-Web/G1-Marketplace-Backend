@@ -21,18 +21,18 @@ No se crea una compra nueva durante el ensayo: el fixture de homologación venci
 |---|---|---|
 | 0–1 min | Presentar el candidato y distinguir CI, MOCK, REAL y LAB. | Se abren las referencias del paquete [#324](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/324) y los SHA. |
 | 1–4 min | **Punto 1.** Pipeline unificado, gates que rompen el build, SAST/SCA/secretos, DAST, SBOM y rollback ensayado. | Runs y reportes por SHA; hallazgo → corrección → retest. |
-| 4–6 min | **Punto 2.** Matriz módulo × operación × caso: G7 (login, MFA, direcciones por el BFF, 19 de 19), Ventas (compra real) y Despacho (webhook). | Informes REAL en `docs/evidencias/H5/integracion-real/` y requestId. |
+| 4–6 min | **Punto 2.** Matriz módulo × operación × caso: G7 (login, MFA, direcciones por el BFF: ronda de las 16:00 con 19 de 19 sin MFA y ronda de las 20:20 con MFA con 24 de 24), Ventas (compra real) y Despacho (webhook). | Informes REAL en `docs/evidencias/H5/integracion-real/` y requestId. |
 | 6–8 min | Demo en vivo: catálogo (inicio y filtros REAL), ficha, carrito, login de la cuenta A y **Mis pedidos** con `PED-2026-00092` en su estado actual (`PAGADO` o el que haya llegado). | Se ve el pedido real de la cuenta A; el checkout se muestra con la etiqueta MOCK de cotización. |
 | 8–10 min | **Punto 3.** Reporte k6: carga, estrés con quiebre a 800 VUs, recuperación, spike, soak y antes/después de la caché. | Gráficos p50/p95/p99, errores y recursos; declarar **LAB**. |
 | 10–12 min | **Punto 4A.** Seguridad → Marketplace por RabbitMQ. | `usuario.creado` real de G7 recibido y registrado en 3 s; hallazgo de la fecha (seis eventos descartados), corrección #409 y recuperación manual; laboratorio de duplicados y reconexión. |
-| 12–13 min | **Punto 4B.** Despacho → Ventas → Marketplace por webhook. | 7 eventos reales, 401 con token incorrecto, duplicado detectado, correo C-002 único; reintento tras un 503 controlado si la ventana de #320 se ejecutó. |
+| 12–13 min | **Punto 4B.** Despacho → Ventas → Marketplace por webhook. | 7 eventos reales, 401 con token incorrecto, duplicado detectado (`duplicate:true`, HTTP 200, requestId `a588984b-7010-47bb-8205-a7343afd0b5a`, 17:09:12 del `eventId` `c53403f0…`), correo C-002 único; reintento tras un 503 controlado si la ventana de #320 se ejecutó. |
 | 13–14 min | Repasar los límites y qué quedó pendiente, con responsable. | Cada pendiente indica quién y cuándo. |
 
 ## Seguridad (apoyo del punto 2)
 
 | Paso | Evidencia REAL | Límite |
 |---|---|---|
-| Login y sesión | Ronda del 26/11 por el BFF: login sin MFA, contraseña incorrecta 401, sesión, logout y refresh rechazado, Origin ajeno rechazado antes de llamar a G7 (BE #405). | La rama con MFA y el registro nuevo se omitieron; van en la ronda 3. |
+| Login, sesión y MFA | Ronda 1 (16:00, 19 de 19, sin MFA): login, contraseña incorrecta 401, sesión, logout, refresh rechazado y Origin ajeno rechazado (BE #405). Ronda 3 (20:20, 24 de 24, con MFA): registro nuevo 201, login con MFA de la cuenta B (desafío, OTP por correo y sesión solo tras verificar), recuperación neutra 202 (`integracion-real/bff/2026-11-27/`). | OTP incorrecto o vencido, JWT inválido o expirado y el límite efectivo no se probaron. |
 | Titularidad de la dirección | Alta 201, lista propia 200, titular ajeno 400 y sin sesión 401 por el BFF; lista ajena 403 en la ronda directa a G7 del 23/11. | El 403 con el token de otro usuario por el BFF depende de la prueba con la cuenta B. |
 | Origen no autorizado | Un login desde `http://127.0.0.1:3101` devolvió 403 `FORBIDDEN` del BFF (18:12:10, FE #138). | Es una protección por diseño. |
 
