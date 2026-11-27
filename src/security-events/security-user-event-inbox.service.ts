@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityUserEvent } from './security-user-event';
 
@@ -16,34 +17,31 @@ export class SecurityUserEventInboxService {
   constructor(private readonly prisma: PrismaService) {}
 
   async record(event: SecurityUserEvent): Promise<RecordSecurityUserEventResult> {
-    try {
-      await this.prisma.securityUserEventInbox.create({
-        data: {
-          eventId: event.eventId,
-          eventType: event.eventType,
-          eventVersion: event.version,
-          payloadSha256: event.payloadSha256,
-        },
-      });
-      return 'recorded';
-    } catch (error) {
-      if (!this.isUniqueConflict(error)) throw error;
-
-      const existing = await this.prisma.securityUserEventInbox.findUnique({
-        where: { eventId: event.eventId },
-        select: { eventType: true, eventVersion: true, payloadSha256: true },
-      });
-      if (!existing) throw error;
-      if (existing.eventType !== event.eventType || existing.eventVersion !== event.version
-        || existing.payloadSha256 !== event.payloadSha256) {
-        throw new SecurityUserEventIdentityConflictError();
-      }
-      return 'duplicate';
-    }
+    return this.recordWithClient(this.prisma, event);
   }
 
-  private isUniqueConflict(error: unknown): boolean {
-    return error !== null && typeof error === 'object' && 'code' in error
-      && (error as { code?: unknown }).code === 'P2002';
+  async recordWithClient(
+    client: Prisma.TransactionClient | PrismaService,
+    event: SecurityUserEvent,
+  ): Promise<RecordSecurityUserEventResult> {
+    // ON CONFLICT DO NOTHING avoids aborting an enclosing PostgreSQL transaction on duplicate eventId.
+    const inserted = await client.$queryRaw<Array<{ event_id: string }>>`
+      INSERT INTO "security_user_event_inbox" ("event_id", "event_type", "event_version", "payload_sha256")
+      VALUES (${event.eventId}, ${event.eventType}, ${event.version}, ${event.payloadSha256})
+      ON CONFLICT ("event_id") DO NOTHING
+      RETURNING "event_id"
+    `;
+    if (inserted.length > 0) return 'recorded';
+
+    const existing = await client.securityUserEventInbox.findUnique({
+      where: { eventId: event.eventId },
+      select: { eventType: true, eventVersion: true, payloadSha256: true },
+    });
+    if (!existing) throw new Error('security_user_event_inbox_lookup_failed');
+    if (existing.eventType !== event.eventType || existing.eventVersion !== event.version
+      || existing.payloadSha256 !== event.payloadSha256) {
+      throw new SecurityUserEventIdentityConflictError();
+    }
+    return 'duplicate';
   }
 }

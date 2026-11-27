@@ -49,6 +49,22 @@ describe('parseSecurityUserEvent', () => {
       .toEqual({ kind: 'unknown', eventType: 'usuario.nuevo_evento' });
   });
 
+  it.each([
+    '2026-11-24T12:30:45Z',
+    '2026-11-24T12:30:45.1Z',
+    '2026-11-24T12:30:45.123456Z',
+    '2026-11-24T12:30:45.123456789Z',
+  ])('accepts a UTC Instant in fecha and hasta without rewriting it (%s)', (fecha) => {
+    const created = { ...envelope(), fecha };
+    expect(parseSecurityUserEvent(JSON.stringify(created), created.tipo)).toMatchObject({
+      kind: 'known', event: { occurredAt: fecha },
+    });
+    const blocked = { ...envelope('usuario.bloqueado', { automatico: true, hasta: fecha }), fecha };
+    expect(parseSecurityUserEvent(JSON.stringify(blocked), blocked.tipo)).toMatchObject({
+      kind: 'known', event: { occurredAt: fecha, data: { hasta: fecha } },
+    });
+  });
+
   it('rejects malformed JSON and a routing-key mismatch with stable error codes', () => {
     expect(() => parseSecurityUserEvent('{', 'usuario.creado')).toThrow(
       new SecurityUserEventValidationError('invalid_json'),
@@ -60,7 +76,12 @@ describe('parseSecurityUserEvent', () => {
 
   it.each([
     [{ ...envelope(), version: 2 }, 'unsupported_schema_version'],
-    [{ ...envelope(), fecha: '2026-11-24T12:30:45Z' }, 'invalid_event_timestamp'],
+    [{ ...envelope(), fecha: '2026-11-24T12:30:45.1234567890Z' }, 'invalid_event_timestamp'],
+    [{ ...envelope(), fecha: '2026-11-24T12:30:45.123+00:00' }, 'invalid_event_timestamp'],
+    [{ ...envelope(), fecha: '2026-02-30T12:30:45.123456789Z' }, 'invalid_event_timestamp'],
+    [{ ...envelope(), fecha: '2026-11-24T24:00:00.000000000Z' }, 'invalid_event_timestamp'],
+    [{ ...envelope(), fecha: '2026-11-24T12:30:45.123Z\n' }, 'invalid_event_timestamp'],
+    [envelope('usuario.bloqueado', { automatico: true, hasta: '2026-02-30T12:30:45Z' }), 'invalid_event_data'],
     [{ ...envelope(), usuarioId: 'not-a-uuid' }, 'invalid_user_id'],
     [envelope('usuario.creado', { roles: [42] as unknown as string[] }), 'invalid_event_data'],
   ])('rejects invalid/unsupported v1 messages (%s)', (event, reason) => {

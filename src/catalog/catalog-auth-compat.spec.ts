@@ -2,6 +2,7 @@ import { createG6Client } from './g6-client';
 import { createRealProvider, CONTRACT_SHA, CONTRACT_VERSION } from './provider';
 import { realProductDetail } from './product-detail.real';
 import { ProductDetailService } from './product-detail.service';
+import { catalogTestJwt } from '../../test/fixtures/g7-catalog-jwt';
 
 const id = 'a0000000-0000-4000-8000-000000000001';
 const env = { NODE_ENV: 'production', CATALOG_SOURCE: 'real', BFF_MODE: 'real',
@@ -12,7 +13,7 @@ const env = { NODE_ENV: 'production', CATALOG_SOURCE: 'real', BFF_MODE: 'real',
   PRODUCTOS_SERVICE_TOKEN: 'synthetic-residual-static-token' };
 const product = () => ({ product_id: id, slug: 'polo-real', name: 'Polo', marca_id: 'brand', categoria_id: 'cat',
   marca: { marca_id: 'brand', name: 'Marca' }, images: ['https://images.example/polo.png'], attributes: [] });
-const issued = (token = 'synthetic-issued-token') => Response.json({ accessToken: token, tokenType: 'Bearer',
+const issued = (token = catalogTestJwt()) => Response.json({ accessToken: token, tokenType: 'Bearer',
   expiresIn: 3600, scopes: ['catalogo:leer'] });
 
 describe('shared G6 authentication for catalog and F011', () => {
@@ -25,7 +26,7 @@ describe('shared G6 authentication for catalog and F011', () => {
       expect(options).toMatchObject({ method: 'GET', credentials: 'omit', redirect: 'error' });
       const headers = new Headers(options.headers);
       expect(headers.get('Authorization')).toBe(mode === 'public-read-only' ? null
-        : mode === 'service-token' ? 'Bearer synthetic-residual-static-token' : 'Bearer synthetic-issued-token');
+        : mode === 'service-token' ? 'Bearer synthetic-residual-static-token' : `Bearer ${catalogTestJwt()}`);
       expect(headers.has('Cookie')).toBe(false);
       expect(headers.get('X-Correlation-Id')).toBe(id);
       return Response.json(product());
@@ -72,7 +73,7 @@ describe('F011 service lifecycle and token caching', () => {
     const reads: string[] = [];
     jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, options) => {
       const url = new URL(String(input));
-      if (url.origin === 'https://g7.example') return issued(`synthetic-issued-${++emissions}`);
+      if (url.origin === 'https://g7.example') return issued(catalogTestJwt({}, String(++emissions)));
       reads.push(new Headers(options?.headers).get('Authorization')!);
       return Response.json(product());
     });
@@ -83,8 +84,7 @@ describe('F011 service lifecycle and token caching', () => {
     now = 3_540_000;
     await service.getBySlug('polo-real', id);
     expect(emissions).toBe(2);
-    expect(reads).toEqual(['Bearer synthetic-issued-1', 'Bearer synthetic-issued-1',
-      'Bearer synthetic-issued-1', 'Bearer synthetic-issued-2']);
+    expect(reads).toEqual(['1', '1', '1', '2'].map(nonce => `Bearer ${catalogTestJwt({}, nonce)}`));
   });
 
   it('rebuilds its client on mode changes and never reuses an old token after invalid configuration', async () => {
@@ -99,7 +99,7 @@ describe('F011 service lifecycle and token caching', () => {
     await service.getBySlug('polo-real', id);
     process.env.PRODUCTOS_AUTH_MODE = 'public-read-only';
     await service.getBySlug('polo-real', id);
-    expect(auth).toEqual(['Bearer synthetic-issued-token', null]);
+    expect(auth).toEqual([`Bearer ${catalogTestJwt()}`, null]);
     expect(emissions).toBe(1);
     process.env.PRODUCTOS_AUTH_MODE = 'client-credentials';
     delete process.env.PRODUCTOS_CLIENT_SECRET;

@@ -1,15 +1,27 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
-import { ChannelModel, ConfirmChannel, ConsumeMessage } from 'amqplib';
+import type { ChannelModel, ConfirmChannel, ConsumeMessage } from 'amqplib';
+import { SecurityUserEventConsumerService } from './security-user-event-consumer.service';
 import {
   SecurityUserEventIdentityConflictError,
   SecurityUserEventInboxService,
 } from './security-user-event-inbox.service';
-import { SecurityUserEventConsumerService } from './security-user-event-consumer.service';
+import {
+  SECURITY_USER_EVENTS_BINDING,
+  SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+  SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
+  SECURITY_USER_EVENTS_EXCHANGE,
+  SECURITY_USER_EVENTS_EXCHANGE_TYPE,
+  SECURITY_USER_EVENTS_QUEUE,
+  SECURITY_USER_EVENT_TYPES,
+} from './security-user-event';
+import { securityUserEventRetryQueueName } from './security-user-event-reliability';
 
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 
-const EVENT = {
+const connectMock = amqp.connect as jest.Mock;
+const validEvent = {
   eventoId: '22222222-2222-4222-8222-222222222222',
   tipo: 'usuario.creado',
   version: 1,
@@ -18,196 +30,260 @@ const EVENT = {
   datos: { roles: ['CLIENTE'] },
 };
 
-type ConsumerTestSurface = {
+type ConsumerPrivateApi = {
   handleMessage(channel: ConfirmChannel, message: ConsumeMessage): Promise<void>;
   assertRetryQueues(channel: ConfirmChannel): Promise<void>;
 };
 
-function makeMessage(
-  event: { tipo: string; [key: string]: unknown } = EVENT,
-  headers: Record<string, unknown> = {},
-): ConsumeMessage {
-  return {
-    content: Buffer.from(JSON.stringify(event)),
-    fields: { routingKey: event.tipo },
-    properties: { headers, contentType: 'application/json' },
-  } as unknown as ConsumeMessage;
-}
-
-function makeChannel(confirmError?: Error) {
-  return {
+function makeChannel() {
+  const listeners = new Map<string, (...args: unknown[]) => void>();
+  const raw = {
+    assertExchange: jest.fn().mockResolvedValue({}),
+    assertQueue: jest.fn().mockResolvedValue({}),
+    bindQueue: jest.fn().mockResolvedValue(undefined),
+    prefetch: jest.fn().mockResolvedValue(undefined),
+    consume: jest.fn().mockResolvedValue({ consumerTag: 'consumer-test' }),
+    cancel: jest.fn().mockResolvedValue(undefined),
+    close: jest.fn().mockResolvedValue(undefined),
     ack: jest.fn(),
     nack: jest.fn(),
-    assertExchange: jest.fn().mockResolvedValue({}),
-    assertQueue: jest.fn().mockResolvedValue({ queue: 'queue' }),
-    bindQueue: jest.fn().mockResolvedValue({}),
-    cancel: jest.fn().mockResolvedValue({}),
-    close: jest.fn().mockResolvedValue(undefined),
-    consume: jest.fn().mockResolvedValue({ consumerTag: 'security-user-events' }),
-    on: jest.fn().mockReturnThis(),
-    prefetch: jest.fn().mockResolvedValue(undefined),
-    sendToQueue: jest.fn((_queue, _content, _options, confirm) => confirm?.(confirmError, {})),
-  } as unknown as ConfirmChannel & {
-    ack: jest.Mock;
-    nack: jest.Mock;
-    assertExchange: jest.Mock;
-    assertQueue: jest.Mock;
-    bindQueue: jest.Mock;
-    cancel: jest.Mock;
-    close: jest.Mock;
-    consume: jest.Mock;
-    prefetch: jest.Mock;
-    sendToQueue: jest.Mock;
+    on: jest.fn((event: string, listener: (...args: unknown[]) => void) => {
+      listeners.set(event, listener);
+    }),
+    sendToQueue: jest.fn((
+      _queue: string,
+      _content: Buffer,
+      _options: Record<string, unknown>,
+      callback: (error: Error | null) => void,
+    ) => {
+      callback(null);
+      return true;
+    }),
   };
+  return { channel: raw as unknown as ConfirmChannel, raw, listeners };
 }
 
 function makeConnection(channel: ConfirmChannel) {
-  return {
-    close: jest.fn().mockResolvedValue(undefined),
+  const listeners = new Map<string, (...args: unknown[]) => void>();
+  const raw = {
     createConfirmChannel: jest.fn().mockResolvedValue(channel),
-    on: jest.fn().mockReturnThis(),
-  } as unknown as ChannelModel & {
-    close: jest.Mock;
-    createConfirmChannel: jest.Mock;
-    on: jest.Mock;
+    close: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn((event: string, listener: (...args: unknown[]) => void) => {
+      listeners.set(event, listener);
+    }),
   };
+  return { connection: raw as unknown as ChannelModel, raw, listeners };
+}
+
+function makeMessage(
+  payload: unknown = validEvent,
+  routingKey = 'usuario.creado',
+): ConsumeMessage {
+  return {
+    content: Buffer.from(typeof payload === 'string' ? payload : JSON.stringify(payload)),
+    fields: { routingKey },
+    properties: {
+      headers: { 'x-trace-id': 'synthetic-trace' },
+      contentType: 'application/json',
+      contentEncoding: 'utf-8',
+      correlationId: 'synthetic-correlation',
+      messageId: 'synthetic-message',
+    },
+  } as unknown as ConsumeMessage;
+}
+
+function createHarness(enabled = true) {
+  const values: Record<string, unknown> = {
+    SECURITY_EVENTS_ENABLED: enabled,
+    RABBITMQ_URL: 'amqp://localhost:5672/h5-test',
+    SECURITY_EVENTS_PREFETCH: 3,
+    SECURITY_EVENTS_MAX_RETRIES: 3,
+    SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
+    SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
+  };
+  const config = {
+    get: jest.fn((key: string, fallback?: unknown) => values[key] ?? fallback),
+  };
+  const inbox = { record: jest.fn() };
+  const service = new SecurityUserEventConsumerService(
+    config as unknown as ConfigService,
+    inbox as unknown as SecurityUserEventInboxService,
+  );
+  return { service, config, inbox };
+}
+
+async function startHarness() {
+  const harness = createHarness();
+  const { channel, raw: rawChannel } = makeChannel();
+  const { connection, raw: rawConnection } = makeConnection(channel);
+  connectMock.mockResolvedValue(connection);
+  await harness.service.onModuleInit();
+  return { ...harness, channel, rawChannel, connection, rawConnection };
+}
+
+async function handle(
+  service: SecurityUserEventConsumerService,
+  channel: ConfirmChannel,
+  message: ConsumeMessage,
+): Promise<void> {
+  return (service as unknown as ConsumerPrivateApi).handleMessage(channel, message);
 }
 
 describe('SecurityUserEventConsumerService', () => {
-  const record = jest.fn();
-  const inbox = { record } as unknown as SecurityUserEventInboxService;
-  const connect = amqp.connect as jest.Mock;
-  let service: SecurityUserEventConsumerService;
-  let handleMessage: ConsumerTestSurface['handleMessage'];
-
   beforeEach(() => {
-    jest.resetAllMocks();
-    service = new SecurityUserEventConsumerService(
-      new ConfigService({
-        SECURITY_EVENTS_ENABLED: false,
-        SECURITY_EVENTS_MAX_RETRIES: 3,
-        SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
-        SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
-        SECURITY_EVENTS_PREFETCH: 1,
-        RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
-      }),
-      inbox,
-    );
-    handleMessage = (service as unknown as ConsumerTestSurface).handleMessage.bind(service);
+    connectMock.mockReset();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
 
-  it('stays offline by default', async () => {
-    await service.onModuleInit();
-
-    expect(connect).not.toHaveBeenCalled();
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
-  it('declares durable topology and cancels the consumer on shutdown when enabled', async () => {
-    const channel = makeChannel();
-    const connection = makeConnection(channel);
-    connect.mockResolvedValue(connection);
-    service = new SecurityUserEventConsumerService(
-      new ConfigService({
-        SECURITY_EVENTS_ENABLED: true,
-        SECURITY_EVENTS_MAX_RETRIES: 3,
-        SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
-        SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
-        SECURITY_EVENTS_PREFETCH: 2,
-        RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
-      }),
-      inbox,
-    );
+  it('does not connect to RabbitMQ when the feature flag is disabled', async () => {
+    const { service } = createHarness(false);
 
     await service.onModuleInit();
-    expect(connect).toHaveBeenCalledWith(expect.stringContaining('heartbeat=30'));
-    expect(channel.assertExchange).toHaveBeenCalledWith('seguridad.usuarios', 'topic', { durable: true });
-    expect(channel.assertQueue).toHaveBeenCalledWith('marketplace.usuarios', {
+
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
+  it('declares the durable topology, consumes with manual ack, and closes cleanly', async () => {
+    const { service, rawChannel, rawConnection } = await startHarness();
+
+    expect(connectMock).toHaveBeenCalledWith('amqp://localhost:5672/h5-test?heartbeat=30');
+    expect(rawChannel.assertExchange).toHaveBeenCalledWith(
+      SECURITY_USER_EVENTS_EXCHANGE,
+      SECURITY_USER_EVENTS_EXCHANGE_TYPE,
+      { durable: true },
+    );
+    expect(rawChannel.assertQueue).toHaveBeenCalledWith(SECURITY_USER_EVENTS_QUEUE, {
       durable: true,
       arguments: {
-        'x-dead-letter-exchange': 'seguridad.usuarios.dlx',
-        'x-dead-letter-routing-key': 'descartado',
+        'x-dead-letter-exchange': SECURITY_USER_EVENTS_DEAD_LETTER_EXCHANGE,
+        'x-dead-letter-routing-key': SECURITY_USER_EVENTS_DEAD_LETTER_ROUTING_KEY,
       },
     });
-    expect(channel.bindQueue).toHaveBeenCalledWith('marketplace.usuarios', 'seguridad.usuarios', 'usuario.*');
-    expect(channel.prefetch).toHaveBeenCalledWith(2);
-    expect(channel.consume).toHaveBeenCalledWith('marketplace.usuarios', expect.any(Function), { noAck: false });
+    expect(rawChannel.assertQueue).toHaveBeenCalledTimes(1 + SECURITY_USER_EVENT_TYPES.length * 3);
+    expect(rawChannel.bindQueue).toHaveBeenCalledWith(
+      SECURITY_USER_EVENTS_QUEUE,
+      SECURITY_USER_EVENTS_EXCHANGE,
+      SECURITY_USER_EVENTS_BINDING,
+    );
+    expect(rawChannel.prefetch).toHaveBeenCalledWith(3);
+    expect(rawChannel.consume).toHaveBeenCalledWith(
+      SECURITY_USER_EVENTS_QUEUE,
+      expect.any(Function),
+      { noAck: false },
+    );
 
     await service.onModuleDestroy();
-    expect(channel.cancel).toHaveBeenCalledWith('security-user-events');
-    expect(channel.close).toHaveBeenCalledTimes(1);
-    expect(connection.close).toHaveBeenCalledTimes(1);
+
+    expect(rawChannel.cancel).toHaveBeenCalledWith('consumer-test');
+    expect(rawChannel.close).toHaveBeenCalledTimes(1);
+    expect(rawConnection.close).toHaveBeenCalledTimes(1);
   });
 
-  it('acknowledges and records a valid event', async () => {
-    const channel = makeChannel();
-    record.mockResolvedValue('recorded');
-    const message = makeMessage();
+  it('fails initialization and closes partially-created resources when topology setup fails', async () => {
+    const { service } = createHarness();
+    const { channel, raw: rawChannel } = makeChannel();
+    const { connection, raw: rawConnection } = makeConnection(channel);
+    rawChannel.assertExchange.mockRejectedValue(new Error('broker unavailable'));
+    connectMock.mockResolvedValue(connection);
 
-    await handleMessage(channel, message);
+    await expect(service.onModuleInit()).rejects.toThrow(
+      'Could not initialize the RabbitMQ user-event consumer',
+    );
 
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({
-      eventId: EVENT.eventoId,
-      eventType: EVENT.tipo,
-      userId: EVENT.usuarioId,
+    expect(rawChannel.close).toHaveBeenCalledTimes(1);
+    expect(rawConnection.close).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['new event', 'recorded'],
+    ['duplicate event', 'duplicate'],
+  ] as const)('persists and acknowledges a %s', async (_name, result) => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    inbox.record.mockResolvedValue(result);
+
+    await handle(service, channel, makeMessage());
+
+    expect(inbox.record).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: validEvent.eventoId,
+      eventType: validEvent.tipo,
+      userId: validEvent.usuarioId,
     }));
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(raw.ack).toHaveBeenCalledTimes(1);
+    expect(raw.nack).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
   });
 
-  it('acknowledges an unknown event type without persisting it', async () => {
-    const channel = makeChannel();
-    const message = makeMessage({ ...EVENT, tipo: 'usuario.evento_nuevo', datos: {} });
+  it('acknowledges valid event types it does not yet project', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
 
-    await handleMessage(channel, message);
+    await handle(service, channel, makeMessage({ ...validEvent, tipo: 'usuario.nuevo_evento' }, 'usuario.nuevo_evento'));
 
-    expect(record).not.toHaveBeenCalled();
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(inbox.record).not.toHaveBeenCalled();
+    expect(raw.ack).toHaveBeenCalledTimes(1);
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid schema message for broker-side DLX routing', async () => {
-    const channel = makeChannel();
-    const message = makeMessage({ ...EVENT, version: 2 });
+  it('persists and acknowledges a G7 v1 event with a nanosecond timestamp', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    const fecha = '2026-11-24T12:30:45.123456789Z';
+    const message = makeMessage({ ...validEvent, fecha });
+    inbox.record.mockResolvedValue('recorded');
 
-    await handleMessage(channel, message);
+    await handle(service, channel, message);
 
-    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
-    expect(channel.ack).not.toHaveBeenCalled();
-    expect(channel.sendToQueue).not.toHaveBeenCalled();
-    expect(record).not.toHaveBeenCalled();
+    expect(inbox.record).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: validEvent.eventoId, occurredAt: fecha,
+    }));
+    expect(raw.ack).toHaveBeenCalledWith(message);
+    expect(raw.nack).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
   });
 
-  it('rejects an event identity conflict for broker-side DLX routing', async () => {
-    record.mockRejectedValue(new SecurityUserEventIdentityConflictError());
-    const channel = makeChannel();
-    const message = makeMessage();
+  it('rejects malformed messages so RabbitMQ routes them through the queue DLX', async () => {
+    const { service } = createHarness();
+    const { channel, raw } = makeChannel();
 
-    await handleMessage(channel, message);
+    await handle(service, channel, makeMessage('{ malformed json'));
 
-    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
-    expect(channel.ack).not.toHaveBeenCalled();
-    expect(channel.sendToQueue).not.toHaveBeenCalled();
+    expect(raw.nack).toHaveBeenCalledWith(expect.objectContaining({ content: Buffer.from('{ malformed json') }), false, false);
+    expect(raw.ack).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
   });
 
-  it('forces broker redelivery if DLX rejection fails on a closed channel', async () => {
-    const channel = makeChannel();
-    channel.nack.mockImplementation(() => { throw new Error('channel closed'); });
-    const message = makeMessage({ ...EVENT, version: 2 });
+  it('routes an event identity conflict through the queue DLX without publishing to a queue directly', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    inbox.record.mockRejectedValue(new SecurityUserEventIdentityConflictError());
 
-    await handleMessage(channel, message);
+    await handle(service, channel, makeMessage());
 
-    expect(channel.ack).not.toHaveBeenCalled();
-    expect(channel.close).toHaveBeenCalledTimes(1);
+    expect(raw.nack).toHaveBeenCalledWith(expect.anything(), false, false);
+    expect(raw.ack).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
+    expect(inbox.record).toHaveBeenCalledTimes(1);
   });
 
-  it('publishes a transient inbox failure to a durable retry queue before acknowledging the source', async () => {
-    record.mockRejectedValue(new Error('database unavailable'));
-    const channel = makeChannel();
-    const message = makeMessage();
+  it('publishes a transient inbox failure to the first durable retry queue before acknowledging the source', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    inbox.record.mockRejectedValue(new Error('temporary database outage'));
 
-    await handleMessage(channel, message);
+    await handle(service, channel, makeMessage());
 
-    expect(channel.sendToQueue).toHaveBeenCalledWith(
-      'marketplace.usuarios.retry.1.usuario_creado',
-      message.content,
+    expect(raw.sendToQueue).toHaveBeenCalledWith(
+      securityUserEventRetryQueueName('usuario.creado', 1),
+      expect.any(Buffer),
       expect.objectContaining({
         persistent: true,
         headers: expect.objectContaining({
@@ -217,111 +293,126 @@ describe('SecurityUserEventConsumerService', () => {
       }),
       expect.any(Function),
     );
-    expect(channel.ack).toHaveBeenCalledWith(message);
+    expect(raw.ack).toHaveBeenCalledTimes(1);
+    expect(raw.nack).not.toHaveBeenCalled();
   });
 
-  it('declares one durable TTL/DLX retry queue per known event type and retry number', async () => {
-    const channel = makeChannel();
+  it('declares one durable TTL/DLX retry queue per event type and retry number', async () => {
+    const { service } = createHarness();
+    const { channel, raw } = makeChannel();
 
-    await (service as unknown as ConsumerTestSurface).assertRetryQueues(channel);
+    await (service as unknown as ConsumerPrivateApi).assertRetryQueues(channel);
 
-    expect(channel.assertQueue).toHaveBeenCalledTimes(21);
-    expect(channel.assertQueue).toHaveBeenNthCalledWith(1,
+    expect(raw.assertQueue).toHaveBeenCalledTimes(SECURITY_USER_EVENT_TYPES.length * 3);
+    expect(raw.assertQueue).toHaveBeenNthCalledWith(1,
       'marketplace.usuarios.retry.1.usuario_creado', {
         durable: true,
         arguments: {
           'x-message-ttl': 1000,
-          'x-dead-letter-exchange': 'seguridad.usuarios',
+          'x-dead-letter-exchange': SECURITY_USER_EVENTS_EXCHANGE,
           'x-dead-letter-routing-key': 'usuario.creado',
         },
       });
+    expect(raw.assertQueue).toHaveBeenNthCalledWith(3,
+      'marketplace.usuarios.retry.3.usuario_creado', expect.objectContaining({
+        arguments: expect.objectContaining({ 'x-message-ttl': 4000 }),
+      }));
   });
 
-  it('rejects a transient failure through the configured DLX after the retries are exhausted', async () => {
-    record.mockRejectedValue(new Error('database unavailable'));
-    const channel = makeChannel();
-    const message = makeMessage(EVENT, { 'x-marketplace-retry-count': 3 });
+  it('routes the event through the configured DLX after all three retries are exhausted', async () => {
+    const { service, inbox } = createHarness();
+    const { channel, raw } = makeChannel();
+    inbox.record.mockRejectedValue(new Error('persistent database outage'));
 
-    await handleMessage(channel, message);
+    const exhaustedMessage = {
+      ...makeMessage(),
+      properties: { ...makeMessage().properties, headers: { 'x-marketplace-retry-count': 3 } },
+    } as ConsumeMessage;
+    await handle(service, channel, exhaustedMessage);
 
-    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
-    expect(channel.ack).not.toHaveBeenCalled();
-    expect(channel.sendToQueue).not.toHaveBeenCalled();
+    expect(raw.sendToQueue).not.toHaveBeenCalled();
+    expect(raw.nack).toHaveBeenCalledWith(exhaustedMessage, false, false);
+    expect(raw.ack).not.toHaveBeenCalled();
   });
 
-  it('does not acknowledge the source if retry publication is not confirmed', async () => {
-    record.mockRejectedValue(new Error('database unavailable'));
-    const channel = makeChannel(new Error('confirm failed'));
+  it('forces broker redelivery if retry publication cannot be confirmed', async () => {
+    const { service, inbox, rawChannel, rawConnection, channel } = await startHarness();
+    rawChannel.sendToQueue.mockImplementation((
+      _queue: string,
+      _content: Buffer,
+      _options: Record<string, unknown>,
+      callback: (error: Error | null) => void,
+    ) => {
+      callback(new Error('publisher confirm failed'));
+      return false;
+    });
 
-    await handleMessage(channel, makeMessage());
+    inbox.record.mockRejectedValue(new Error('database unavailable'));
+    await handle(service, channel, makeMessage());
 
-    expect(channel.ack).not.toHaveBeenCalled();
-    expect(channel.close).toHaveBeenCalledTimes(1);
+    expect(rawChannel.ack).not.toHaveBeenCalled();
+    expect(rawChannel.close).toHaveBeenCalledTimes(1);
+    expect(rawConnection.close).toHaveBeenCalledTimes(1);
+    await service.onModuleDestroy();
   });
 
-  it('waits for retry publisher confirmation before acknowledging the source', async () => {
-      record.mockRejectedValue(new Error('database unavailable'));
-      const channel = makeChannel();
-      const message = makeMessage();
-      let confirmPublish: ((error: Error | null) => void) | undefined;
-      let notifyPublishStarted!: () => void;
-      const publishStarted = new Promise<void>((resolve) => { notifyPublishStarted = resolve; });
-
-      (channel.sendToQueue as jest.Mock).mockImplementation(
-        (_queue: unknown, _content: unknown, _options: unknown, confirm: (error: Error | null) => void) => {
-          confirmPublish = confirm;
-          notifyPublishStarted();
-          return true;
-        },
-      );
-
-      const handling = handleMessage(channel, message);
-      await publishStarted;
-
-      expect(channel.sendToQueue).toHaveBeenCalledWith(
-        'marketplace.usuarios.retry.1.usuario_creado',
-        message.content,
-        expect.objectContaining({ persistent: true }),
-        expect.any(Function),
-      );
-      expect(channel.ack).not.toHaveBeenCalled();
-      if (!confirmPublish) throw new Error('publish confirmation callback was not captured');
-
-      confirmPublish(null);
-      await handling;
-
-      expect(channel.ack).toHaveBeenCalledWith(message);
-  });
-
-  it('closes a stale connection and schedules reconnection when only the channel closes', async () => {
+  it('schedules reconnect on a broker close and cancels it during shutdown', async () => {
     jest.useFakeTimers();
-    const channel = makeChannel();
-    const connection = makeConnection(channel);
-    connect.mockResolvedValue(connection);
-    service = new SecurityUserEventConsumerService(
-      new ConfigService({
-        SECURITY_EVENTS_ENABLED: true,
-        SECURITY_EVENTS_MAX_RETRIES: 3,
-        SECURITY_EVENTS_BACKOFF_BASE_MS: 1000,
-        SECURITY_EVENTS_BACKOFF_MAX_MS: 30000,
-        SECURITY_EVENTS_PREFETCH: 1,
-        RABBITMQ_URL: 'amqps://user:secret@broker.example/vhost',
-      }),
-      inbox,
-    );
-    await service.onModuleInit();
-    const closeListener = (channel.on as jest.Mock).mock.calls
-      .find(([event]) => event === 'close')?.[1] as (() => void) | undefined;
+    const { service, rawConnection } = await startHarness();
+    const connectionListeners = rawConnection.on.mock.calls as unknown as Array<
+      [string, (...args: unknown[]) => void]
+    >;
+    const onClose = connectionListeners.find(([event]) => event === 'close')?.[1];
 
-    expect(closeListener).toBeDefined();
-    closeListener?.();
-    expect(connection.close).toHaveBeenCalledTimes(1);
+    expect(onClose).toBeDefined();
+    onClose?.();
     expect(jest.getTimerCount()).toBe(1);
-    await jest.advanceTimersByTimeAsync(1000);
-    expect(connect).toHaveBeenCalledTimes(2);
 
     await service.onModuleDestroy();
     expect(jest.getTimerCount()).toBe(0);
-    jest.useRealTimers();
+  });
+
+  it('closes a stale connection and reconnects when only the channel closes', async () => {
+    jest.useFakeTimers();
+    const { service, rawChannel, rawConnection } = await startHarness();
+    const channelListeners = rawChannel.on.mock.calls as unknown as Array<
+      [string, (...args: unknown[]) => void]
+    >;
+    const onClose = channelListeners.find(([event]) => event === 'close')?.[1];
+
+    expect(onClose).toBeDefined();
+    onClose?.();
+    expect(rawConnection.close).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(1);
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(connectMock).toHaveBeenCalledTimes(2);
+
+    await service.onModuleDestroy();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('schedules another reconnect when a reconnect attempt fails', async () => {
+    jest.useFakeTimers();
+    const { service, rawConnection } = await startHarness();
+    connectMock.mockRejectedValueOnce(new Error('broker unavailable'));
+    const connectionListeners = rawConnection.on.mock.calls as unknown as Array<
+      [string, (...args: unknown[]) => void]
+    >;
+    const onClose = connectionListeners.find(([event]) => event === 'close')?.[1];
+
+    onClose?.();
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(connectMock).toHaveBeenCalledTimes(2);
+    expect(jest.getTimerCount()).toBe(1);
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(connectMock).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(connectMock).toHaveBeenCalledTimes(3);
+    expect(jest.getTimerCount()).toBe(0);
+
+    await service.onModuleDestroy();
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

@@ -1,0 +1,3117 @@
+{
+  "runs": {
+    "before-catalog-warmup": {
+      "metadata": {
+        "sha": "64670d358fab0c8349ba92de853536f373d5c94a",
+        "profile": "warmup",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:23:14.8205782Z",
+        "finishedAt": "2026-11-26T17:23:26.1793187Z",
+        "k6": "1.2.3",
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:23ba3127e01be0fcf13aaf59a1c2f12103f35c291503a981883f219b6b2c391a cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 100,
+              "fails": 0
+            }
+          }
+        },
+        "metrics": {
+          "http_req_duration{expected_response:true}": {
+            "max": 7.33595,
+            "p(50)": 1.983624,
+            "p(95)": 3.888288849999999,
+            "p(99)": 6.700033400000003,
+            "avg": 2.28166667,
+            "min": 1.319182,
+            "med": 1.983624
+          },
+          "data_sent": {
+            "count": 9000,
+            "rate": 885.597822825058
+          },
+          "http_req_sending": {
+            "p(99)": 0.11404400000000002,
+            "avg": 0.03350213999999999,
+            "min": 0.0106,
+            "med": 0.031652,
+            "max": 0.117707,
+            "p(50)": 0.031652,
+            "p(95)": 0.05933395
+          },
+          "http_req_connecting": {
+            "avg": 0.0047812900000000005,
+            "min": 0,
+            "med": 0,
+            "max": 0.290418,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0.1887380700000005
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 100,
+            "value": 0
+          },
+          "http_req_blocked": {
+            "avg": 0.013332800000000002,
+            "min": 0.004101,
+            "med": 0.007101,
+            "max": 0.336721,
+            "p(50)": 0.007101,
+            "p(95)": 0.012934999999999999,
+            "p(99)": 0.25385206000000043
+          },
+          "iteration_duration": {
+            "p(50)": 202.93462,
+            "p(95)": 205.11251965000002,
+            "p(99)": 207.96341145,
+            "avg": 203.19619774999995,
+            "min": 201.65684,
+            "med": 202.93462,
+            "max": 208.691799
+          },
+          "http_req_duration": {
+            "avg": 2.28166667,
+            "min": 1.319182,
+            "med": 1.983624,
+            "max": 7.33595,
+            "p(50)": 1.983624,
+            "p(95)": 3.888288849999999,
+            "p(99)": 6.700033400000003
+          },
+          "http_req_tls_handshaking": {
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0
+          },
+          "http_reqs": {
+            "count": 100,
+            "rate": 9.839975809167312
+          },
+          "vus": {
+            "value": 2,
+            "min": 2,
+            "max": 2
+          },
+          "http_req_receiving": {
+            "avg": 0.10488451999999998,
+            "min": 0.057404,
+            "med": 0.0967565,
+            "max": 0.416925,
+            "p(50)": 0.0967565,
+            "p(95)": 0.182936,
+            "p(99)": 0.2994050700000006
+          },
+          "data_received": {
+            "count": 59800,
+            "rate": 5884.305533882052
+          },
+          "iterations": {
+            "count": 100,
+            "rate": 9.839975809167312
+          },
+          "checks": {
+            "passes": 100,
+            "fails": 0,
+            "value": 1
+          },
+          "http_req_waiting": {
+            "p(50)": 1.8453645,
+            "p(95)": 3.6985561499999986,
+            "p(99)": 6.556030340000003,
+            "avg": 2.14328001,
+            "min": 1.235777,
+            "med": 1.8453645,
+            "max": 7.113236
+          },
+          "vus_max": {
+            "min": 2,
+            "max": 2,
+            "value": 2
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:23:15.1935000Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "25.80%",
+          "memory": "57.46MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:15.1935000Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "99.37MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:19.4246415Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "12.00%",
+          "memory": "61.55MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:19.4246415Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.02%",
+          "memory": "99.46MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:23.5359564Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "11.18%",
+          "memory": "62.32MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:23.5359564Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.70%",
+          "memory": "99.57MiB / 512MiB"
+        }
+      ]
+    },
+    "before-catalog-load": {
+      "metadata": {
+        "sha": "64670d358fab0c8349ba92de853536f373d5c94a",
+        "profile": "load",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:23:27.6174920Z",
+        "finishedAt": "2026-11-26T17:23:58.6325128Z",
+        "k6": "1.2.3",
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:23ba3127e01be0fcf13aaf59a1c2f12103f35c291503a981883f219b6b2c391a cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "root_group": {
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 1488,
+              "fails": 0
+            }
+          },
+          "name": ""
+        },
+        "metrics": {
+          "http_req_blocked": {
+            "min": 0.002,
+            "med": 0.0056,
+            "max": 0.703044,
+            "p(50)": 0.0056,
+            "p(95)": 0.011500650000000001,
+            "p(99)": 0.05007912999999939,
+            "avg": 0.008619577956989252
+          },
+          "http_req_sending": {
+            "p(95)": 0.05393334999999997,
+            "p(99)": 0.0841089999999999,
+            "avg": 0.02426277553763442,
+            "min": 0.0046,
+            "med": 0.016101,
+            "max": 0.305819,
+            "p(50)": 0.016101
+          },
+          "http_req_receiving": {
+            "p(95)": 0.13602334999999985,
+            "p(99)": 0.17678999999999903,
+            "avg": 0.07994644153225816,
+            "min": 0.027302,
+            "med": 0.0732045,
+            "max": 0.522832,
+            "p(50)": 0.0732045
+          },
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 1488,
+            "value": 0
+          },
+          "vus_max": {
+            "min": 10,
+            "max": 10,
+            "value": 10
+          },
+          "http_reqs": {
+            "count": 1488,
+            "rate": 49.29120051004722
+          },
+          "http_req_waiting": {
+            "p(95)": 3.3956719499999983,
+            "p(99)": 5.990392949999976,
+            "avg": 1.7713969334677422,
+            "min": 0.724346,
+            "med": 1.4368395,
+            "max": 24.164117,
+            "p(50)": 1.4368395
+          },
+          "http_req_failed{measured:yes}": {
+            "passes": 0,
+            "fails": 1488,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "http_req_tls_handshaking": {
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+          },
+          "iterations": {
+            "count": 1488,
+            "rate": 49.29120051004722
+          },
+          "http_req_duration{expected_response:true}": {
+            "avg": 1.8756061505376354,
+            "min": 0.778549,
+            "med": 1.5467455,
+            "max": 24.280024,
+            "p(50)": 1.5467455,
+            "p(95)": 3.5289726499999983,
+            "p(99)": 6.219715299999986
+          },
+          "http_req_duration": {
+            "avg": 1.8756061505376354,
+            "min": 0.778549,
+            "med": 1.5467455,
+            "max": 24.280024,
+            "p(50)": 1.5467455,
+            "p(95)": 3.5289726499999983,
+            "p(99)": 6.219715299999986
+          },
+          "data_sent": {
+            "count": 133920,
+            "rate": 4436.208045904249
+          },
+          "http_req_connecting": {
+            "avg": 0.0016925120967741937,
+            "min": 0,
+            "med": 0,
+            "max": 0.648341,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0
+          },
+          "checks": {
+            "passes": 1488,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "data_received": {
+            "rate": 29476.137905008236,
+            "count": 889824
+          },
+          "iteration_duration": {
+            "max": 224.675606,
+            "p(50)": 202.3016385,
+            "p(95)": 204.2851707,
+            "p(99)": 206.92984855999995,
+            "avg": 202.5719060819893,
+            "min": 200.95711,
+            "med": 202.3016385
+          },
+          "http_req_duration{measured:yes}": {
+            "avg": 1.8756061505376354,
+            "min": 0.778549,
+            "med": 1.5467455,
+            "max": 24.280024,
+            "p(50)": 1.5467455,
+            "p(95)": 3.5289726499999983,
+            "p(99)": 6.219715299999986,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:23:27.8234248Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "7.60%",
+          "memory": "66.58MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:27.8234248Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.66%",
+          "memory": "99.46MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:31.9746201Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "19.95%",
+          "memory": "70.91MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:31.9746201Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "99.48MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:36.0581205Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "11.72%",
+          "memory": "73.86MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:36.0581205Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.06%",
+          "memory": "99.88MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:40.1494237Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "8.72%",
+          "memory": "73.94MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:40.1494237Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "98.95MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:44.2748674Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "12.30%",
+          "memory": "73.65MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:44.2748674Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.95%",
+          "memory": "99.33MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:48.3582244Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.54%",
+          "memory": "73.77MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:48.3582244Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.89%",
+          "memory": "100MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:52.4504819Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.15%",
+          "memory": "73.17MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:23:52.4504819Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "99.34MiB / 512MiB"
+        }
+      ]
+    },
+    "before-cart-load": {
+      "metadata": {
+        "sha": "64670d358fab0c8349ba92de853536f373d5c94a",
+        "profile": "load",
+        "workload": "cart",
+        "startedAt": "2026-11-26T17:24:46.4726611Z",
+        "finishedAt": "2026-11-26T17:25:17.2498873Z",
+        "k6": "1.2.3",
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:23ba3127e01be0fcf13aaf59a1c2f12103f35c291503a981883f219b6b2c391a cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "root_group": {
+          "checks": {
+            "cart fixture is ready": {
+              "name": "cart fixture is ready",
+              "path": "::cart fixture is ready",
+              "id": "a985764a3bff07bc9ec0928f59ab43c9",
+              "passes": 1268,
+              "fails": 0
+            },
+            "first remove returns 204 and a version": {
+              "path": "::first remove returns 204 and a version",
+              "id": "ea0dac8b89f42a504326b9858bd07f22",
+              "passes": 1268,
+              "fails": 0,
+              "name": "first remove returns 204 and a version"
+            },
+            "replay returns 204 with the same version": {
+              "name": "replay returns 204 with the same version",
+              "path": "::replay returns 204 with the same version",
+              "id": "a52f78054a005915258426ea1fa3f549",
+              "passes": 1268,
+              "fails": 0
+            }
+          },
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {}
+        },
+        "metrics": {
+          "http_req_duration{operation:remove}": {
+            "p(99)": 38.88960434999952,
+            "avg": 12.70797137933753,
+            "min": 4.25605,
+            "med": 11.655617,
+            "max": 67.240829,
+            "p(50)": 11.655617,
+            "p(95)": 25.08051765,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_duration{operation:replay}": {
+            "max": 56.449714,
+            "p(50)": 7.461188,
+            "p(95)": 16.887035349999984,
+            "p(99)": 44.19056655999999,
+            "avg": 8.713599300473184,
+            "min": 2.84307,
+            "med": 7.461188,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_connecting": {
+            "avg": 0.0010237460567823346,
+            "min": 0,
+            "med": 0,
+            "max": 0.550332,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0
+          },
+          "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0
+          },
+          "data_sent": {
+            "count": 751037,
+            "rate": 24984.21457076531
+          },
+          "data_received": {
+            "count": 1355170,
+            "rate": 45081.478089447024
+          },
+          "http_req_duration{measured:yes}": {
+            "p(95)": 22.48238875,
+            "p(99)": 43.530878650000034,
+            "avg": 10.710785339905371,
+            "min": 2.84307,
+            "med": 9.2103225,
+            "max": 67.240829,
+            "p(50)": 9.2103225,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          },
+          "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_waiting": {
+            "avg": 11.83119814905361,
+            "min": 2.785067,
+            "med": 10.40469,
+            "max": 110.609783,
+            "p(50)": 10.40469,
+            "p(95)": 23.146322199999997,
+            "p(99)": 44.990979469999836
+          },
+          "http_req_receiving": {
+            "p(50)": 0.063504,
+            "p(95)": 0.117293,
+            "p(99)": 0.17103599999999883,
+            "avg": 0.06731124001051517,
+            "min": 0.0079,
+            "med": 0.063504,
+            "max": 0.490032
+          },
+          "iterations": {
+            "count": 1268,
+            "rate": 42.18165559849969
+          },
+          "http_reqs": {
+            "count": 3804,
+            "rate": 126.54496679549906
+          },
+          "http_req_failed{measured:yes}": {
+            "passes": 0,
+            "fails": 2536,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "http_req_failed{operation:remove}": {
+            "passes": 0,
+            "fails": 1268,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "checks": {
+            "passes": 3804,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "http_reqs{operation:remove}": {
+            "count": 1268,
+            "rate": 42.18165559849969,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_duration": {
+            "avg": 11.922209910620404,
+            "min": 2.84307,
+            "med": 10.4853785,
+            "max": 110.710787,
+            "p(50)": 10.4853785,
+            "p(95)": 23.225568699999997,
+            "p(99)": 45.17349234999982
+          },
+          "http_req_duration{expected_response:true}": {
+            "p(99)": 45.17349234999982,
+            "avg": 11.922209910620404,
+            "min": 2.84307,
+            "med": 10.4853785,
+            "max": 110.710787,
+            "p(50)": 10.4853785,
+            "p(95)": 23.225568699999997
+          },
+          "http_req_blocked": {
+            "p(95)": 0.008001,
+            "p(99)": 0.02009799999999998,
+            "avg": 0.0062401579915877655,
+            "min": 0.001301,
+            "med": 0.004501,
+            "max": 0.636437,
+            "p(50)": 0.004501
+          },
+          "iteration_duration": {
+            "avg": 236.8584261364353,
+            "min": 214.684964,
+            "med": 233.827745,
+            "max": 349.972473,
+            "p(50)": 233.827745,
+            "p(95)": 265.9787985,
+            "p(99)": 331.41153785999995
+          },
+          "http_req_failed{operation:replay}": {
+            "passes": 0,
+            "fails": 1268,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_reqs{operation:replay}": {
+            "count": 1268,
+            "rate": 42.18165559849969,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_sending": {
+            "avg": 0.023700521556256557,
+            "min": 0.0046,
+            "med": 0.016101,
+            "max": 0.645441,
+            "p(50)": 0.016101,
+            "p(95)": 0.055687999999999994,
+            "p(99)": 0.0874900299999999
+          },
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 3804,
+            "value": 0
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:24:46.6553792Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "70.84%",
+          "memory": "75.66MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:46.6553792Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "32.25%",
+          "memory": "120.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:50.8023777Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "69.51%",
+          "memory": "77.02MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:50.8023777Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "21.67%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:54.9003262Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "57.93%",
+          "memory": "77.25MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:54.9003262Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "20.58%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:57.9907254Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "63.71%",
+          "memory": "77.55MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:24:57.9907254Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "23.00%",
+          "memory": "121.7MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:01.0888425Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "61.50%",
+          "memory": "78.45MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:01.0888425Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "21.75%",
+          "memory": "121.8MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:05.1718624Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "81.50%",
+          "memory": "77.7MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:05.1718624Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "16.52%",
+          "memory": "121.9MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:09.2906136Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "65.86%",
+          "memory": "77.87MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:09.2906136Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "17.90%",
+          "memory": "122MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:13.3789233Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "53.00%",
+          "memory": "77.91MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:13.3789233Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "17.25%",
+          "memory": "122.1MiB / 512MiB"
+        }
+      ]
+    },
+    "before-catalog-stress": {
+      "metadata": {
+        "sha": "64670d358fab0c8349ba92de853536f373d5c94a",
+        "profile": "stress",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:25:18.4967007Z",
+        "finishedAt": "2026-11-26T17:27:04.2988895Z",
+        "k6": "1.2.3",
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:23ba3127e01be0fcf13aaf59a1c2f12103f35c291503a981883f219b6b2c391a cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "root_group": {
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 36521,
+              "fails": 0,
+              "name": "catalog returns 200"
+            }
+          },
+          "name": ""
+        },
+        "metrics": {
+          "http_req_sending": {
+            "med": 0.014701,
+            "max": 6.329596,
+            "p(50)": 0.014701,
+            "p(95)": 0.050503,
+            "p(99)": 0.076805,
+            "avg": 0.02230790909339841,
+            "min": 0.004801
+          },
+          "http_req_failed{phase:vu50}": {
+            "passes": 0,
+            "fails": 3715,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_req_failed{phase:vu20}": {
+            "passes": 0,
+            "fails": 1485,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_reqs{phase:vu50}": {
+            "rate": 35.38259109836396,
+            "count": 3715,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 200
+          },
+          "http_req_waiting": {
+            "avg": 7.751841505626867,
+            "min": 0,
+            "med": 1.174774,
+            "max": 218.694888,
+            "p(50)": 1.174774,
+            "p(95)": 43.659553,
+            "p(99)": 161.40947420000174
+          },
+          "http_req_duration{phase:vu50}": {
+            "p(95)": 2.522307,
+            "p(99)": 4.253443860000001,
+            "avg": 1.3244671162853294,
+            "min": 0.550334,
+            "med": 1.12937,
+            "max": 14.504701,
+            "p(50)": 1.12937,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_duration{expected_response:true}": {
+            "med": 1.27538,
+            "max": 218.945303,
+            "p(50)": 1.27538,
+            "p(95)": 43.750159,
+            "p(99)": 161.59126500000175,
+            "avg": 7.845989006681067,
+            "min": 0.201711
+          },
+          "http_req_duration{phase:vu100}": {
+            "p(95)": 3.7110929999999995,
+            "p(99)": 8.281269600000018,
+            "avg": 1.5579768147799147,
+            "min": 0.498532,
+            "med": 1.165273,
+            "max": 15.948397,
+            "p(50)": 1.165273,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_reqs{phase:vu200}": {
+            "count": 13927,
+            "rate": 132.6442385536783,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_reqs": {
+            "count": 36521,
+            "rate": 347.8351573360297
+          },
+          "http_req_failed{phase:vu200}": {
+            "passes": 0,
+            "fails": 13927,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 36521,
+            "value": 0
+          },
+          "http_req_duration{phase:vu200}": {
+            "p(99)": 183.49256395999998,
+            "avg": 16.342416729302762,
+            "min": 0.508532,
+            "med": 1.622102,
+            "max": 218.945303,
+            "p(50)": 1.622102,
+            "p(95)": 118.68854269999999,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_receiving": {
+            "min": 0.018901,
+            "med": 0.064504,
+            "max": 3.979551,
+            "p(50)": 0.064504,
+            "p(95)": 0.124608,
+            "p(99)": 0.17233020000000115,
+            "avg": 0.07183959196078965
+          },
+          "vus_max": {
+            "min": 200,
+            "max": 200,
+            "value": 200
+          },
+          "http_reqs{phase:vu100}": {
+            "count": 7429,
+            "rate": 70.7556579460958,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_connecting": {
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0.002407888612031436,
+            "min": 0,
+            "med": 0,
+            "max": 18.717075
+          },
+          "http_req_failed{phase:recovery}": {
+            "passes": 0,
+            "fails": 743,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_req_blocked": {
+            "p(99)": 0.02748120000000029,
+            "avg": 0.008173786944497613,
+            "min": 0.0015,
+            "med": 0.004601,
+            "max": 18.80378,
+            "p(50)": 0.004601,
+            "p(95)": 0.008701
+          },
+          "data_sent": {
+            "rate": 31309.45007302713,
+            "count": 3287340
+          },
+          "http_reqs{phase:vu20}": {
+            "count": 1485,
+            "rate": 14.143512188713455,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_tls_handshaking": {
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+          },
+          "iterations": {
+            "rate": 345.9779284627643,
+            "count": 36326
+          },
+          "data_received": {
+            "count": 21840156,
+            "rate": 208011.11958882376
+          },
+          "http_reqs{phase:recovery}": {
+            "count": 743,
+            "rate": 7.076518219672792,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "checks": {
+            "passes": 36521,
+            "fails": 0,
+            "value": 1
+          },
+          "http_req_failed{phase:vu100}": {
+            "passes": 0,
+            "fails": 7429,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_req_duration{phase:vu20}": {
+            "avg": 1.2405351636363646,
+            "min": 0.201711,
+            "med": 1.184774,
+            "max": 2.986274,
+            "p(50)": 1.184774,
+            "p(95)": 1.7784903999999997,
+            "p(99)": 2.336819000000001,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_duration{phase:recovery}": {
+            "min": 0.653441,
+            "med": 1.231278,
+            "max": 4.224268,
+            "p(50)": 1.231278,
+            "p(95)": 2.0185770999999995,
+            "p(99)": 2.6080072200000055,
+            "avg": 1.3072487483176323,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_duration": {
+            "avg": 7.845989006681067,
+            "min": 0.201711,
+            "med": 1.27538,
+            "max": 218.945303,
+            "p(50)": 1.27538,
+            "p(95)": 43.750159,
+            "p(99)": 161.59126500000175
+          },
+          "iteration_duration": {
+            "min": 200.62266,
+            "med": 201.9686405,
+            "max": 420.092681,
+            "p(50)": 201.9686405,
+            "p(95)": 244.27797575,
+            "p(99)": 360.8706535,
+            "avg": 208.41195891945117
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:25:18.6791273Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "11.16%",
+          "memory": "77.74MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:18.6791273Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.04%",
+          "memory": "120.8MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:21.8142589Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "15.66%",
+          "memory": "78.39MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:21.8142589Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "1.68%",
+          "memory": "125.3MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:25.8898549Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "16.04%",
+          "memory": "78.84MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:25.8898549Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.06%",
+          "memory": "121.3MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:28.9872832Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "14.47%",
+          "memory": "78.5MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:28.9872832Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "121.2MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:33.0638338Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "16.80%",
+          "memory": "79.13MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:33.0638338Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.34%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:37.1469001Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "18.48%",
+          "memory": "78.57MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:37.1469001Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.7MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:41.2218276Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "26.25%",
+          "memory": "78.21MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:41.2218276Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:45.3090474Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "18.08%",
+          "memory": "78.59MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:45.3090474Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.40%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:49.3921734Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "24.97%",
+          "memory": "89.96MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:49.3921734Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.06%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:53.4692335Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "27.03%",
+          "memory": "78.9MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:53.4692335Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "121.8MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:57.5733501Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "27.10%",
+          "memory": "78.83MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:25:57.5733501Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.1MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:00.6638309Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "34.97%",
+          "memory": "78.47MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:00.6638309Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.28%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:04.7476389Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "79.44%",
+          "memory": "78.83MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:04.7476389Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.34%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:08.8469580Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "40.09%",
+          "memory": "78.41MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:08.8469580Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.03%",
+          "memory": "121.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:12.9360981Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "44.55%",
+          "memory": "79.02MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:12.9360981Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.68%",
+          "memory": "121.7MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:17.0337647Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "48.59%",
+          "memory": "78.67MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:17.0337647Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.67%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:21.1178886Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "87.01%",
+          "memory": "79.31MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:21.1178886Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.3MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:25.2168866Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "80.14%",
+          "memory": "79.23MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:25.2168866Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.78%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:29.3198857Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "85.28%",
+          "memory": "78.71MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:29.3198857Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.05%",
+          "memory": "121.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:32.4033378Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "92.64%",
+          "memory": "79.39MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:32.4033378Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.14%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:36.5133259Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "131.08%",
+          "memory": "80.43MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:36.5133259Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.07%",
+          "memory": "121.5MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:39.6683665Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "106.32%",
+          "memory": "81.04MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:39.6683665Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.02%",
+          "memory": "121.6MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:42.7936419Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "39.98%",
+          "memory": "81.29MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:42.7936419Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:46.8800980Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.87%",
+          "memory": "80.96MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:46.8800980Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:50.9550452Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "5.14%",
+          "memory": "81.18MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:50.9550452Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.63%",
+          "memory": "121.4MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:54.0377128Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "15.61%",
+          "memory": "81.06MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:54.0377128Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.43%",
+          "memory": "121.3MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:58.1225116Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "20.04%",
+          "memory": "88.07MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:26:58.1225116Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:27:01.2475334Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "10.39%",
+          "memory": "80.77MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:27:01.2475334Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.00%",
+          "memory": "121.1MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-off-catalog-warmup": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "warmup",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:29:31.5256257Z",
+        "finishedAt": "2026-11-26T17:29:42.4196695Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 0,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "metrics": {
+          "vus_max": {
+            "min": 2,
+            "max": 2,
+            "value": 2
+          },
+          "checks": {
+            "passes": 100,
+            "fails": 0,
+            "value": 1
+          },
+          "http_req_duration": {
+            "max": 5.207732,
+            "p(50)": 1.737002,
+            "p(95)": 3.23749415,
+            "p(99)": 3.625513010000008,
+            "avg": 1.9238121500000003,
+            "min": 1.063557,
+            "med": 1.737002
+          },
+          "http_req_receiving": {
+            "p(99)": 0.16458403000000016,
+            "avg": 0.08240174,
+            "min": 0.032301,
+            "med": 0.07335449999999999,
+            "max": 0.191812,
+            "p(50)": 0.07335449999999999,
+            "p(95)": 0.13269705
+          },
+          "data_received": {
+            "count": 61500,
+            "rate": 6069.1368519250545
+          },
+          "http_reqs": {
+            "count": 100,
+            "rate": 9.868515206382202
+          },
+          "http_req_duration{expected_response:true}": {
+            "max": 5.207732,
+            "p(50)": 1.737002,
+            "p(95)": 3.23749415,
+            "p(99)": 3.625513010000008,
+            "avg": 1.9238121500000003,
+            "min": 1.063557,
+            "med": 1.737002
+          },
+          "http_req_blocked": {
+            "avg": 0.013170860000000001,
+            "min": 0.003201,
+            "med": 0.0056,
+            "max": 0.31502,
+            "p(50)": 0.0056,
+            "p(95)": 0.019181049999999995,
+            "p(99)": 0.2991790100000001
+          },
+          "http_req_waiting": {
+            "min": 0.918249,
+            "med": 1.617545,
+            "max": 5.00142,
+            "p(50)": 1.617545,
+            "p(95)": 3.0397774999999996,
+            "p(99)": 3.498602970000008,
+            "avg": 1.8105606400000007
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 100,
+            "value": 0
+          },
+          "http_req_tls_handshaking": {
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0
+          },
+          "vus": {
+            "value": 2,
+            "min": 2,
+            "max": 2
+          },
+          "http_req_connecting": {
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0.16016504000000034,
+            "avg": 0.0038452399999999998,
+            "min": 0,
+            "med": 0,
+            "max": 0.225014
+          },
+          "http_req_sending": {
+            "min": 0.0069,
+            "med": 0.025101,
+            "max": 0.128208,
+            "p(50)": 0.025101,
+            "p(95)": 0.07519899999999999,
+            "p(99)": 0.09860502000000015,
+            "avg": 0.030849769999999988
+          },
+          "iterations": {
+            "count": 100,
+            "rate": 9.868515206382202
+          },
+          "iteration_duration": {
+            "min": 201.481524,
+            "med": 202.5166795,
+            "max": 206.646083,
+            "p(50)": 202.5166795,
+            "p(95)": 203.80071045,
+            "p(99)": 205.35345683,
+            "avg": 202.65432536000003
+          },
+          "data_sent": {
+            "rate": 888.1663685743982,
+            "count": 9000
+          }
+        },
+        "root_group": {
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 100,
+              "fails": 0
+            }
+          },
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:29:31.7015672Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "14.68%",
+          "memory": "63.74MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:31.7015672Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.01%",
+          "memory": "75.51MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:34.8333528Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "10.45%",
+          "memory": "56.6MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:34.8333528Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.65%",
+          "memory": "71.22MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:37.9174996Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "9.76%",
+          "memory": "58.95MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:37.9174996Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.69%",
+          "memory": "71.24MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-off-catalog-load": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "load",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:29:43.9458935Z",
+        "finishedAt": "2026-11-26T17:30:14.9293760Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 0,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "metrics": {
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 1490,
+            "value": 0
+          },
+          "http_reqs": {
+            "count": 1490,
+            "rate": 49.38396772857909
+          },
+          "http_req_blocked": {
+            "max": 2.96748,
+            "p(50)": 0.0046,
+            "p(95)": 0.010355999999999995,
+            "p(99)": 0.02865588999999986,
+            "avg": 0.008759457046979871,
+            "min": 0.0015,
+            "med": 0.0046
+          },
+          "http_req_duration": {
+            "p(99)": 7.02609819999998,
+            "avg": 1.7969028369127549,
+            "min": 0.736145,
+            "med": 1.4956904999999998,
+            "max": 24.325373,
+            "p(50)": 1.4956904999999998,
+            "p(95)": 3.482473399999998
+          },
+          "http_req_duration{expected_response:true}": {
+            "avg": 1.7969028369127549,
+            "min": 0.736145,
+            "med": 1.4956904999999998,
+            "max": 24.325373,
+            "p(50)": 1.4956904999999998,
+            "p(95)": 3.482473399999998,
+            "p(99)": 7.02609819999998
+          },
+          "http_req_waiting": {
+            "avg": 1.7019530214765053,
+            "min": 0.684439,
+            "med": 1.397636,
+            "max": 24.044655,
+            "p(50)": 1.397636,
+            "p(95)": 3.362853199999999,
+            "p(99)": 6.831720639999972
+          },
+          "iterations": {
+            "count": 1490,
+            "rate": 49.38396772857909
+          },
+          "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0
+          },
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "data_received": {
+            "count": 916350,
+            "rate": 30371.140153076136
+          },
+          "http_req_failed{measured:yes}": {
+            "fails": 1490,
+            "passes": 0,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "data_sent": {
+            "count": 134100,
+            "rate": 4444.557095572118
+          },
+          "checks": {
+            "passes": 1490,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "http_req_sending": {
+            "min": 0.0044,
+            "med": 0.013101,
+            "max": 2.739366,
+            "p(50)": 0.013101,
+            "p(95)": 0.04791254999999999,
+            "p(99)": 0.08352699999999998,
+            "avg": 0.02125941476510066
+          },
+          "http_req_connecting": {
+            "p(99)": 0,
+            "avg": 0.0011754409395973154,
+            "min": 0,
+            "med": 0,
+            "max": 0.306319,
+            "p(50)": 0,
+            "p(95)": 0
+          },
+          "http_req_duration{measured:yes}": {
+            "med": 1.4956904999999998,
+            "max": 24.325373,
+            "p(50)": 1.4956904999999998,
+            "p(95)": 3.482473399999998,
+            "p(99)": 7.02609819999998,
+            "avg": 1.7969028369127549,
+            "min": 0.736145,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          },
+          "iteration_duration": {
+            "p(50)": 202.1826725,
+            "p(95)": 204.08918079999998,
+            "p(99)": 207.82755759,
+            "avg": 202.42800055436228,
+            "min": 200.897248,
+            "med": 202.1826725,
+            "max": 225.30024
+          },
+          "http_req_receiving": {
+            "med": 0.068054,
+            "max": 0.299918,
+            "p(50)": 0.068054,
+            "p(95)": 0.12683754999999997,
+            "p(99)": 0.16265388999999997,
+            "avg": 0.07369040067114097,
+            "min": 0.024702
+          }
+        },
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "passes": 1490,
+              "fails": 0,
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd"
+            }
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:29:44.1379433Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "7.37%",
+          "memory": "66MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:44.1379433Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.45%",
+          "memory": "70.59MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:48.2650715Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "7.81%",
+          "memory": "68.45MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:48.2650715Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.02%",
+          "memory": "70.42MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:51.3559362Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "7.83%",
+          "memory": "71.61MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:51.3559362Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "1.03%",
+          "memory": "71.19MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:55.4675911Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "15.50%",
+          "memory": "73.03MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:55.4675911Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.02%",
+          "memory": "71.2MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:59.5455453Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.30%",
+          "memory": "72.57MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:29:59.5455453Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "5.29%",
+          "memory": "70.66MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:03.6345595Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "5.08%",
+          "memory": "71.47MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:03.6345595Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "71.22MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:06.7185002Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.41%",
+          "memory": "71.71MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:06.7185002Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.02%",
+          "memory": "71.05MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:10.7952093Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.37%",
+          "memory": "71.21MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:10.7952093Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "1.51%",
+          "memory": "74.05MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-off-cart-load": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "load",
+        "workload": "cart",
+        "startedAt": "2026-11-26T17:30:16.3895913Z",
+        "finishedAt": "2026-11-26T17:30:47.2381477Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 0,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "metrics": {
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 3891,
+            "value": 0
+          },
+          "http_req_tls_handshaking": {
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0
+          },
+          "http_req_connecting": {
+            "p(99)": 0,
+            "avg": 0.000420740169622205,
+            "min": 0,
+            "med": 0,
+            "max": 0.295618,
+            "p(50)": 0,
+            "p(95)": 0
+          },
+          "http_req_failed{operation:remove}": {
+            "passes": 0,
+            "fails": 1297,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_reqs{operation:replay}": {
+            "count": 1297,
+            "rate": 42.980696649498,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "iteration_duration": {
+            "med": 229.366669,
+            "max": 387.138314,
+            "p(50)": 229.366669,
+            "p(95)": 255.7538656,
+            "p(99)": 294.65042039999986,
+            "avg": 232.04973089822653,
+            "min": 214.088036
+          },
+          "http_req_duration{operation:remove}": {
+            "max": 39.870673,
+            "p(50)": 9.954611,
+            "p(95)": 20.8090324,
+            "p(99)": 30.494783399999996,
+            "avg": 10.875965556669227,
+            "min": 4.466974,
+            "med": 9.954611,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "iterations": {
+            "count": 1297,
+            "rate": 42.980696649498
+          },
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_duration{measured:yes}": {
+            "med": 7.660624,
+            "max": 40.851507,
+            "p(50)": 7.660624,
+            "p(95)": 18.558046,
+            "p(99)": 26.423486280000013,
+            "avg": 8.99787011950656,
+            "min": 2.904378,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          },
+          "http_req_duration{operation:replay}": {
+            "p(50)": 6.052771,
+            "p(95)": 14.100653600000015,
+            "p(99)": 21.433918000000002,
+            "avg": 7.119774682343874,
+            "min": 2.904378,
+            "med": 6.052771,
+            "max": 40.851507,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_blocked": {
+            "max": 0.344922,
+            "p(50)": 0.0044,
+            "p(95)": 0.0077,
+            "p(99)": 0.020770999999999935,
+            "avg": 0.005397447442816719,
+            "min": 0.0014,
+            "med": 0.0044
+          },
+          "http_req_receiving": {
+            "avg": 0.06462279696736062,
+            "min": 0.010001,
+            "med": 0.061404,
+            "max": 1.347584,
+            "p(50)": 0.061404,
+            "p(95)": 0.111157,
+            "p(99)": 0.146229
+          },
+          "vus_max": {
+            "min": 10,
+            "max": 10,
+            "value": 10
+          },
+          "http_req_failed{operation:replay}": {
+            "fails": 1297,
+            "passes": 0,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_reqs": {
+            "rate": 128.94208994849402,
+            "count": 3891
+          },
+          "data_received": {
+            "count": 1386200,
+            "rate": 45936.655123773424
+          },
+          "http_req_sending": {
+            "p(99)": 0.08176509999999995,
+            "avg": 0.022795495502441605,
+            "min": 0.005001,
+            "med": 0.015901,
+            "max": 0.545234,
+            "p(50)": 0.015901,
+            "p(95)": 0.0526535
+          },
+          "http_req_failed{measured:yes}": {
+            "passes": 0,
+            "fails": 2594,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "http_reqs{operation:remove}": {
+            "count": 1297,
+            "rate": 42.980696649498,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "checks": {
+            "passes": 3891,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "http_req_duration{expected_response:true}": {
+            "avg": 10.322319463377024,
+            "min": 2.904378,
+            "med": 8.921453,
+            "max": 147.870972,
+            "p(50)": 8.921453,
+            "p(95)": 19.8861815,
+            "p(99)": 29.239835699999958
+          },
+          "http_req_waiting": {
+            "med": 8.819851,
+            "max": 147.66296,
+            "p(50)": 8.819851,
+            "p(95)": 19.7766695,
+            "p(99)": 28.95318899999994,
+            "avg": 10.234901170907223,
+            "min": 2.847075
+          },
+          "data_sent": {
+            "count": 768217,
+            "rate": 25457.595865834548
+          },
+          "http_req_duration": {
+            "avg": 10.322319463377024,
+            "min": 2.904378,
+            "med": 8.921453,
+            "max": 147.870972,
+            "p(50)": 8.921453,
+            "p(95)": 19.8861815,
+            "p(99)": 29.239835699999958
+          }
+        },
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "cart fixture is ready": {
+              "name": "cart fixture is ready",
+              "path": "::cart fixture is ready",
+              "id": "a985764a3bff07bc9ec0928f59ab43c9",
+              "passes": 1297,
+              "fails": 0
+            },
+            "first remove returns 204 and a version": {
+              "name": "first remove returns 204 and a version",
+              "path": "::first remove returns 204 and a version",
+              "id": "ea0dac8b89f42a504326b9858bd07f22",
+              "passes": 1297,
+              "fails": 0
+            },
+            "replay returns 204 with the same version": {
+              "passes": 1297,
+              "fails": 0,
+              "name": "replay returns 204 with the same version",
+              "path": "::replay returns 204 with the same version",
+              "id": "a52f78054a005915258426ea1fa3f549"
+            }
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:30:16.5606726Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "58.11%",
+          "memory": "73.55MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:16.5606726Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "37.56%",
+          "memory": "94.79MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:20.7422315Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "74.14%",
+          "memory": "74.28MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:20.7422315Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "22.43%",
+          "memory": "95.79MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:24.8246817Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "65.23%",
+          "memory": "75.63MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:24.8246817Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "15.68%",
+          "memory": "96.38MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:28.9170598Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "55.31%",
+          "memory": "75.55MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:28.9170598Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "17.26%",
+          "memory": "96.02MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:33.0138753Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "66.14%",
+          "memory": "75.2MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:33.0138753Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "19.33%",
+          "memory": "96.55MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:37.0968086Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "49.90%",
+          "memory": "75.41MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:37.0968086Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "18.45%",
+          "memory": "96.86MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:41.1875425Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "78.73%",
+          "memory": "75.81MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:41.1875425Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "25.57%",
+          "memory": "97.2MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:45.2736045Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "54.25%",
+          "memory": "77.12MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:45.2736045Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "19.12%",
+          "memory": "96.91MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-on-catalog-warmup": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "warmup",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:30:59.3026419Z",
+        "finishedAt": "2026-11-26T17:31:10.1212548Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 120000,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "metrics": {
+          "iterations": {
+            "count": 100,
+            "rate": 9.862503254155138
+          },
+          "http_req_duration": {
+            "avg": 2.0147811399999993,
+            "min": 0.927249,
+            "med": 1.6647455,
+            "max": 6.658709,
+            "p(50)": 1.6647455,
+            "p(95)": 3.9960099,
+            "p(99)": 5.405886770000007
+          },
+          "http_req_receiving": {
+            "min": 0.040502,
+            "med": 0.0722035,
+            "max": 0.172711,
+            "p(50)": 0.0722035,
+            "p(95)": 0.1356971,
+            "p(99)": 0.16518601000000005,
+            "avg": 0.08082556999999997
+          },
+          "vus_max": {
+            "max": 2,
+            "value": 2,
+            "min": 2
+          },
+          "http_reqs": {
+            "count": 100,
+            "rate": 9.862503254155138
+          },
+          "http_req_duration{expected_response:true}": {
+            "avg": 2.0147811399999993,
+            "min": 0.927249,
+            "med": 1.6647455,
+            "max": 6.658709,
+            "p(50)": 1.6647455,
+            "p(95)": 3.9960099,
+            "p(99)": 5.405886770000007
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 100,
+            "value": 0
+          },
+          "data_received": {
+            "count": 61500,
+            "rate": 6065.43950130541
+          },
+          "http_req_connecting": {
+            "min": 0,
+            "med": 0,
+            "max": 0.185011,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0.18233800000000003,
+            "avg": 0.0036732200000000005
+          },
+          "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0
+          },
+          "iteration_duration": {
+            "p(95)": 204.3578121,
+            "p(99)": 206.53365868,
+            "avg": 202.78035727999998,
+            "min": 201.368749,
+            "med": 202.6166155,
+            "max": 207.628864,
+            "p(50)": 202.6166155
+          },
+          "http_req_sending": {
+            "min": 0.0075,
+            "med": 0.020801,
+            "max": 0.123207,
+            "p(50)": 0.020801,
+            "p(95)": 0.07809494999999998,
+            "p(99)": 0.12310899,
+            "avg": 0.030438740000000002
+          },
+          "data_sent": {
+            "count": 9000,
+            "rate": 887.6252928739625
+          },
+          "http_req_waiting": {
+            "p(99)": 5.212000830000006,
+            "avg": 1.9035168299999992,
+            "min": 0.841245,
+            "med": 1.5579835,
+            "max": 6.556503,
+            "p(50)": 1.5579835,
+            "p(95)": 3.8807765
+          },
+          "vus": {
+            "value": 2,
+            "min": 2,
+            "max": 2
+          },
+          "checks": {
+            "passes": 100,
+            "fails": 0,
+            "value": 1
+          },
+          "http_req_blocked": {
+            "p(95)": 0.028412,
+            "p(99)": 0.25672502000000014,
+            "avg": 0.012736790000000005,
+            "min": 0.0029,
+            "med": 0.0055,
+            "max": 0.287318,
+            "p(50)": 0.0055
+          }
+        },
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 100,
+              "fails": 0
+            }
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:30:59.4853852Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "14.92%",
+          "memory": "63.83MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:30:59.4853852Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.03%",
+          "memory": "70.98MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:03.6083218Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "1.58%",
+          "memory": "58.39MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:03.6083218Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.05%",
+          "memory": "70.98MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:07.6975732Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "1.44%",
+          "memory": "60.95MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:07.6975732Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.07%",
+          "memory": "70.8MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-on-catalog-load": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "load",
+        "workload": "catalog",
+        "startedAt": "2026-11-26T17:31:11.7448062Z",
+        "finishedAt": "2026-11-26T17:31:42.6597229Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 120000,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "catalog returns 200": {
+              "fails": 0,
+              "name": "catalog returns 200",
+              "path": "::catalog returns 200",
+              "id": "c52c153c79a7b882f6216c456d8374cd",
+              "passes": 1490
+            }
+          }
+        },
+        "metrics": {
+          "http_req_failed{measured:yes}": {
+            "passes": 0,
+            "fails": 1490,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "http_req_duration{measured:yes}": {
+            "p(99)": 5.986256819999879,
+            "avg": 1.8534962040268474,
+            "min": 0.707543,
+            "med": 1.521229,
+            "max": 16.581486,
+            "p(50)": 1.521229,
+            "p(95)": 3.9858846999999997,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          },
+          "http_req_tls_handshaking": {
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+          },
+          "http_req_waiting": {
+            "med": 1.4279245,
+            "max": 16.090158,
+            "p(50)": 1.4279245,
+            "p(95)": 3.902191249999999,
+            "p(99)": 5.835665299999932,
+            "avg": 1.7630266328859072,
+            "min": 0.65274
+          },
+          "checks": {
+            "passes": 1490,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "http_req_receiving": {
+            "med": 0.064304,
+            "max": 0.532233,
+            "p(50)": 0.064304,
+            "p(95)": 0.1178061,
+            "p(99)": 0.15941977999999998,
+            "avg": 0.07032479463087267,
+            "min": 0.025501
+          },
+          "http_req_connecting": {
+            "med": 0,
+            "max": 0.725743,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0.0027747973154362417,
+            "min": 0
+          },
+          "data_received": {
+            "rate": 30370.291740278393,
+            "count": 916350
+          },
+          "http_req_sending": {
+            "p(95)": 0.048658,
+            "p(99)": 0.08895688999999968,
+            "avg": 0.02014477651006711,
+            "min": 0.004401,
+            "med": 0.012301,
+            "max": 0.558033,
+            "p(50)": 0.012301
+          },
+          "iterations": {
+            "count": 1490,
+            "rate": 49.38258819557462
+          },
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_duration{expected_response:true}": {
+            "med": 1.521229,
+            "max": 16.581486,
+            "p(50)": 1.521229,
+            "p(95)": 3.9858846999999997,
+            "p(99)": 5.986256819999879,
+            "avg": 1.8534962040268474,
+            "min": 0.707543
+          },
+          "http_req_duration": {
+            "min": 0.707543,
+            "med": 1.521229,
+            "max": 16.581486,
+            "p(50)": 1.521229,
+            "p(95)": 3.9858846999999997,
+            "p(99)": 5.986256819999879,
+            "avg": 1.8534962040268474
+          },
+          "iteration_duration": {
+            "med": 202.1993535,
+            "max": 217.487039,
+            "p(50)": 202.1993535,
+            "p(95)": 204.61530845000001,
+            "p(99)": 207.04467762,
+            "avg": 202.45242796174483,
+            "min": 200.865387
+          },
+          "data_sent": {
+            "count": 134100,
+            "rate": 4444.432937601716
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 1490,
+            "value": 0
+          },
+          "http_reqs": {
+            "count": 1490,
+            "rate": 49.38258819557462
+          },
+          "http_req_blocked": {
+            "med": 0.0043,
+            "max": 0.767146,
+            "p(50)": 0.0043,
+            "p(95)": 0.009355449999999996,
+            "p(99)": 0.02567799999999993,
+            "avg": 0.008404297315436243,
+            "min": 0.0016
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:31:11.9165280Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "18.65%",
+          "memory": "64.38MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:11.9165280Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "4.03%",
+          "memory": "70.44MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:15.0529029Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "6.68%",
+          "memory": "67.67MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:15.0529029Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.50%",
+          "memory": "71.04MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:19.1363382Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "10.03%",
+          "memory": "70.89MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:19.1363382Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.03%",
+          "memory": "71.27MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:23.2203036Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "7.23%",
+          "memory": "72.47MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:23.2203036Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.53%",
+          "memory": "71.32MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:27.3242989Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "14.47%",
+          "memory": "70.83MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:27.3242989Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.46%",
+          "memory": "70.46MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:30.4013951Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "21.49%",
+          "memory": "70.33MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:30.4013951Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.92%",
+          "memory": "71.26MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:33.4798921Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "5.52%",
+          "memory": "70.64MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:33.4798921Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "3.59%",
+          "memory": "71.36MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:37.5550610Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "4.88%",
+          "memory": "70.88MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:37.5550610Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "0.01%",
+          "memory": "71.19MiB / 512MiB"
+        }
+      ]
+    },
+    "cache-on-cart-load": {
+      "metadata": {
+        "sha": "025efef0a4f6aa234fa51f8ba0986c9812ade870",
+        "profile": "load",
+        "workload": "cart",
+        "startedAt": "2026-11-26T17:31:44.0589890Z",
+        "finishedAt": "2026-11-26T17:32:15.0183573Z",
+        "k6": "1.2.3",
+        "catalogCacheTtlMs": 120000,
+        "origin": "http://127.0.0.1:10000",
+        "upstreams": "G5, G6 and G7 mocked, isolated Docker network",
+        "containers": [
+          "/g1-marketplace-h5-perf-backend-1 sha256:d3628bebe27640f1ccf8e2857206b433078c78dfc70175f18d3c5521cac358a7 cpu=2000000000 memory=805306368",
+          "/g1-marketplace-h5-perf-postgres-1 sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab cpu=2000000000 memory=536870912"
+        ],
+        "exitCode": 0
+      },
+      "summary": {
+        "metrics": {
+          "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_failed{operation:remove}": {
+            "passes": 0,
+            "fails": 1276,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "iterations": {
+            "count": 1276,
+            "rate": 42.20072205176141
+          },
+          "iteration_duration": {
+            "min": 214.362236,
+            "med": 233.1145875,
+            "max": 385.953105,
+            "p(50)": 233.1145875,
+            "p(95)": 271.43308,
+            "p(99)": 328.1574855,
+            "avg": 236.73434617711598
+          },
+          "http_req_duration{expected_response:true}": {
+            "p(50)": 10.125126999999999,
+            "p(95)": 23.994461299999987,
+            "p(99)": 45.434163330000004,
+            "avg": 11.880758696708487,
+            "min": 3.025584,
+            "med": 10.125126999999999,
+            "max": 144.33019
+          },
+          "checks": {
+            "passes": 3828,
+            "fails": 0,
+            "thresholds": {
+              "rate>0.99": false
+            },
+            "value": 1
+          },
+          "http_req_duration{measured:yes}": {
+            "avg": 10.542977997257054,
+            "min": 3.025584,
+            "med": 8.959346,
+            "max": 67.554114,
+            "p(50)": 8.959346,
+            "p(95)": 22.67903389999999,
+            "p(99)": 40.013500799999925,
+            "thresholds": {
+              "p(95)<500": false
+            }
+          },
+          "http_req_failed": {
+            "passes": 0,
+            "fails": 3828,
+            "value": 0
+          },
+          "http_reqs{operation:remove}": {
+            "rate": 42.20072205176141,
+            "count": 1276,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_failed{measured:yes}": {
+            "passes": 0,
+            "fails": 2552,
+            "thresholds": {
+              "rate<0.01": false
+            },
+            "value": 0
+          },
+          "http_req_duration": {
+            "p(50)": 10.125126999999999,
+            "p(95)": 23.994461299999987,
+            "p(99)": 45.434163330000004,
+            "avg": 11.880758696708487,
+            "min": 3.025584,
+            "med": 10.125126999999999,
+            "max": 144.33019
+          },
+          "http_req_blocked": {
+            "p(50)": 0.0046,
+            "p(95)": 0.008,
+            "p(99)": 0.022566730000000007,
+            "avg": 0.005428498693834869,
+            "min": 0.0014,
+            "med": 0.0046,
+            "max": 0.290118
+          },
+          "http_req_tls_handshaking": {
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(50)": 0,
+            "p(95)": 0
+          },
+          "http_req_failed{operation:replay}": {
+            "fails": 1276,
+            "passes": 0,
+            "thresholds": {
+              "rate<=1": false
+            },
+            "value": 0
+          },
+          "http_reqs": {
+            "count": 3828,
+            "rate": 126.60216615528422
+          },
+          "http_req_waiting": {
+            "p(95)": 23.89725529999999,
+            "p(99)": 45.34858844000001,
+            "avg": 11.790440720480666,
+            "min": 2.96078,
+            "med": 10.0245195,
+            "max": 144.17518,
+            "p(50)": 10.0245195
+          },
+          "data_sent": {
+            "count": 755779,
+            "rate": 24995.62657645626
+          },
+          "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+          },
+          "http_req_duration{operation:replay}": {
+            "min": 3.025584,
+            "med": 7.149736000000001,
+            "max": 45.220864,
+            "p(50)": 7.149736000000001,
+            "p(95)": 16.87035225,
+            "p(99)": 25.379597,
+            "avg": 8.178597577586208,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_reqs{operation:replay}": {
+            "count": 1276,
+            "rate": 42.20072205176141,
+            "thresholds": {
+              "count>=0": false
+            }
+          },
+          "http_req_duration{operation:remove}": {
+            "p(95)": 26.50321425,
+            "p(99)": 48.307516750000005,
+            "avg": 12.907358416927908,
+            "min": 4.574278,
+            "med": 11.628515,
+            "max": 67.554114,
+            "p(50)": 11.628515,
+            "thresholds": {
+              "p(95)>=0": false
+            }
+          },
+          "http_req_connecting": {
+            "med": 0,
+            "max": 0.255215,
+            "p(50)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0.0003601316614420063,
+            "min": 0
+          },
+          "http_req_receiving": {
+            "p(95)": 0.115007,
+            "p(99)": 0.146228,
+            "avg": 0.0661811230407523,
+            "min": 0.010201,
+            "med": 0.062304,
+            "max": 3.11119,
+            "p(50)": 0.062304
+          },
+          "data_received": {
+            "count": 1363730,
+            "rate": 45102.18705615093
+          },
+          "http_req_sending": {
+            "avg": 0.024136853187042836,
+            "min": 0.0045,
+            "med": 0.0162005,
+            "max": 1.81101,
+            "p(50)": 0.0162005,
+            "p(95)": 0.05473299999999993,
+            "p(99)": 0.087479
+          }
+        },
+        "root_group": {
+          "name": "",
+          "path": "",
+          "id": "d41d8cd98f00b204e9800998ecf8427e",
+          "groups": {},
+          "checks": {
+            "cart fixture is ready": {
+              "path": "::cart fixture is ready",
+              "id": "a985764a3bff07bc9ec0928f59ab43c9",
+              "passes": 1276,
+              "fails": 0,
+              "name": "cart fixture is ready"
+            },
+            "first remove returns 204 and a version": {
+              "name": "first remove returns 204 and a version",
+              "path": "::first remove returns 204 and a version",
+              "id": "ea0dac8b89f42a504326b9858bd07f22",
+              "passes": 1276,
+              "fails": 0
+            },
+            "replay returns 204 with the same version": {
+              "passes": 1276,
+              "fails": 0,
+              "name": "replay returns 204 with the same version",
+              "path": "::replay returns 204 with the same version",
+              "id": "a52f78054a005915258426ea1fa3f549"
+            }
+          }
+        }
+      },
+      "dockerStats": [
+        {
+          "sampledAt": "2026-11-26T17:31:44.2315240Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "71.48%",
+          "memory": "73.04MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:44.2315240Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "20.08%",
+          "memory": "95.53MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:48.3551590Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "62.99%",
+          "memory": "73.45MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:48.3551590Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "22.03%",
+          "memory": "95.61MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:52.4473153Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "75.60%",
+          "memory": "74.65MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:52.4473153Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "23.75%",
+          "memory": "96.07MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:55.5566418Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "80.53%",
+          "memory": "73.91MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:55.5566418Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "16.98%",
+          "memory": "95.98MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:59.6483363Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "55.59%",
+          "memory": "75.78MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:31:59.6483363Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "15.66%",
+          "memory": "96.74MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:03.7313493Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "55.90%",
+          "memory": "75.84MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:03.7313493Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "19.78%",
+          "memory": "96.86MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:06.8221888Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "81.83%",
+          "memory": "76.61MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:06.8221888Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "19.42%",
+          "memory": "96.91MiB / 512MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:10.9145214Z",
+          "container": "g1-marketplace-h5-perf-backend-1",
+          "cpu": "61.68%",
+          "memory": "76.16MiB / 768MiB"
+        },
+        {
+          "sampledAt": "2026-11-26T17:32:10.9145214Z",
+          "container": "g1-marketplace-h5-perf-postgres-1",
+          "cpu": "16.73%",
+          "memory": "96.8MiB / 512MiB"
+        }
+      ]
+    }
+  },
+  "stressPlateaus": [
+    {
+      "phase": "vu20",
+      "vus": 20,
+      "samples": 1485,
+      "rps": 99.0,
+      "errors": 0,
+      "p50": 1.18,
+      "p95": 1.78,
+      "p99": 2.34
+    },
+    {
+      "phase": "vu50",
+      "vus": 50,
+      "samples": 3715,
+      "rps": 247.67,
+      "errors": 0,
+      "p50": 1.13,
+      "p95": 2.52,
+      "p99": 4.25
+    },
+    {
+      "phase": "vu100",
+      "vus": 100,
+      "samples": 7429,
+      "rps": 495.27,
+      "errors": 0,
+      "p50": 1.17,
+      "p95": 3.71,
+      "p99": 8.28
+    },
+    {
+      "phase": "vu200",
+      "vus": 200,
+      "samples": 13927,
+      "rps": 928.47,
+      "errors": 0,
+      "p50": 1.62,
+      "p95": 118.69,
+      "p99": 183.49
+    },
+    {
+      "phase": "recovery",
+      "vus": 10,
+      "samples": 743,
+      "rps": 49.53,
+      "errors": 0,
+      "p50": 1.23,
+      "p95": 2.02,
+      "p99": 2.61
+    }
+  ],
+  "responseChecks": {
+    "checkout-probe": {
+      "cart": {
+        "status": 500,
+        "code": null
+      }
+    },
+    "cache-off-response": {
+      "http": 200,
+      "cacheControl": "no-store",
+      "bytes": 174,
+      "bodySha256": "90ab49fb85a07c2515c303e9c904818a9241390de9a628b2355da2568a5a2b52"
+    },
+    "cache-on-response": {
+      "http": 200,
+      "cacheControl": "no-store",
+      "bytes": 174,
+      "bodySha256": "90ab49fb85a07c2515c303e9c904818a9241390de9a628b2355da2568a5a2b52"
+    }
+  }
+}
