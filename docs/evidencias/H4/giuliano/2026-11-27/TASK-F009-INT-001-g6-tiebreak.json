@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "timestampUtc": "2026-11-27T07:02:28.375Z",
+  "targetOrigin": "https://g1-marketplace-backend.onrender.com",
+  "transport": "public G1 BFF; X-Catalog-Source must be REAL",
+  "checks": {
+    "PASS": 4,
+    "FAIL": 0,
+    "BLOCKED": 0
+  },
+  "status": "PASS",
+  "results": [
+    {
+      "sort": "NAME_ASC",
+      "requested": {
+        "bffPage": 0,
+        "pageSize": 1,
+        "q": "G6 QA Marketplace Desempate"
+      },
+      "providerMappingFromSource": {
+        "g6Pagina": 1,
+        "g6Tamanio": 1,
+        "g6Orden": "NOMBRE_ASC"
+      },
+      "requestId": "940c6204-c11a-4dac-bece-a1b45a355971",
+      "status": 200,
+      "source": "REAL",
+      "cacheControl": "no-store",
+      "requestIdEchoed": true,
+      "durationMs": 2366,
+      "response": {
+        "sort": "NAME_ASC",
+        "page": {
+          "number": 0,
+          "size": 1,
+          "totalElements": 2,
+          "totalPages": 2
+        },
+        "item": {
+          "productId": "8ad24563-c9da-4305-b650-1dd47a14fffb",
+          "name": "G6 QA Marketplace Desempate",
+          "slug": "g6-qa-marketplace-ord-002"
+        }
+      },
+      "outcome": "PASS"
+    },
+    {
+      "sort": "NAME_ASC",
+      "requested": {
+        "bffPage": 1,
+        "pageSize": 1,
+        "q": "G6 QA Marketplace Desempate"
+      },
+      "providerMappingFromSource": {
+        "g6Pagina": 2,
+        "g6Tamanio": 1,
+        "g6Orden": "NOMBRE_ASC"
+      },
+      "requestId": "b107e9be-6926-4c1e-b2f2-b9dac561be8a",
+      "status": 200,
+      "source": "REAL",
+      "cacheControl": "no-store",
+      "requestIdEchoed": true,
+      "durationMs": 729,
+      "response": {
+        "sort": "NAME_ASC",
+        "page": {
+          "number": 1,
+          "size": 1,
+          "totalElements": 2,
+          "totalPages": 2
+        },
+        "item": {
+          "productId": "93f7f500-077d-432e-be98-31cb9ee0d66d",
+          "name": "G6 QA Marketplace Desempate",
+          "slug": "g6-qa-marketplace-ord-001"
+        }
+      },
+      "outcome": "PASS"
+    },
+    {
+      "sort": "NAME_DESC",
+      "requested": {
+        "bffPage": 0,
+        "pageSize": 1,
+        "q": "G6 QA Marketplace Desempate"
+      },
+      "providerMappingFromSource": {
+        "g6Pagina": 1,
+        "g6Tamanio": 1,
+        "g6Orden": "NOMBRE_DESC"
+      },
+      "requestId": "be053e7b-30a1-486c-b50a-bb1fab259c0a",
+      "status": 200,
+      "source": "REAL",
+      "cacheControl": "no-store",
+      "requestIdEchoed": true,
+      "durationMs": 761,
+      "response": {
+        "sort": "NAME_DESC",
+        "page": {
+          "number": 0,
+          "size": 1,
+          "totalElements": 2,
+          "totalPages": 2
+        },
+        "item": {
+          "productId": "8ad24563-c9da-4305-b650-1dd47a14fffb",
+          "name": "G6 QA Marketplace Desempate",
+          "slug": "g6-qa-marketplace-ord-002"
+        }
+      },
+      "outcome": "PASS"
+    },
+    {
+      "sort": "NAME_DESC",
+      "requested": {
+        "bffPage": 1,
+        "pageSize": 1,
+        "q": "G6 QA Marketplace Desempate"
+      },
+      "providerMappingFromSource": {
+        "g6Pagina": 2,
+        "g6Tamanio": 1,
+        "g6Orden": "NOMBRE_DESC"
+      },
+      "requestId": "17bc5054-09bd-497a-8bb8-0485f9c9cb3c",
+      "status": 200,
+      "source": "REAL",
+      "cacheControl": "no-store",
+      "requestIdEchoed": true,
+      "durationMs": 740,
+      "response": {
+        "sort": "NAME_DESC",
+        "page": {
+          "number": 1,
+          "size": 1,
+          "totalElements": 2,
+          "totalPages": 2
+        },
+        "item": {
+          "productId": "93f7f500-077d-432e-be98-31cb9ee0d66d",
+          "name": "G6 QA Marketplace Desempate",
+          "slug": "g6-qa-marketplace-ord-001"
+        }
+      },
+      "outcome": "PASS"
+    }
+  ],
+  "limits": [
+    "The G1 page index is zero-based; provider.ts maps page + 1 to G6 pagina and forwards pageSize as tamanio.",
+    "The BFF card projection does not expose SKU or price; those values are listed separately from the G6 dataset confirmation.",
+    "X-Catalog-Source=REAL and matching IDs do not independently attest the configured upstream URL, contract revision, grants, deployed SHA, or human acceptance.",
+    "The script sends GET only, omits cookies and authorization, does not call G6 directly, and does not test price sorting."
+  ]
+}
