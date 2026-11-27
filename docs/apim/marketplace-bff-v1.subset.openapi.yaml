@@ -3,7 +3,7 @@ info:
   title: "Marketplace BFF APIM /v1 - contracted subset"
   version: "1.0.0"
   description: >-
-    Import candidate containing only the 38 documented /api/v1 operations from the five source contracts.
+    Import candidate containing only the 41 documented /api/v1 operations from the five source contracts.
     This is a contracted subset of the BFF, not the complete BFF contract. It has no backend server URL.
     It does not configure, import, or deploy an APIM API or backend.
 x-artifact-scope: "contracted-subset-of-bff-not-complete-contract"
@@ -16,9 +16,7 @@ x-source-contracts:
 x-excluded-source-routes:
   - "GET /health"
 x-blocked-uncontracted-bff-routes:
-  - "DELETE /api/v1/carts/current/items/{sku}"
-  - "POST /api/v1/carts/current/merge-anonymous"
-  - "POST /api/v1/carts/current/items/{sku}/move-to-wishlist"
+  []
 x-backend-host-configured: false
 x-source-security-errors:
   "docs/contratos/checkout-h4.openapi.yaml":
@@ -1357,6 +1355,190 @@ paths:
                   "value":
                     "code": "STOCK_LIMIT_REACHED"
                     "message": "La cantidad excede el límite permitido."
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+    "delete":
+      "operationId": "removeCartItem"
+      "tags": ["Cart"]
+      "summary": "F-018: quitar un ítem del carrito de forma idempotente"
+      "description": "Elimina la línea del carrito activo del titular o invitado. Si la línea ya no existe, responde 204 sin mutación; no representa un error. If-Match es opcional y compara la versión del carrito; si se reenvía un valor obsoleto, responde 409. Sin If-Match, la operación puede repetirse de forma segura sin Idempotency-Key. Para invitados puede emitir la cookie cart_session."
+      "security": [{"bearerAuth":[]},{}]
+      "parameters": [{"name":"sku","in":"path","required":true,"schema":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Za-z0-9_-]+$"}},{"name":"If-Match","in":"header","required":false,"schema":{"type":"string"},"description":"Versión esperada del carrito; si no coincide responde 409 CART_CONFLICT."}]
+      "responses":
+        "204":
+          "description": "Eliminado o ya ausente; sin cuerpo."
+          "headers":
+            "X-Cart-Version":
+              "description": "Versión actual del carrito."
+              "schema":
+                "type": "string"
+                "pattern": "^[0-9]+$"
+                "example": "4"
+            "Set-Cookie":
+              "description": "Cookie de sesión anónima HttpOnly, si aún no existía."
+              "schema":
+                "type": "string"
+                "example": "cart_session=uuid; Path=/; HttpOnly; SameSite=Lax"
+        "400":
+          "description": "SKU inválido."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_SKU"
+                "message": "SKU inválido."
+        "401":
+          "description": "Token Bearer inválido o expirado."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHENTICATED"
+                "message": "Token Bearer inválido o expirado."
+        "409":
+          "description": "La versión indicada no coincide con la del carrito."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "CART_CONFLICT"
+                "message": "La versión indicada no coincide con la del carrito."
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+  "/v1/carts/current/merge-anonymous":
+    "post":
+      "operationId": "mergeAnonymousCart"
+      "tags": ["Cart"]
+      "summary": "F-020: fusionar el carrito anónimo al iniciar sesión"
+      "description": "Requiere titular autenticado. Fusiona las cantidades del carrito identificado por la cookie cart_session en el carrito del titular; limita cada SKU a 99 e informa ajustes. La cookie anónima se invalida sólo si la fusión se confirmó. Sin cookie o sin líneas, merged=false. No implementa Idempotency-Key; repetir tras la fusión confirmada no fusiona otra vez y responde merged=false."
+      "security": [{"bearerAuth":[]}]
+      "parameters": [{"name":"Cookie","in":"header","required":false,"schema":{"type":"string"},"description":"Cookie de sesión anónima; se usa cart_session si está presente."}]
+      "responses":
+        "201":
+          "description": "Fusión evaluada; merged indica si se movieron líneas."
+          "headers":
+            "X-Cart-Version":
+              "description": "Versión del carrito del titular cuando existe."
+              "schema":
+                "type": "string"
+                "pattern": "^[0-9]+$"
+                "example": "4"
+            "Set-Cookie":
+              "description": "Borra cart_session después de una fusión exitosa."
+              "schema":
+                "type": "string"
+                "example": "cart_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartMergeResponse"
+              "example":
+                "status": "OK"
+                "data":
+                  "cartId": "11111111-1111-4111-8111-111111111111"
+                  "version": 4
+                  "merged": true
+                  "adjustments": [{"sku":"AERO-42-BLK","requestedQuantity":105,"confirmedQuantity":99,"reason":"STOCK_LIMIT"}]
+        "401":
+          "description": "Inicia sesión para fusionar el carrito."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHENTICATED"
+                "message": "Inicia sesión para fusionar el carrito."
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+  "/v1/carts/current/items/{sku}/move-to-wishlist":
+    "post":
+      "operationId": "moveCartItemToWishlist"
+      "tags": ["Cart","Wishlist"]
+      "summary": "F-021: mover un ítem del carrito a favoritos"
+      "description": "Requiere titular autenticado. Guarda el producto en favoritos si aún no existe y elimina la línea del carrito dentro de una transacción. If-Match es opcional; la respuesta informa si se creó el favorito. No implementa Idempotency-Key; repetir después de un movimiento confirmado responde 404 porque la línea ya no existe."
+      "security": [{"bearerAuth":[]}]
+      "parameters": [{"name":"sku","in":"path","required":true,"schema":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Za-z0-9_-]+$"}},{"name":"If-Match","in":"header","required":false,"schema":{"type":"string"},"description":"Versión esperada del carrito; si no coincide responde 409 CART_CONFLICT."}]
+      "responses":
+        "201":
+          "description": "El movimiento quedó confirmado."
+          "headers":
+            "X-Cart-Version":
+              "description": "Nueva versión del carrito."
+              "schema":
+                "type": "string"
+                "pattern": "^[0-9]+$"
+                "example": "5"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartMoveToWishlistResponse"
+              "example":
+                "status": "OK"
+                "data":
+                  "cartId": "11111111-1111-4111-8111-111111111111"
+                  "version": 5
+                  "productId": "PRD-1"
+                  "wishlistCreated": true
+        "400":
+          "description": "SKU inválido."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_SKU"
+                "message": "SKU inválido."
+        "401":
+          "description": "Inicia sesión para mover productos a favoritos."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHENTICATED"
+                "message": "Inicia sesión para mover productos a favoritos."
+        "404":
+          "description": "El ítem no se encuentra en el carrito."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "CART_ITEM_NOT_FOUND"
+                "message": "El ítem no se encuentra en el carrito."
+        "409":
+          "description": "Conflicto de versión en carrito."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "CART_CONFLICT"
+                "message": "Conflicto de versión en carrito."
         "500":
           "description": "Error interno del servidor."
           "content":
