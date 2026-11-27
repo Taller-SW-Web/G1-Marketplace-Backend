@@ -1,8 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { createConfiguredCommercialMailTransport } from '../src/notifications/commercial-mail-transport';
+import { OrdersService } from '../src/orders/orders.service';
+import type { OrderSummary, OrdersProvider } from '../src/orders/orders.types';
 import { processC002QaNotice } from '../src/webhooks/ventas/c002-qa.worker';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ShipmentWebhookController } from '../src/webhooks/ventas/shipment-webhook.controller';
@@ -84,9 +87,10 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
     jest.restoreAllMocks();
   });
 
-  const postEvent = (event: ShipmentStatusUpdatedEvent) => request(app.getHttpServer())
+  const postEvent = (event: ShipmentStatusUpdatedEvent, correlationId = event.eventId) => request(app.getHttpServer())
     .post('/api/v1/webhooks/ventas/envios')
     .set('X-Webhook-Token', syntheticToken)
+    .set('X-Correlation-Id', correlationId)
     .send(event);
 
   it('applies the inbox migration and returns 200 for a repeated eventId with one durable row', async () => {
@@ -109,6 +113,39 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
 
     const stored = await prisma.shipmentEventInbox.findUnique({ where: { eventId: eventIds[1] } });
     expect(stored).toMatchObject({ orderId: 'PED-2099-99999', payload: shipmentEvent });
+  });
+
+  it('persists both out-of-order statuses without regressing delivered tracking', async () => {
+    const orderId = 'PED-2099-99998';
+    const delivered = createEvent(eventIds[0], { orderId, publicStatus: 'ENTREGADO' });
+    const dispatched = {
+      ...createEvent(eventIds[1], { orderId, publicStatus: 'DESPACHADO' }),
+      // Even if the late notification has a newer timestamp, delivery is terminal.
+      timestamp: '2026-11-24T10:16:00.000Z',
+    };
+    const summary: OrderSummary = {
+      orderId, state: 'PAGADO', total: { amount: 50, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00.000Z',
+    };
+    const provider: OrdersProvider = {
+      getForCustomer: jest.fn().mockResolvedValue(summary),
+      listForCustomer: jest.fn(),
+    };
+    const orders = new OrdersService(new ConfigService({ ORDERS_SOURCE: 'real', NODE_ENV: 'development' }), provider, prisma);
+    const getTracking = () => orders.getMyOrderTracking('synthetic-owner', orderId, 'synthetic-session');
+
+    await postEvent(delivered).expect(200, { data: { accepted: true, duplicate: false } });
+    await expect(getTracking()).resolves.toMatchObject({ state: 'ENTREGADO' });
+    await postEvent(dispatched).expect(200, { data: { accepted: true, duplicate: false } });
+
+    const persisted = await prisma.shipmentEventInbox.findMany({ where: { orderId }, select: { eventId: true } });
+    expect(persisted.map(({ eventId }) => eventId).sort()).toEqual([delivered.eventId, dispatched.eventId].sort());
+    await expect(getTracking()).resolves.toMatchObject({
+      state: 'ENTREGADO',
+      milestones: [
+        { state: 'ENTREGADO', at: delivered.timestamp },
+        { state: 'DESPACHADO', at: dispatched.timestamp },
+      ],
+    });
   });
 
   const qaSettings = {
@@ -195,13 +232,29 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
     });
   });
 
-  it('returns 503 when the inbox insert fails and leaves no row', async () => {
-    const shipmentEvent = createEvent(eventIds[2]);
+  it('correlates a persistence 503 and a successful retry with one durable inbox row', async () => {
+    const eventId = eventIds[2];
+    const correlationId = 'despacho-ventas-mk-retry-002';
+    const shipmentEvent = createEvent(eventId);
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+    const log = jest.spyOn(Logger.prototype, 'log');
     const insert = jest.spyOn(prisma.shipmentEventInbox, 'create').mockRejectedValueOnce(new Error('synthetic database write failure'));
 
-    await postEvent(shipmentEvent).expect(503);
-
+    await postEvent(shipmentEvent, correlationId).expect(503, {
+      error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' },
+    });
     expect(insert).toHaveBeenCalledTimes(1);
-    expect(await prisma.shipmentEventInbox.count({ where: { eventId: eventIds[2] } })).toBe(0);
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId } })).toBe(0);
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({
+      event: 'shipment_webhook_persistence_failed', correlationId, eventId, code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE',
+    }));
+    expect(log).not.toHaveBeenCalled();
+
+    await postEvent(shipmentEvent, correlationId).expect(200, { data: { accepted: true, duplicate: false } });
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId } })).toBe(1);
+    expect(log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'shipment_webhook_processed', correlationId, eventId, orderId: shipmentEvent.data.orderId, outcome: 'accepted',
+    }));
   });
 });
