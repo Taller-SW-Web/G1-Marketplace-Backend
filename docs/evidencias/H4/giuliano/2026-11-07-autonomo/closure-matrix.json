@@ -1,0 +1,2137 @@
+{
+  "schema": 1,
+  "timestampUtc": "2026-11-07T06:24:47.055220+00:00",
+  "author": "GiulianoMaPe",
+  "scope": "30 tareas F006-F010, seguimiento sin alterar DoD/estados",
+  "previousEvidenceBase": "docs/evidencias/H4/giuliano/2026-11-07",
+  "dynamicSecurity": {
+    "scope": "Next y BFF compilados locales con CATALOG_SOURCE=mock; sin llamadas externas, cargas o reservas",
+    "passed": 26,
+    "failed": 0,
+    "proof": "dynamic-security-browser.json",
+    "limitations": [
+      "No certifica despliegue/REAL ni revisión humana",
+      "No prueba fallos/estados internos de G6 con datos sintéticos"
+    ]
+  },
+  "tasks": [
+    {
+      "task": "TASK-F006-BE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/44",
+      "role": "BE",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Adaptar home Catálogo, filtrar tarjetas/categorías activas completas y permitir listas vacías.",
+      "originalDefinitionOfDone": "DTO, validación, errores y ownership probados con fixtures; transacciones/versiones donde aplica. Adaptador real no activado si gate externo sigue abierto.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable",
+        "La política ampliada de Home REAL conserva pendiente el adaptador de ranking"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F006-INT-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45",
+      "role": "INT",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Homologar y probar integración real y condiciones: I-01; no sólo fixture.",
+      "originalDefinitionOfDone": "Contrato/configuración y gates enlazados, pruebas positivas/negativas y timeout autorizadas pasan; evidencia distingue sandbox de mock.",
+      "originalDependencies": "[TASK-F006-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/44) + I-01",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Conectar ranking REAL a partir de fuente/contrato G5, o registrar cambio de alcance aceptado por PO",
+        "Verificar Home publicado con selección/operación acordadas"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F006-QA-002",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/46",
+      "role": "QA-002",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Producto inactivo no publicable, enlaces hero seguros y medios allowlist.",
+      "originalDefinitionOfDone": "Negativos de seguridad pasan en entorno propio/autorizado, scans SAST/SCA/secrets y DAST aplicable adjuntos sin secretos. Sin hallazgo crítico/alto explotable abierto.",
+      "originalDependencies": "[TASK-F006-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/27) + [TASK-F006-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/44) + [TASK-TRANS-S01-OPS-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/201)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Revisión de alcance DAST local y riesgos por Andrés/seguridad; validar el corte/OPS aplicable",
+        "Reprobar los negativos aplicables en el entorno acordado cuando esté disponible"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F006-DOC-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/47",
+      "role": "DOC",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Actualizar trazabilidad specs↔implementación↔pruebas, enlaces Figma y decisiones resueltas; documentar operación/errores relevantes.",
+      "originalDefinitionOfDone": "Fuentes vigentes coherentes, evidencias reales y revisión independiente; no marcar funcionalidad terminada con integración pendiente.",
+      "originalDependencies": "H4 diseño/implementación: specs y pruebas locales; cierre completo: [TASK-F006-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45) + [TASK-F006-QA-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/28) + [TASK-F006-QA-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/46)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Mantener trazabilidad vigente de integración/QA y cerrar sus dependencias originales",
+        "Revisión independiente y merge de SPECS #16"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F007-BE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/48",
+      "role": "BE",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Validar q de 2–120 caracteres y adaptar búsqueda paginada pública, proteger query de logs identificables.",
+      "originalDefinitionOfDone": "DTO, validación, errores y ownership probados con fixtures; transacciones/versiones donde aplica. Adaptador real no activado si gate externo sigue abierto.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F007-INT-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/49",
+      "role": "INT",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Homologar y probar integración real y condiciones: I-01; no sólo fixture.",
+      "originalDefinitionOfDone": "Contrato/configuración y gates enlazados, pruebas positivas/negativas y timeout autorizadas pasan; evidencia distingue sandbox de mock.",
+      "originalDependencies": "[TASK-F007-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/48) + I-01 + [TASK-F006-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/45)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Ejecutar positivos/vacío/límites/error/timeout del corte publicado con SHAs y configuración",
+        "Resolver dependencia formal F006 INT para el cierre de F007 INT"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F007-QA-002",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/50",
+      "role": "QA-002",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Entradas XSS/inyección y longitudes, consulta pública sin datos privados.",
+      "originalDefinitionOfDone": "Negativos de seguridad pasan en entorno propio/autorizado, scans SAST/SCA/secrets y DAST aplicable adjuntos sin secretos. Sin hallazgo crítico/alto explotable abierto.",
+      "originalDependencies": "[TASK-F007-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/29) + [TASK-F007-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/48) + [TASK-TRANS-S01-OPS-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/201)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Revisión de alcance DAST local y riesgos por Andrés/seguridad; validar el corte/OPS aplicable",
+        "Reprobar los negativos aplicables en el entorno acordado cuando esté disponible"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F007-DOC-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/51",
+      "role": "DOC",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Actualizar trazabilidad specs↔implementación↔pruebas, enlaces Figma y decisiones resueltas; documentar operación/errores relevantes.",
+      "originalDefinitionOfDone": "Fuentes vigentes coherentes, evidencias reales y revisión independiente; no marcar funcionalidad terminada con integración pendiente.",
+      "originalDependencies": "H4 diseño/implementación: specs y pruebas locales; cierre completo: [TASK-F007-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/49) + [TASK-F007-QA-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/30) + [TASK-F007-QA-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/50)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Mantener trazabilidad vigente de integración/QA y cerrar sus dependencias originales",
+        "Revisión independiente y merge de SPECS #16"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F008-BE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/52",
+      "role": "BE",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "Mapear IDs categoría/marca/rango PEN a proveedor, validar AND/min<=max y maestros autorizados.",
+      "originalDefinitionOfDone": "DTO, validación, errores y ownership probados con fixtures; transacciones/versiones donde aplica. Adaptador real no activado si gate externo sigue abierto.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F008-INT-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/53",
+      "role": "INT",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "Homologar y probar integración real y condiciones: I-01; no sólo fixture.",
+      "originalDefinitionOfDone": "Contrato/configuración y gates enlazados, pruebas positivas/negativas y timeout autorizadas pasan; evidencia distingue sandbox de mock.",
+      "originalDependencies": "[TASK-F008-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/52) + I-01 + [TASK-F007-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/49)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Reprobar camino ordinario de precio y combinaciones después del 503 G6",
+        "Verificar elegibilidad monetaria con datos conocidos",
+        "Recorrido de filtros en web publicada"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F008-QA-002",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/54",
+      "role": "QA-002",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "IDs inválidos/rango negativo y manipulación URL, no filtros administrativos.",
+      "originalDefinitionOfDone": "Negativos de seguridad pasan en entorno propio/autorizado, scans SAST/SCA/secrets y DAST aplicable adjuntos sin secretos. Sin hallazgo crítico/alto explotable abierto.",
+      "originalDependencies": "[TASK-F008-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/31) + [TASK-F008-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/52) + [TASK-TRANS-S02-OPS-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/206)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Revisión de alcance DAST local y riesgos por Andrés/seguridad; validar el corte/OPS aplicable",
+        "Reprobar los negativos aplicables en el entorno acordado cuando esté disponible"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F008-DOC-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/55",
+      "role": "DOC",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "Actualizar trazabilidad specs↔implementación↔pruebas, enlaces Figma y decisiones resueltas; documentar operación/errores relevantes.",
+      "originalDefinitionOfDone": "Fuentes vigentes coherentes, evidencias reales y revisión independiente; no marcar funcionalidad terminada con integración pendiente.",
+      "originalDependencies": "H4 diseño/implementación: specs y pruebas locales; cierre completo: [TASK-F008-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/53) + [TASK-F008-QA-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/32) + [TASK-F008-QA-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/54)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Mantener trazabilidad vigente de integración/QA y cerrar sus dependencias originales",
+        "Revisión independiente y merge de SPECS #16"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F009-BE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/56",
+      "role": "BE",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Validar enum sort y delegar orden estable al dueño sin ordenar una página incompleta.",
+      "originalDefinitionOfDone": "DTO, validación, errores y ownership probados con fixtures; transacciones/versiones donde aplica. Adaptador real no activado si gate externo sigue abierto.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F009-INT-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/57",
+      "role": "INT",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Homologar y probar integración real y condiciones: I-01; no sólo fixture.",
+      "originalDefinitionOfDone": "Contrato/configuración y gates enlazados, pruebas positivas/negativas y timeout autorizadas pasan; evidencia distingue sandbox de mock.",
+      "originalDependencies": "[TASK-F009-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/56) + I-01 + [TASK-F007-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/49)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Probar empates de nombres REAL con ID ascendente y continuidad de páginas",
+        "Registrar versión/universo del proveedor y corte publicado"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F009-QA-002",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/58",
+      "role": "QA-002",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Enum desconocido/inyección no llega proveedor.",
+      "originalDefinitionOfDone": "Negativos de seguridad pasan en entorno propio/autorizado, scans SAST/SCA/secrets y DAST aplicable adjuntos sin secretos. Sin hallazgo crítico/alto explotable abierto.",
+      "originalDependencies": "[TASK-F009-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/33) + [TASK-F009-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/56) + [TASK-TRANS-S02-OPS-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/206)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Revisión de alcance DAST local y riesgos por Andrés/seguridad; validar el corte/OPS aplicable",
+        "Reprobar los negativos aplicables en el entorno acordado cuando esté disponible"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F009-DOC-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/59",
+      "role": "DOC",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Actualizar trazabilidad specs↔implementación↔pruebas, enlaces Figma y decisiones resueltas; documentar operación/errores relevantes.",
+      "originalDefinitionOfDone": "Fuentes vigentes coherentes, evidencias reales y revisión independiente; no marcar funcionalidad terminada con integración pendiente.",
+      "originalDependencies": "H4 diseño/implementación: specs y pruebas locales; cierre completo: [TASK-F009-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/57) + [TASK-F009-QA-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/34) + [TASK-F009-QA-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/58)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Mantener trazabilidad vigente de integración/QA y cerrar sus dependencias originales",
+        "Revisión independiente y merge de SPECS #16"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F010-BE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/60",
+      "role": "BE",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "Validar page/pageSize y mapear meta cero basada, cerrar página fuera de rango.",
+      "originalDefinitionOfDone": "DTO, validación, errores y ownership probados con fixtures; transacciones/versiones donde aplica. Adaptador real no activado si gate externo sigue abierto.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    },
+    {
+      "task": "TASK-F010-INT-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/61",
+      "role": "INT",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "Homologar y probar integración real y condiciones: I-01; no sólo fixture.",
+      "originalDefinitionOfDone": "Contrato/configuración y gates enlazados, pruebas positivas/negativas y timeout autorizadas pasan; evidencia distingue sandbox de mock.",
+      "originalDependencies": "[TASK-F010-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/60) + I-01 + [TASK-F007-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/49)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Confirmar total/páginas/ausencia de duplicados con universo G6 conocido",
+        "Verificar reset/URL/OPEN-03 en web publicada"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    },
+    {
+      "task": "TASK-F010-QA-002",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/62",
+      "role": "QA-002",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "pageSize excesivo/negativo no amplifica consulta, límites contra consumo abusivo.",
+      "originalDefinitionOfDone": "Negativos de seguridad pasan en entorno propio/autorizado, scans SAST/SCA/secrets y DAST aplicable adjuntos sin secretos. Sin hallazgo crítico/alto explotable abierto.",
+      "originalDependencies": "[TASK-F010-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/35) + [TASK-F010-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/60) + [TASK-TRANS-S02-OPS-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/206)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Revisión de alcance DAST local y riesgos por Andrés/seguridad; validar el corte/OPS aplicable",
+        "Reprobar los negativos aplicables en el entorno acordado cuando esté disponible"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    },
+    {
+      "task": "TASK-F010-DOC-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/63",
+      "role": "DOC",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "Actualizar trazabilidad specs↔implementación↔pruebas, enlaces Figma y decisiones resueltas; documentar operación/errores relevantes.",
+      "originalDefinitionOfDone": "Fuentes vigentes coherentes, evidencias reales y revisión independiente; no marcar funcionalidad terminada con integración pendiente.",
+      "originalDependencies": "H4 diseño/implementación: specs y pruebas locales; cierre completo: [TASK-F010-INT-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/61) + [TASK-F010-QA-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/36) + [TASK-F010-QA-002](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/62)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Mantener trazabilidad vigente de integración/QA y cerrar sus dependencias originales",
+        "Revisión independiente y merge de SPECS #16"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    },
+    {
+      "task": "TASK-F006-FE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/27",
+      "role": "FE",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Implementar HomePageContainer, CategoryGrid, FeaturedProducts y todos los estados de React/UI.",
+      "originalDefinitionOfDone": "Props/eventos tipados, estado específico, sin requests internos navegador; desktop/mobile aplicables y casos de spec React cubiertos.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F006-QA-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/28",
+      "role": "QA-001",
+      "feature": "F006",
+      "remoteState": "open",
+      "originalWork": "Probar ambos arreglos vacíos ofrecen catálogo; error no rompe cabecera; categoría genera URL válida; favorito sin sesión abre O-003; incluir cada estado visual y transición documentada.",
+      "originalDefinitionOfDone": "Casos unitarios/componentes/API y E2E aplicables pasan con evidencias; pruebas mock y reales etiquetadas. Hallazgos corregidos/reprobados.",
+      "originalDependencies": "[TASK-F006-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/27) + [TASK-F006-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/44)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-28.spec.ts",
+          "test": "F006 rejects duplicate home links while leaving global search usable",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 1366px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "editorial MOCK order and public cards at 390px",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "curated card reaches its existing product detail and returns to Home",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "anonymous favorite asks for a session without making a wishlist mutation",
+          "passed": true
+        },
+        {
+          "file": "featured.spec.ts",
+          "test": "public Home response preserves synthetic source and excludes management data",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006 public Home/masters expose only public fields and safe category links",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Conectar ranking REAL a partir de fuente/contrato G5, o registrar cambio de alcance aceptado por PO",
+        "Verificar Home publicado con selección/operación acordadas"
+      ],
+      "externalDependencies": [
+        "Fuente/contrato de ranking G5 o decisión PO",
+        "OPS #200/#201/#206 e I-01 según tarea"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Home vacío conserva acceso al catálogo y cabecera usable",
+        "Categorías producen URL válida",
+        "Favorito anónimo solicita sesión sin mutar",
+        "Campos públicos/rutas y recursos seguros"
+      ]
+    },
+    {
+      "task": "TASK-F007-FE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/29",
+      "role": "FE",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Implementar SearchBox, SearchResultsHeading y todos los estados de React/UI.",
+      "originalDefinitionOfDone": "Props/eventos tipados, estado específico, sin requests internos navegador; desktop/mobile aplicables y casos de spec React cubiertos.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F007-QA-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/30",
+      "role": "QA-001",
+      "feature": "F007",
+      "remoteState": "open",
+      "originalWork": "Probar 1 y 121 caracteres no consultan; query vacía vuelve catálogo; respuesta lenta anterior no reemplaza nueva; cero resultados conserva q y limpiar; incluir cada estado visual y transición documentada.",
+      "originalDefinitionOfDone": "Casos unitarios/componentes/API y E2E aplicables pasan con evidencias; pruebas mock y reales etiquetadas. Hallazgos corregidos/reprobados.",
+      "originalDependencies": "[TASK-F007-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/29) + [TASK-F007-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/48)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-30.spec.ts",
+          "test": "F007 retries a non-JSON gateway failure and announces fresh results",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=x",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 dynamic validation rejects q=running&q=polo",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F007 query remains text and never executes: ' OR 1=1 --",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Ejecutar positivos/vacío/límites/error/timeout del corte publicado con SHAs y configuración",
+        "Resolver dependencia formal F006 INT para el cierre de F007 INT"
+      ],
+      "externalDependencies": [
+        "Corte desplegado G1 y resolución de I-01",
+        "Dependencia formal Backend #45 y OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Longitudes 1/121 bloqueadas y normalización de búsqueda",
+        "Query vacía/limpiar, cero resultados conservan contexto",
+        "Respuesta lenta anterior no sustituye nueva",
+        "Entradas XSS/inyección tratadas como texto y sin datos privados"
+      ]
+    },
+    {
+      "task": "TASK-F008-FE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/31",
+      "role": "FE",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "Implementar CatalogFilters, ActiveFilterChips y todos los estados de React/UI.",
+      "originalDefinitionOfDone": "Props/eventos tipados, estado específico, sin requests internos navegador; desktop/mobile aplicables y casos de spec React cubiertos.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F008-QA-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/32",
+      "role": "QA-001",
+      "feature": "F008",
+      "remoteState": "open",
+      "originalWork": "Probar rango invertido no consulta; aplicar conserva búsqueda y orden; cancelar mobile no cambia filtros; Escape y restauración de foco; incluir cada estado visual y transición documentada.",
+      "originalDefinitionOfDone": "Casos unitarios/componentes/API y E2E aplicables pasan con evidencias; pruebas mock y reales etiquetadas. Hallazgos corregidos/reprobados.",
+      "originalDependencies": "[TASK-F008-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/31) + [TASK-F008-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/52)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-32.spec.ts",
+          "test": "F008 mobile clear applies immediately, closes dialog and preserves context",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=1.001",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects includeInactive=true",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Reprobar camino ordinario de precio y combinaciones después del 503 G6",
+        "Verificar elegibilidad monetaria con datos conocidos",
+        "Recorrido de filtros en web publicada"
+      ],
+      "externalDependencies": [
+        "G6 Catalog/Pricing",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Rango invertido/negativo y IDs manipulados rechazados",
+        "Aplicar conserva búsqueda/orden y resetea página",
+        "Cancelar móvil no aplica borrador; Escape/restauración de foco",
+        "Parámetros administrativos/URL destino rechazados"
+      ]
+    },
+    {
+      "task": "TASK-F009-FE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/33",
+      "role": "FE",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Implementar CatalogSortSelect y todos los estados de React/UI.",
+      "originalDefinitionOfDone": "Props/eventos tipados, estado específico, sin requests internos navegador; desktop/mobile aplicables y casos de spec React cubiertos.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F009-QA-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/34",
+      "role": "QA-001",
+      "feature": "F009",
+      "remoteState": "open",
+      "originalWork": "Probar todos los enums permitidos enviados; sort inválido no llega externo; page se reinicia; no ordena sólo tarjetas de página actual; incluir cada estado visual y transición documentada.",
+      "originalDefinitionOfDone": "Casos unitarios/componentes/API y E2E aplicables pasan con evidencias; pruebas mock y reales etiquetadas. Hallazgos corregidos/reprobados.",
+      "originalDependencies": "[TASK-F009-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/33) + [TASK-F009-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/56)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-34.spec.ts",
+          "test": "F009 announces changed ordering and history restores sort, filter and page",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Probar empates de nombres REAL con ID ascendente y continuidad de páginas",
+        "Registrar versión/universo del proveedor y corte publicado"
+      ],
+      "externalDependencies": [
+        "Dataset G6 con nombres iguales",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "Enum sort inválido o inyectado rechazado",
+        "Orden delegado y global entre páginas, no sólo cliente",
+        "Cambio de sort reinicia página y conserva criterios"
+      ]
+    },
+    {
+      "task": "TASK-F010-FE-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/35",
+      "role": "FE",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "Implementar CatalogPagination y todos los estados de React/UI.",
+      "originalDefinitionOfDone": "Props/eventos tipados, estado específico, sin requests internos navegador; desktop/mobile aplicables y casos de spec React cubiertos.",
+      "originalDependencies": "[TASK-TRANS-S01-OPS-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/200)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Aceptación independiente del DoD y acreditación de dependencia OPS aplicable"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    },
+    {
+      "task": "TASK-F010-QA-001",
+      "issue": "https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/36",
+      "role": "QA-001",
+      "feature": "F010",
+      "remoteState": "open",
+      "originalWork": "Probar primera no anterior; última no siguiente; cambio criterios vuelve 0; URL inválida ofrece salida controlada; incluir cada estado visual y transición documentada.",
+      "originalDefinitionOfDone": "Casos unitarios/componentes/API y E2E aplicables pasan con evidencias; pruebas mock y reales etiquetadas. Hallazgos corregidos/reprobados.",
+      "originalDependencies": "[TASK-F010-FE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/35) + [TASK-F010-BE-001](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/60)",
+      "evidenceTestCases": [
+        {
+          "file": "issues/issue-36.spec.ts",
+          "test": "F010 invalid page never requests products and explicit recovery retains filters and order",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=-1",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=0",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=49",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects pageSize=1000000",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F010 dynamic validation rejects page=9007199254740992",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method POST",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PUT",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method PATCH",
+          "passed": true
+        },
+        {
+          "file": "catalog-security-h4.spec.ts",
+          "test": "F006-F010 public proxy rejects mutation method DELETE",
+          "passed": true
+        }
+      ],
+      "sourceCoverageNote": "Pruebas locales sintéticas: no sustituyen datos REAL ni aceptación. Detalle de tests fuente en reportes del 07/11.",
+      "remainingOwnWork": [
+        "Confirmar total/páginas/ausencia de duplicados con universo G6 conocido",
+        "Verificar reset/URL/OPEN-03 en web publicada"
+      ],
+      "externalDependencies": [
+        "Dataset G6 estable conocido",
+        "Corte publicado G1 y dependencias INT/OPS"
+      ],
+      "independentAcceptanceRecorded": false,
+      "readyToClose": false,
+      "featureLocalCriteriaEvidence": [
+        "page/pageSize negativos/excesivos y enteros inseguros rechazados",
+        "Primera/última/fuera de rango con recuperación explícita",
+        "Reset y conservación de criterios URL",
+        "Tamaño máximo observado <=48 en stack local"
+      ]
+    }
+  ],
+  "developmentDependencyFix": {
+    "advisory": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+    "override": "minimatch=11.0.1",
+    "previousVersion": "10.2.6",
+    "scope": "development tools only",
+    "before": {
+      "info": 0,
+      "low": 0,
+      "moderate": 10,
+      "high": 0,
+      "critical": 0,
+      "total": 10
+    },
+    "after": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "compatibilityChecks": {
+      "results": "frontend-checks.json",
+      "components": 392,
+      "server": 81,
+      "runner": 12,
+      "lint": "PASS",
+      "build": "PASS",
+      "typecheck": "PASS"
+    }
+  }
+}

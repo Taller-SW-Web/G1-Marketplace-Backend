@@ -1,0 +1,86 @@
+
+> g1-marketplace-backend@1.8.2 test:g6:probe
+> node --test scripts/check-g6.test.mjs scripts/check-g6-azure.test.mjs
+
+TAP version 13
+# Subtest: rejects noncanonical or unsafe origin: http://example.test
+ok 1 - rejects noncanonical or unsafe origin: http://example.test
+  ---
+  duration_ms: 60.993099
+  type: 'test'
+  ...
+# Subtest: rejects noncanonical or unsafe origin: https://user:password@example.test
+ok 2 - rejects noncanonical or unsafe origin: https://user:password@example.test
+  ---
+  duration_ms: 58.739149
+  type: 'test'
+  ...
+# Subtest: rejects noncanonical or unsafe origin: https://example.test/api/v1
+ok 3 - rejects noncanonical or unsafe origin: https://example.test/api/v1
+  ---
+  duration_ms: 51.429471
+  type: 'test'
+  ...
+# Subtest: rejects noncanonical or unsafe origin: https://example.test?token=x
+ok 4 - rejects noncanonical or unsafe origin: https://example.test?token=x
+  ---
+  duration_ms: 54.547844
+  type: 'test'
+  ...
+# Subtest: rejects noncanonical or unsafe origin: https://example.test\#fragment
+ok 5 - rejects noncanonical or unsafe origin: https://example.test\#fragment
+  ---
+  duration_ms: 53.402428
+  type: 'test'
+  ...
+# Subtest: rejects noncanonical or unsafe origin: https://example.test/
+ok 6 - rejects noncanonical or unsafe origin: https://example.test/
+  ---
+  duration_ms: 50.008024
+  type: 'test'
+  ...
+# Subtest: probe checks anonymous BFF reads, validation and correlation without credentials
+ok 7 - probe checks anonymous BFF reads, validation and correlation without credentials
+  ---
+  duration_ms: 44.807038
+  type: 'test'
+  ...
+# Subtest: probe refuses MOCK and distinguishes a provider failure from an empty result
+ok 8 - probe refuses MOCK and distinguishes a provider failure from an empty result
+  ---
+  duration_ms: 4.184565
+  type: 'test'
+  ...
+# Subtest: web probe uses Next routes and tolerates older proxies without the optional correlation header
+ok 9 - web probe uses Next routes and tolerates older proxies without the optional correlation header
+  ---
+  duration_ms: 4.603258
+  type: 'test'
+  ...
+# Subtest: probe rejects unsafe targets and invalid queries before any request
+ok 10 - probe rejects unsafe targets and invalid queries before any request
+  ---
+  duration_ms: 1.536767
+  type: 'test'
+  ...
+# Subtest: probe does not accept upstream-only fields in the public card DTO
+ok 11 - probe does not accept upstream-only fields in the public card DTO
+  ---
+  duration_ms: 3.41663
+  type: 'test'
+  ...
+# Subtest: categories-only probe reports its limited scope without calling products
+ok 12 - categories-only probe reports its limited scope without calling products
+  ---
+  duration_ms: 1.62095
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 430.254567

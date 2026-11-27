@@ -1,0 +1,102 @@
+[
+  {
+    "check": "build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 25.46
+  },
+  {
+    "check": "typecheck",
+    "command": [
+      "npm",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 29.83
+  },
+  {
+    "check": "unit",
+    "command": [
+      "npm",
+      "run",
+      "test:unit"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 32.59
+  },
+  {
+    "check": "e2e",
+    "command": [
+      "npm",
+      "run",
+      "test:e2e"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 38.2
+  },
+  {
+    "check": "probe-tests",
+    "command": [
+      "npm",
+      "run",
+      "test:g6:probe"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 0.62
+  },
+  {
+    "check": "h4-checks",
+    "command": [
+      "npm",
+      "run",
+      "test:catalog:h4:checks"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 0.72
+  },
+  {
+    "check": "h4-config",
+    "command": [
+      "npm",
+      "run",
+      "test:catalog:h4:config"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 0.72
+  },
+  {
+    "check": "h4-timings",
+    "command": [
+      "npm",
+      "run",
+      "test:catalog:h4:timings"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 0.52
+  },
+  {
+    "check": "openapi",
+    "command": [
+      "npm",
+      "run",
+      "docs:validate"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 5.29
+  },
+  {
+    "check": "mock-auth",
+    "command": [
+      "npm",
+      "run",
+      "test:mock-auth"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 2.34
+  }
+]

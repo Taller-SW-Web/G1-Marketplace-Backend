@@ -1,7 +1,7 @@
 name: H4 Catalog Backend
 on:
   push:
-    branches: [feat/giuliano-hito4, feat/giuliano-h4-issues-20261103, feat/catalog-public-read-only-20261105, feat/f011-public-read-only]
+    branches: [feat/giuliano-hito4, feat/giuliano-h4-issues-20261103, feat/catalog-public-read-only-20261105, feat/f011-public-read-only, test/h4-gateway-validation-20261107]
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,0 +1,1019 @@
+{
+  "config": {
+    "argv": [
+      "/home/giuliano/Work/h4-validation-20261107/tools/node_modules/node/bin/node",
+      "/home/giuliano/Work/h4-validation-20261107/frontend/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.audit.config.ts",
+      "tests/catalog-security-h4.spec.ts"
+    ],
+    "configFile": "/home/giuliano/Work/h4-validation-20261107/frontend/playwright.audit.config.ts",
+    "rootDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "testIgnore": [
+          "**/wishlist/**",
+          "**/auth/**",
+          "**/featured/**"
+        ],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/giuliano/Work/h4-validation-20261107/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "snapshotDir": "/home/giuliano/Work/h4-validation-20261107/frontend/tests",
+        "testIgnore": [
+          "**/wishlist/**",
+          "**/auth/**",
+          "**/featured/**"
+        ],
+        "testMatch": "**/*.spec.ts",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://127.0.0.1:3100",
+          "browserName": "chromium",
+          "trace": "retain-on-failure",
+          "launchOptions": {
+            "executablePath": "/usr/bin/chromium",
+            "args": [
+              "--no-sandbox"
+            ]
+          }
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../evidence/browser-mock.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "../evidence/playwright-report"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "catalog-security-h4.spec.ts",
+      "file": "catalog-security-h4.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F007 dynamic validation rejects q=x",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 394,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:46.154Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-e67745396658940181ec",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F007 dynamic validation rejects q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 118,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:46.850Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-566c896bb3a53eb21120",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F007 dynamic validation rejects q=running&q=polo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 181,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:47.077Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-fb1d39493eb295964cde",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects categoryIds=..%2Fprivate",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 78,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:47.391Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-b449dc791e25d6e3d96d",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects brandIds=mock-brand%2Cprivate",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 86,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:47.554Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-df3a10668fb00f5c16ca",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects minPrice=-1",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 117,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:47.723Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-ef43db522337ff853d2d",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects minPrice=1.001",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 75,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:47.910Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-003e673c1aa7fd8499fd",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects minPrice=20&maxPrice=10",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 98,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.018Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-c08bd6db1bbb75a10f43",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects includeInactive=true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 72,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.149Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-09678e97a8b124cc84fd",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F008 dynamic validation rejects url=https%3A%2F%2Fexample.invalid",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 41,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.255Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-5ed28b4adfb9e5bf1d70",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F009 dynamic validation rejects sort=NAME_ASC%3BDROP",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 47,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.324Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-cec88857846a4e5beb6e",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F009 dynamic validation rejects sort=NAME_ASC&sort=NAME_DESC",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 50,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.404Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-0951b15eb2361d61083c",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F010 dynamic validation rejects page=-1",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 78,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.481Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-563eef4091f7e2779ff8",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F010 dynamic validation rejects pageSize=0",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 51,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.610Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-8a5edc9fadd3f5092b4a",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F010 dynamic validation rejects pageSize=49",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 58,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.703Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-e54ddebe689686663c6e",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F010 dynamic validation rejects pageSize=1000000",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 40,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.793Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-5332508d9ac98253d8f5",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F010 dynamic validation rejects page=9007199254740992",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 43,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.867Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-3667f7412b94c39efd7e",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "F006 public Home/masters expose only public fields and safe category links",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3437,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:21:48.942Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-3806e940b820c3a51499",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 41,
+          "column": 5
+        },
+        {
+          "title": "F007 query remains text and never executes: <img src=x onerror=window.__h4xss=1>",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1277,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:01.351Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-86318c5308b43b712f1a",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 59,
+          "column": 7
+        },
+        {
+          "title": "F007 query remains text and never executes: <svg onload=window.__h4xss=1>",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1367,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:02.689Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-b3243ee1d6aacd19700b",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 59,
+          "column": 7
+        },
+        {
+          "title": "F007 query remains text and never executes: ' OR 1=1 --",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1226,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:04.111Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-7de6ffe2646ace658f7f",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 59,
+          "column": 7
+        },
+        {
+          "title": "F006-F010 Next blocks arbitrary proxy destinations and exposes hardened page headers",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 104,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:05.388Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-56598ac606fbef82a41e",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 74,
+          "column": 5
+        },
+        {
+          "title": "F006-F010 public proxy rejects mutation method POST",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:05.524Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-845872ddaede3e05ace0",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 93,
+          "column": 7
+        },
+        {
+          "title": "F006-F010 public proxy rejects mutation method PUT",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:05.555Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-ae31b9278b3e8f87f64a",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 93,
+          "column": 7
+        },
+        {
+          "title": "F006-F010 public proxy rejects mutation method PATCH",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:05.588Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-fbd3ed6d852d07a12135",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 93,
+          "column": 7
+        },
+        {
+          "title": "F006-F010 public proxy rejects mutation method DELETE",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T06:22:05.614Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62cb6eaa388d233723a2-bceefe7109cf44f4ac08",
+          "file": "catalog-security-h4.spec.ts",
+          "line": 93,
+          "column": 7
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-07T06:20:56.954Z",
+    "duration": 68886.16500000001,
+    "expected": 26,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
