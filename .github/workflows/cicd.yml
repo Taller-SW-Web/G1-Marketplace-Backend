@@ -9,6 +9,14 @@ on:
   pull_request:
     branches: [develop, main]
   workflow_dispatch:
+    inputs:
+      apim_qa_smoke:
+        description: Run two read-only QA requests against the APIM gateway
+        required: true
+        type: choice
+        options:
+          - SKIP
+          - RUN_APIM_QA_SMOKE
 
 concurrency:
   group: cicd-${{ github.ref }}
@@ -289,3 +297,27 @@ jobs:
   #   (sin hooks duplicados ni jobs muertos en `develop`).
   # - La verificación continua de disponibilidad (/health) corre en `.github/workflows/keep-alive.yml`
   #   y el smoke de rendimiento / DAST en `.github/workflows/perf-smoke.yml` y `.github/workflows/dast-zap.yml`.
+
+  apim-qa-smoke:
+    name: APIM QA smoke (manual, read-only)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.apim_qa_smoke == 'RUN_APIM_QA_SMOKE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      APIM_QA_SUBSCRIPTION_KEY: ${{ secrets.APIM_QA_SUBSCRIPTION_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify QA secret is configured (do not print its value)
+        run: |
+          if [ -z "$APIM_QA_SUBSCRIPTION_KEY" ]; then
+            echo "::error::APIM_QA_SUBSCRIPTION_KEY is not configured"
+            exit 1
+          fi
+          echo "APIM QA subscription secret is configured; value not displayed."
+      - name: Run bounded APIM QA smoke
+        run: node scripts/apim-qa-smoke.mjs

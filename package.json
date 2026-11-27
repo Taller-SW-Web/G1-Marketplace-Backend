@@ -53,6 +53,7 @@
     "test:catalog:h4:timings": "node --test scripts/catalog-h4/timings.test.mjs",
     "check:catalog:config": "node scripts/catalog-h4/config.mjs",
     "test:catalog:h4:config": "node --test scripts/catalog-h4/config.test.mjs",
+    "test:apim-policy": "node --test scripts/apim-policy.test.mjs",
     "test:g7:kit": "node --test test/g7-integration-real.test.mjs",
     "test:bff:kit": "node --test test/bff-integration-real.test.mjs",
     "integracion:bff": "node scripts/bff-integration-real.mjs",
