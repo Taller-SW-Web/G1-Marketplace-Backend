@@ -56,7 +56,7 @@ export class SalesCsatGateway extends CsatGateway {
     let code: unknown;
     try {
       const error = await response.json();
-      code = error?.code ?? error?.error?.code;
+      code = error?.codigo ?? error?.code ?? error?.error?.codigo ?? error?.error?.code;
     } catch { /* An unrecognized provider error remains unavailable. */ }
     if (response.status === 409 && code === 'CSAT_ALREADY_SUBMITTED') {
       throw new ApiError(409, 'CSAT_ALREADY_SUBMITTED', 'La evaluación ya fue registrada');
