@@ -152,5 +152,35 @@
     "The BFF card projection does not expose SKU or price; those values are listed separately from the G6 dataset confirmation.",
     "X-Catalog-Source=REAL and matching IDs do not independently attest the configured upstream URL, contract revision, grants, deployed SHA, or human acceptance.",
     "The script sends GET only, omits cookies and authorization, does not call G6 directly, and does not test price sorting."
-  ]
+  ],
+  "additionalProbe": {
+    "status": "BLOCKED",
+    "timestampUtc": "2026-11-27T08:17:34.661Z",
+    "method": "GET",
+    "url": "https://g1-marketplace-backend.onrender.com/api/v1/catalog/products?q=G6+QA+Marketplace+Desempate&sort=NAME_ASC&page=0&pageSize=2",
+    "query": {
+      "q": "G6 QA Marketplace Desempate",
+      "sort": "NAME_ASC",
+      "page": 0,
+      "pageSize": 2
+    },
+    "requestIdSent": "2d71d87d-63c8-4a51-b459-a06945b750db",
+    "providerMappingFromSource": {
+      "g6Pagina": 1,
+      "g6Tamanio": 2,
+      "g6Orden": "NOMBRE_ASC"
+    },
+    "result": {
+      "durationMs": 71,
+      "networkErrorName": "TypeError",
+      "networkCode": "EAI_AGAIN",
+      "httpStatus": null,
+      "source": null,
+      "requestIdReturned": null,
+      "responsePaging": null,
+      "products": null
+    },
+    "attempts": 1,
+    "interpretation": "DNS resolution failed before an HTTP response; this does not establish that the G1 service is unavailable. No retry and no direct G6 request were made."
+  }
 }

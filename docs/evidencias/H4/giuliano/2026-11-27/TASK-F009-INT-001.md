@@ -34,6 +34,14 @@ El índice de página del BFF es cero-basado. Según el mapeo de [`provider.ts`]
 
 **Resultado del runner:** 4 PASS, 0 FAIL, 0 BLOCKED; captura íntegra y correlation IDs en [TASK-F009-INT-001-g6-tiebreak.json](TASK-F009-INT-001-g6-tiebreak.json). El acceso directo anónimo desde este entorno a G6 informó HTTP 401; no se envió token ni se adjunta respuesta upstream. El retest registrado aquí es por el BFF de G1, que respondió `REAL` con los dos IDs confirmados.
 
+## Sondeo adicional del BFF con tamaño 2 — 27/11/2026
+
+El OpenAPI [`openapi-catalogo-h4.json`](../../../../../docs/contratos/openapi-catalogo-h4.json) define `pageSize` (1–48, default 24) y `page` cero-basada (default 0). El controller atiende `GET /api/v1/catalog/products`; `provider.ts` mapea `page=0` a G6 `pagina=1`, `pageSize=2` a `tamanio=2` y `NAME_ASC` a `NOMBRE_ASC`. Este último mapeo es lectura de código fuente, no una captura de la solicitud interna de Render.
+
+Se intentó una sola solicitud GET al BFF publicado con `q=G6 QA Marketplace Desempate`, `sort=NAME_ASC`, `page=0`, `pageSize=2` y `X-Request-Id=2d71d87d-63c8-4a51-b459-a06945b750db`. Hora de inicio: `2026-11-27T08:17:34.661Z`. La resolución DNS devolvió `EAI_AGAIN` en 71 ms antes de obtener respuesta HTTP. Resultado **BLOCKED**: no hay status HTTP, `X-Catalog-Source`, paging, productos ni request/correlation ID de respuesta. No existe cuerpo que sanitizar. No se reintentó ni se consultó G6 directamente. [Registro adicional estructurado](TASK-F009-INT-001-g6-tiebreak.json).
+
+El bloqueo DNS no demuestra indisponibilidad de G1. Los cuatro PASS de tamaño 1 arriba se conservan como su ejecución anterior; el sondeo de tamaño 2 es un intento aparte y no altera esos resultados.
+
 ## Límites y trabajo restante
 
 - El código local fija el contrato G6 en `0.6.0-rc.1`, SHA `f64bfe9a097b2a0f74c2600988305443d92f640e`. [Backend #201](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/201) está cerrado y conserva evidencia de un corte previo; no confirma la versión efectiva aguas arriba ni el SHA desplegado de G1 para estas respuestas del 27/11.
