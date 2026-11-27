@@ -26,7 +26,7 @@ describe('CatalogModule production public-read-only', () => {
     });
     const config = {
       NODE_ENV: 'production', CATALOG_SOURCE: 'real', CATALOG_INTEGRATION_APPROVED: 'true',
-      PRODUCTOS_AUTH_MODE: 'public-read-only', PRODUCTOS_BASE_URL: 'https://g6.synthetic.example',
+      PRODUCTOS_TIMEOUT_MS: '100', PRODUCTOS_AUTH_MODE: 'public-read-only', PRODUCTOS_BASE_URL: 'https://g6.synthetic.example',
       PRODUCTOS_SERVICE_TOKEN: 'synthetic-stale-server-token',
       PRODUCTOS_CONTRACT_VERSION: CONTRACT_VERSION, PRODUCTOS_CONTRACT_SHA: CONTRACT_SHA,
       CATALOG_FEATURED_ENABLED: 'true', CATALOG_FEATURED_APPROVED: 'true', CATALOG_FEATURED_IDS: id,
@@ -65,6 +65,33 @@ describe('CatalogModule production public-read-only', () => {
     await request(app.getHttpServer()).post('/api/v1/catalog/products').send({ name: 'Mutation' }).expect(405);
     await request(app.getHttpServer()).get('/api/v1/catalog/products?includeInactive=true').expect(400);
     expect(transport).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['/api/v1/catalog/home', 'CATALOG_UNAVAILABLE'],
+    ['/api/v1/catalog/filters', 'CATALOG_UNAVAILABLE'],
+    ['/api/v1/catalog/products?q=polo&page=0', 'CATALOG_UNAVAILABLE'],
+    ['/api/v1/catalog/products?q=polo&page=0', 'CATALOG_TIMEOUT'],
+  ])('publishes a safe problem from %s when G6 causes %s and recovers on the next read', async (path, code) => {
+    if (code === 'CATALOG_TIMEOUT') {
+      transport.mockImplementationOnce((_input, options: RequestInit) => new Promise((_resolve, reject) => {
+        const signal = options.signal!;
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      }));
+    } else {
+      transport.mockResolvedValueOnce(new Response('private upstream detail', { status: 503 }));
+    }
+
+    const failed = await request(app.getHttpServer()).get(path).expect(503);
+    expect(failed.body).toMatchObject({ code, requestId: failed.headers['x-request-id'] });
+    expect(failed.headers['x-catalog-source']).toBe('REAL');
+    expect(failed.body.data).toBeUndefined();
+    expect(JSON.stringify(failed.body)).not.toContain('private upstream detail');
+    const sent = new Headers(transport.mock.calls[0][1].headers);
+    expect(sent.get('x-correlation-id')).toBe(failed.headers['x-request-id']);
+    const recovered = await request(app.getHttpServer()).get(path).expect(200);
+    expect(recovered.headers['x-request-id']).not.toBe(failed.headers['x-request-id']);
+    expect(recovered.headers['x-catalog-source']).toBe('REAL');
   });
 
   it('keeps a real upstream authorization failure correlated and unavailable', async () => {
