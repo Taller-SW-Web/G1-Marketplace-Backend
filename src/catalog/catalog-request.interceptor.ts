@@ -25,11 +25,14 @@ export class CatalogRequestInterceptor implements NestInterceptor {
     const url = new URL(request.url || '/', 'http://marketplace.local');
     const q = (url.searchParams.get('q') || '').trim().replace(/\s+/gu, ' ');
     return next.handle().pipe(
-      tap(() => this.logger.log(JSON.stringify({
-        event: 'catalog_read', requestId, path: url.pathname, source: this.catalog.source, status: 200,
-        queryHash: q ? createHash('sha256').update(q).digest('hex') : undefined,
-        durationMs: Date.now() - startedAt,
-      }))),
+      tap(() => {
+        response.setHeader('Cache-Control', this.catalog.cacheControlFor(url));
+        this.logger.log(JSON.stringify({
+          event: 'catalog_read', requestId, path: url.pathname, source: this.catalog.source, status: 200,
+          queryHash: q ? createHash('sha256').update(q).digest('hex') : undefined,
+          durationMs: Date.now() - startedAt,
+        }));
+      }),
       catchError((error: unknown) => {
         const safe = error instanceof CatalogError ? error : new CatalogError();
         this.logger.warn(JSON.stringify({

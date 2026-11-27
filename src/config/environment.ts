@@ -172,6 +172,11 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     if (salesUrl.protocol !== 'https:' || salesUrl.username || salesUrl.password || salesUrl.pathname !== '/' ||
         salesUrl.search || salesUrl.hash) throw new Error('VENTAS_BASE_URL must be an HTTPS origin');
   }
+  const catalogCacheTtlMs = Number(config.CATALOG_CACHE_TTL_MS ?? 0);
+  if (!Number.isInteger(catalogCacheTtlMs) || catalogCacheTtlMs < 0 || catalogCacheTtlMs > 300000 ||
+      (catalogCacheTtlMs > 0 && catalogCacheTtlMs < 1000)) {
+    throw new Error('CATALOG_CACHE_TTL_MS must be 0 (disabled) or an integer from 1000 to 300000');
+  }
   const ordersSource = String(config.ORDERS_SOURCE ?? 'unconfigured');
   if (!['mock', 'real', 'unconfigured'].includes(ordersSource)) throw new Error('ORDERS_SOURCE must be mock, real or unconfigured');
   if (ordersSource === 'mock' && nodeEnv === 'production') throw new Error('ORDERS_SOURCE=mock is not allowed in production');
@@ -196,6 +201,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     CHECKOUT_SALES_SOURCE: checkoutSalesSource, G5_SALES_INTEGRATION_APPROVED: g5Approved,
     G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: g5ProductFallback,
     ORDERS_SOURCE: ordersSource,
+    CATALOG_CACHE_TTL_MS: catalogCacheTtlMs,
     AUTH_ISSUER: config.AUTH_ISSUER ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010'),
     AUTH_JWKS_URL: config.AUTH_JWKS_URL ?? (authEnabled === 'true' ? `${String(config.G7_API_URL).replace(/\/$/, '')}/auth/.well-known/jwks.json` : nodeEnv === 'production' ? '' : 'http://127.0.0.1:4010/jwks'),
   };

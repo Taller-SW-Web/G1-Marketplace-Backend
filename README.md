@@ -127,6 +127,10 @@ Las pruebas Jest usan SWC para transformar TypeScript; el build de producción N
 
 `DATABASE_URL` es obligatorio al arrancar. `CORS_ORIGINS` acepta orígenes separados por coma; en Render debe configurarse en el dashboard antes de permitir llamadas desde el frontend. Las migraciones siguen gestionándose con `prisma migrate deploy` durante el arranque del servicio; este setup no cambia el esquema ni las migraciones.
 
+### Benchmark local del catálogo (MOCK)
+
+`npm run perf:local` sólo ejecuta el cliente: primero compila y arranca el backend MOCK en `127.0.0.1:10000`, con `CATALOG_CACHE_TTL_MS=0`. Luego ejecuta el comando desde otra terminal. Consulta la [guía de arranque y medición local](docs/performance/h5-304.md#ejecución-local-del-runner-mock). No uses `localhost` ni un entorno desplegado; el runner sólo acepta HTTP sobre IP loopback. La salida no es evidencia de aceptación de #304.
+
 ### F-028 — historial de pedidos (corte local H3)
 
 Los endpoints `GET /api/v1/orders/me?page=0&pageSize=10` y `GET /api/v1/orders/:orderId` exigen bearer JWT y usan el `sub` autenticado; no aceptan identidad por header/query/body y `clienteId` no es un parámetro válido. En desarrollo/pruebas, `ORDERS_SOURCE=mock` sirve fixtures sólo a principals sintéticos conocidos; `mock` se rechaza en producción. Las respuestas llevan `Cache-Control: no-store`.

@@ -61,7 +61,8 @@
     "test:compra:kit": "node --test test/compra-real.test.mjs",
     "compra:real": "node scripts/compra-real.mjs",
     "test:real:sandboxes": "node --test scripts/verify-real-sandboxes.test.mjs",
-    "check:real:sandboxes": "node scripts/verify-real-sandboxes.mjs"
+    "check:real:sandboxes": "node scripts/verify-real-sandboxes.mjs",
+    "perf:local": "node scripts/performance/http-benchmark.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -74,6 +75,7 @@
     "axios-mock-adapter": "^2.1.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "compression": "^1.8.2",
     "dotenv": "^18.0.10",
     "jsonwebtoken": "^9.0.3",
     "prisma": "^5.20.0",
@@ -86,6 +88,7 @@
     "@nestjs/testing": "^11.2.7",
     "@swc/core": "^1.16.18",
     "@swc/jest": "^0.2.39",
+    "@types/compression": "^1.8.1",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.10",
