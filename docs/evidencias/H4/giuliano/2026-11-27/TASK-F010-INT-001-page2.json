@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "timestampUtc": "2026-11-27T07:17:48.391Z",
+  "targetOrigin": "https://g1-marketplace-backend.onrender.com",
+  "status": "BLOCKED",
+  "result": {
+    "case": "F010-out-of-range-page-2",
+    "requested": {
+      "bffPage": 2,
+      "pageSize": 1,
+      "q": "G6 QA Marketplace Desempate",
+      "sort": "NAME_ASC"
+    },
+    "providerMappingFromSource": {
+      "g6Pagina": 3,
+      "g6Tamanio": 1,
+      "g6Orden": "NOMBRE_ASC"
+    },
+    "requestId": "db379c13-dbca-4e48-93f3-2cf21c6a96fb",
+    "outcome": "BLOCKED",
+    "code": "NETWORK_OR_TIMEOUT",
+    "durationMs": 20005,
+    "expectedContractResponse": {
+      "status": 200,
+      "body": {
+        "sort": "NAME_ASC",
+        "data": [],
+        "page": {
+          "number": 2,
+          "size": 1,
+          "totalElements": 2,
+          "totalPages": 2
+        }
+      }
+    }
+  },
+  "limits": [
+    "One read-only BFF request; no direct G6 request, cookies, authorization or UI interaction.",
+    "No HTTP response/body was observed; expectedContractResponse is derived from the F-010 contract and known two-product universe."
+  ]
+}
