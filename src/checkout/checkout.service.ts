@@ -29,6 +29,17 @@ const SALES_ORDER_ID = /^PED-\d{4}-\d{5}$/;
 const G5_POLL_INTERVAL_MS = 2500;
 const G5_POLL_MAX_MS = 60_000;
 
+/**
+ * Tiempo máximo que el BFF espera a que Ventas confirme el estado del pedido antes de responder 202.
+ * Configurable con G5_ORDER_POLL_MAX_MS (1 000 a 60 000 ms); un valor ausente o inválido conserva los 60 s.
+ */
+export function orderPollMaxMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.G5_ORDER_POLL_MAX_MS;
+  if (raw === undefined || raw === '') return G5_POLL_MAX_MS;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 1_000 && value <= G5_POLL_MAX_MS ? value : G5_POLL_MAX_MS;
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -800,7 +811,7 @@ export class CheckoutService {
   }
 
   private async pollG5Order(orderId: string, accessToken?: string): Promise<SalesOrder> {
-    const deadline = Date.now() + G5_POLL_MAX_MS;
+    const deadline = Date.now() + orderPollMaxMs();
     let lastOrder: SalesOrder | undefined;
     while (Date.now() < deadline) {
       try {
