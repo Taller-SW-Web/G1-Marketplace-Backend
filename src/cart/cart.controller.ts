@@ -116,7 +116,9 @@ export class CartController {
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: ResponseLike,
   ) {
-    const { sessionHash, customerId } = this.resolveSession(req, res);
+    // A no-op DELETE must not mint a guest session or create a cart.
+    const customerId = req.user?.sub;
+    const sessionHash = parseSessionCookie(req.headers['cookie']) || undefined;
     const expectedVersion = ifMatch ? parseInt(ifMatch, 10) : undefined;
     const result = await this.cartService.removeItemFromCart({
       sessionHash,
@@ -125,7 +127,9 @@ export class CartController {
       expectedVersion: Number.isInteger(expectedVersion) ? expectedVersion : undefined,
     });
 
-    res.setHeader('X-Cart-Version', String(result.version));
+    if (result.version !== null) {
+      res.setHeader('X-Cart-Version', String(result.version));
+    }
     res.status(204);
     return;
   }

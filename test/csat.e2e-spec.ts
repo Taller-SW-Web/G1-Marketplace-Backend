@@ -9,6 +9,10 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { configureApp } from '../src/http/configure-app';
 import { issueSandboxToken, SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
 
+const m2Error = (codigo: string) => ({
+  codigo, mensaje: 'private-provider-data', timestamp: '2026-11-24T10:15:00.000Z',
+});
+
 describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistence/provider)', () => {
   let app: INestApplication;
   let server: Server;
@@ -19,12 +23,13 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
   let owner: string;
   let providerStatus: number;
   let providerCode: string;
+  let providerBody: unknown;
   let malformed: boolean;
   let timeout: boolean;
   let mutationTimeout: boolean;
   let orderStatus: number;
   let sent: Record<string, unknown>[];
-  let tokenSeen: string | undefined;
+  let requests: { method?: string; url?: string; authorization?: string; contentType?: string }[];
   const orderId = 'PED-2026-00001';
   const secret = 'csat-synthetic-test-only-secret-'.repeat(2);
   const token = (id: string = SANDBOX_CUSTOMERS.A) => issueSandboxToken(id, secret);
@@ -33,24 +38,31 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
   const lookup = jest.fn(async () => promptExists ? { state: promptState, deliveryConfirmedAt: new Date('2026-01-01'), shownAt: new Date('2026-01-02') } : null);
   beforeAll(async () => {
     server = createServer(async (req, res) => {
-      tokenSeen = req.headers.authorization;
-      if (timeout) return;
-      if (req.method === 'GET') {
+      requests.push({ method: req.method, url: req.url, authorization: req.headers.authorization,
+        contentType: req.headers['content-type'] });
+      if (req.method === 'GET' && req.url === `/api/v1/pedidos/${orderId}`) {
+        if (timeout) return;
         res.statusCode = orderStatus;
         res.setHeader('Content-Type', 'application/json');
         return res.end(JSON.stringify(malformed ? {} : { pedidoId: orderId, canal: 'MARKETPLACE',
           estado: orderState, contacto: { clienteId: owner } }));
       }
+      if (req.method !== 'POST' || req.url !== '/api/v2/csat') {
+        res.writeHead(404).end();
+        return;
+      }
       let body = ''; for await (const chunk of req) body += chunk;
       sent.push(JSON.parse(body));
       if (mutationTimeout) return;
       res.writeHead(providerStatus, { 'Content-Type': 'application/json' });
-      res.end(providerStatus === 201 ? undefined : JSON.stringify({ code: providerCode, detail: 'private-provider-data' }));
+      res.end(providerStatus === 201 ? undefined : JSON.stringify(providerBody ?? {
+        codigo: providerCode, mensaje: 'private-provider-data', timestamp: '2026-11-24T10:15:00.000Z',
+      }));
     });
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Port');
     const config = { NODE_ENV: 'test', H3_SANDBOX_ENABLED: true, H3_JWT_SECRET: secret,
-      CSAT_INTEGRATION_APPROVED: 'true', CSAT_PROMPT_APPROVED: 'true', HTTP_TIMEOUT_MS: 100,
+      CSAT_INTEGRATION_APPROVED: 'true', CSAT_PROMPT_APPROVED: 'true', HTTP_TIMEOUT_MS: 500,
       CSAT_SALES_BASE_URL: `http://127.0.0.1:${address.port}`, CSAT_POSTVENTA_BASE_URL: `http://127.0.0.1:${address.port}`,
       get CSAT_ENABLED() { return enabled ? 'true' : 'false'; } };
     const module = await Test.createTestingModule({ imports: [ConfigModule.forRoot({ isGlobal: true,
@@ -64,19 +76,24 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
   beforeEach(() => { enabled = true; promptState = 'SHOWN'; promptExists = true; orderState = 'ENTREGADO';
     owner = SANDBOX_CUSTOMERS.A; providerStatus = 201; providerCode = ''; malformed = false; timeout = false;
     mutationTimeout = false; orderStatus = 200;
-    sent = []; tokenSeen = undefined; jest.clearAllMocks(); });
+    providerBody = undefined; sent = []; requests = []; jest.clearAllMocks(); });
   const submit = (body: object = { sentiment: 'GOOD', reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, id?: string,
     accessToken = token(id)) => request(app.getHttpServer()).post(endpoint).auth(accessToken, { type: 'bearer' }).send(body);
+  const expectedRequests = (accessToken: string) => [
+    { method: 'GET', url: `/api/v1/pedidos/${orderId}`, authorization: `Bearer ${accessToken}`, contentType: undefined },
+    { method: 'POST', url: '/api/v2/csat', authorization: `Bearer ${accessToken}`, contentType: 'application/json' },
+  ];
 
   it.each([['GOOD', 5], ['REGULAR', 3], ['BAD', 1]])('maps %s to %s with verified owner and no second CSAT table', async (sentiment, score) => {
     const accessToken = token();
     const response = await submit({ sentiment, reasons: ['ENTREGA_RAPIDA'], comment: 'Excelente' }, undefined, accessToken).expect(201);
     expect(response.headers['cache-control']).toContain('no-store');
+    expect(response.text).toBe('');
     expect(sent).toEqual([{ pedidoId: orderId, clienteId: SANDBOX_CUSTOMERS.A, canal: 'MARKETPLACE',
       puntuacion: score, comentario: 'Motivos: [ENTREGA_RAPIDA] - Excelente' }]);
-    expect(tokenSeen).toBe(`Bearer ${accessToken}`);
+    expect(requests).toEqual(expectedRequests(accessToken));
     expect(promptState).toBe('SUBMITTED');
-    await submit().expect(409); expect(sent).toHaveLength(1);
+    await submit().expect(409); expect(requests).toEqual(expectedRequests(accessToken));
   });
   it('rejects anonymous, tampered identity, unknown fields and invalid input before provider calls', async () => {
     await request(app.getHttpServer()).post(endpoint).send({ sentiment: 'GOOD' }).expect(401);
@@ -84,10 +101,13 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     for (const body of [{ sentiment: 'OTHER' }, { sentiment: 'GOOD', clienteId: owner },
       { sentiment: 'GOOD', reasons: ['<script>'] }, { sentiment: 'GOOD', comment: 'x'.repeat(1001) }]) await submit(body).expect(400);
     await request(app.getHttpServer()).post(endpoint + '?customerId=other').auth(token(), { type: 'bearer' }).send({ sentiment: 'GOOD' }).expect(400);
-    expect(lookup).not.toHaveBeenCalled(); expect(sent).toEqual([]);
+    expect(lookup).not.toHaveBeenCalled(); expect(requests).toEqual([]);
   });
   it('rejects another owner, undelivered orders, missing/dismissed prompts and disabled gates', async () => {
-    owner = SANDBOX_CUSTOMERS.B; await submit().expect(403);
+    const accessToken = token();
+    owner = SANDBOX_CUSTOMERS.B;
+    await submit(undefined, undefined, accessToken).expect(403, { code: 'ORDER_FORBIDDEN', message: 'Pedido no disponible' });
+    expect(requests).toEqual(expectedRequests(accessToken).slice(0, 1));
     owner = SANDBOX_CUSTOMERS.A; orderState = 'CREADO'; await submit().expect(422);
     orderState = 'ENTREGADO'; promptExists = false; await submit().expect(409);
     promptExists = true; promptState = 'DISMISSED'; await submit().expect(409);
@@ -135,10 +155,10 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     expect(JSON.stringify(update.mock.calls)).not.toContain(untrusted);
     expect(JSON.stringify(update.mock.calls)).not.toContain('puntuacion');
   });
-  it('reconciles a canonical provider duplicate, but never an arbitrary conflict', async () => {
-    providerStatus = 409; providerCode = 'UNKNOWN_CONFLICT'; await submit().expect(503);
+  it('reconciles the canonical M2 duplicate and rejects an arbitrary conflict', async () => {
+    providerStatus = 409; providerBody = m2Error('UNKNOWN_CONFLICT'); await submit().expect(503);
     expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
-    providerCode = 'CSAT_ALREADY_SUBMITTED'; await submit().expect(409);
+    providerBody = m2Error('CSAT_ALREADY_SUBMITTED'); await submit().expect(409);
     expect(promptState).toBe('SUBMITTED');
   });
   it('preserves prompt on uncertain results and does not retry or expose upstream details', async () => {
@@ -156,11 +176,26 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     expect(sent).toEqual([]); expect(update).not.toHaveBeenCalled();
   });
 
-  it.each([[401, '', 401], [403, '', 403], [422, 'ORDER_NOT_DELIVERED', 422],
-    [422, 'UNKNOWN', 503], [200, '', 503]])('maps CSAT provider status %s/code %s to %s', async (status, code, expected) => {
-    providerStatus = Number(status); providerCode = String(code);
+  it.each([[422, 'ORDER_NOT_DELIVERED', 422],
+    [422, 'UNKNOWN', 503], [200, '', 503]])('maps CSAT provider status %s/codigo %s to %s', async (status, codigo, expected) => {
+    providerStatus = Number(status);
+    providerBody = codigo ? m2Error(String(codigo)) : undefined;
     await submit().expect(Number(expected));
     expect(sent).toHaveLength(1); expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, 'TOKEN_INVALIDO', { code: 'UNAUTHORIZED', message: 'Autenticación requerida' }],
+    [403, 'ACCESO_DENEGADO', { code: 'ORDER_FORBIDDEN', message: 'Pedido no disponible' }],
+  ])('maps pinned M2 %i / %s without leaking upstream details or mutating the prompt', async (status, codigo, body) => {
+    providerStatus = status;
+    providerBody = m2Error(codigo);
+    const accessToken = token();
+
+    await submit(undefined, undefined, accessToken).expect(status, body);
+    expect(requests).toEqual(expectedRequests(accessToken));
+    expect(update).not.toHaveBeenCalled();
+    expect(promptState).toBe('SHOWN');
   });
 
   it('does not retry a mutation whose response times out', async () => {
@@ -174,7 +209,7 @@ describe('CSAT HTTP -> Sales adapter -> local provider (MOCK identity/persistenc
     const response = await submit().expect(500);
     expect(JSON.stringify(response.body)).not.toContain('private-database-detail');
     expect(promptState).toBe('SHOWN'); expect(sent).toHaveLength(1);
-    providerStatus = 409; providerCode = 'CSAT_ALREADY_SUBMITTED';
+    providerStatus = 409; providerBody = m2Error('CSAT_ALREADY_SUBMITTED');
     await submit().expect(409);
     expect(promptState).toBe('SUBMITTED'); expect(sent).toHaveLength(2);
   });
