@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "task": "TASK-F006-INT-001",
+  "timestampUtc": "2026-11-27T20:04:36.132Z",
+  "targetOrigin": "https://g1-marketplace-backend.onrender.com",
+  "route": "GET /api/v1/catalog/home",
+  "expectedProductId": "93f7f500-077d-432e-be98-31cb9ee0d66d",
+  "requestId": "97fe5ce7-b37c-4e72-8718-7e41e8a33740",
+  "status": "PASS",
+  "result": {
+    "httpStatus": 200,
+    "source": "REAL",
+    "cacheControl": "no-store",
+    "requestIdEchoed": true,
+    "durationMs": 3203,
+    "outcome": "PASS",
+    "response": {
+      "categoriesCount": 10,
+      "featuredProductsCount": 1,
+      "expectedProductPresent": true,
+      "expectedProductCount": 1
+    }
+  },
+  "limits": [
+    "A missing expected ID does not identify a cause: this response does not expose editorial environment flags or G6 product eligibility diagnostics.",
+    "The ID is a G1 editorial selection; G6 remains authoritative for whether the selected product is active and publishable.",
+    "X-Catalog-Source=REAL and ID presence do not attest the deploy SHA, temporary environment values, OPS/PO approval, or independent acceptance.",
+    "This checker never changes runtime environment variables and sends no user credentials."
+  ]
+}
