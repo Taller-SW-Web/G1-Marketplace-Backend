@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { parseQuery } from "./query";
 import { createProvider, createRealProvider, CONTRACT_SHA } from "./provider";
 import type { CatalogEnvironment } from "./types";
+import { catalogTestJwt } from "../../test/fixtures/g7-catalog-jwt";
 const parse = (value: string) => parseQuery(new URLSearchParams(value));
 const env: CatalogEnvironment = {
   CATALOG_SOURCE: "real",
@@ -148,6 +149,7 @@ test("client_credentials mode requires an explicit G7 endpoint and secret", asyn
 
 test("client_credentials mode obtains one scoped token and attaches it only to G6 reads", async () => {
   const g7TokenUrl = "https://g7.example/api/v1/auth/token";
+  const issuedToken = catalogTestJwt();
   const requests: Array<{ url: URL; options: RequestInit }> = [];
   const provider = createRealProvider({
     ...env,
@@ -158,7 +160,7 @@ test("client_credentials mode obtains one scoped token and attaches it only to G
   }, async (url, options) => {
     requests.push({ url, options });
     if (url.href === g7TokenUrl) return Response.json({
-      accessToken: "synthetic-g7-access-token",
+      accessToken: issuedToken,
       tokenType: "Bearer",
       expiresIn: 3600,
       scopes: ["catalogo:leer"],
@@ -183,14 +185,14 @@ test("client_credentials mode obtains one scoped token and attaches it only to G
   expect(form.get("grant_type")).toBe("client_credentials");
   expect(form.get("client_id")).toBe("modulo-marketplace");
   expect(form.get("client_secret")).toBe("synthetic-test-secret");
-  expect(form.get("scope")).toBe("catalogo:leer");
+  expect(form.has("scope")).toBe(false);
   expect(form.has("aud")).toBe(false);
   expect(new Headers(tokenRequest.options.headers).has("Authorization")).toBe(false);
   for (const request of g6Requests) {
-    expect(new Headers(request.options.headers).get("Authorization")).toBe("Bearer synthetic-g7-access-token");
+    expect(new Headers(request.options.headers).get("Authorization")).toBe(`Bearer ${issuedToken}`);
     expect(JSON.stringify(request.options)).not.toContain("synthetic-test-secret");
   }
-  expect(JSON.stringify(results)).not.toContain("synthetic-g7-access-token");
+  expect(JSON.stringify(results)).not.toContain(issuedToken);
 });
 
 test("service-token remains the default and does not request a G7 token", async () => {
