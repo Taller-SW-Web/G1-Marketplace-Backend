@@ -5,7 +5,7 @@ import { SANDBOX_CUSTOMERS } from '../src/identity/sandbox-token';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { CheckoutContactDto } from '../src/checkout/dto/contact.dto';
-import { CheckoutOperationView, SalesOrder } from '../src/checkout/checkout.types';
+import { SalesOrder } from '../src/checkout/checkout.types';
 import { MarketplaceGateway } from '../src/checkout/external/marketplace.gateway';
 import { QuotesService } from '../src/checkout/quotes.service';
 
@@ -21,6 +21,7 @@ const customerA = SANDBOX_CUSTOMERS.A;
 const customerB = SANDBOX_CUSTOMERS.B;
 const preparationKey = '55555555-5555-4555-8555-555555555555';
 const orderKey = '66666666-6666-4666-8666-666666666666';
+const externalOrderId = 'PED-2026-12345';
 const contact: CheckoutContactDto = {
   fullName: 'Checkout Integration',
   documentType: 'DNI',
@@ -28,7 +29,7 @@ const contact: CheckoutContactDto = {
   phone: '999999999',
   email: 'checkout-integration@example.test',
 };
-const salesOrder = (estado: SalesOrder['estado'], pedidoId = 'PED-2026-12345'): SalesOrder => ({
+const salesOrder = (estado: SalesOrder['estado'], pedidoId = externalOrderId): SalesOrder => ({
   pedidoId,
   estado,
   total: { amount: 355, currency: 'PEN' },
@@ -102,10 +103,10 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
 
   beforeEach(async () => {
     await clean();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     gateway.createOrder.mockResolvedValue(salesOrder('CREADO'));
     gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('CREADO'));
-    gateway.getOrder.mockResolvedValue(salesOrder('PAGADO'));
+    gateway.getOrder.mockResolvedValue(salesOrder('CREADO'));
     cartA = await createCart(customerA);
     cartB = await createCart(customerB);
   });
@@ -124,7 +125,7 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     const operation = await seedPreparedOperation();
     const created = salesOrder('CREADO');
     gateway.createOrder.mockResolvedValue(created);
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(created);
+    gateway.getOrder.mockResolvedValue(created);
 
     const result = await submit(customerA, operation.id);
     const persisted = await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } });
@@ -136,7 +137,7 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
       cartId: cartA,
       state: CheckoutOperationState.SUBMITTED,
       orderIdempotencyKey: orderKey,
-      externalOrderId: null,
+      externalOrderId: created.pedidoId,
     });
     expect(persisted.requestFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(persisted)).not.toContain(contact.email);
@@ -146,6 +147,7 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
       checkoutOperationId: operation.id,
       idempotencyKey: orderKey,
     }));
+    expect(gateway.getOrder).toHaveBeenCalledWith(created.pedidoId, undefined);
 
     const status = await service.getOperation(customerA, operation.id);
     expect(status).toMatchObject({
@@ -157,13 +159,14 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     });
     expect((await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } })).state)
       .toBe(CheckoutOperationState.SUBMITTED);
+    expect(gateway.createOrder).toHaveBeenCalledTimes(1);
+    expect(gateway.getOrderByIdempotencyKey).not.toHaveBeenCalled();
   });
 
   it('marks an operation SUCCEEDED only after the persisted order lookup confirms PAGADO', async () => {
     const operation = await seedPreparedOperation();
     const paid = salesOrder('PAGADO');
     gateway.createOrder.mockResolvedValue(salesOrder('CREADO'));
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(paid);
     gateway.getOrder.mockResolvedValue(paid);
 
     const result = await submit(customerA, operation.id);
@@ -189,7 +192,7 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
       where: { id: operation.id },
       data: { createdAt },
     });
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('ANULADO'));
+    gateway.getOrder.mockResolvedValue(salesOrder('ANULADO'));
 
     const result = await submit(customerA, operation.id);
     expect(result.data).toMatchObject({ state: 'FAILED', failureCode: 'PAGO_NO_COMPLETADO' });
@@ -206,7 +209,6 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     gateway.createOrder
       .mockRejectedValueOnce({ status: 503, code: 'SALES_UNAVAILABLE' })
       .mockResolvedValueOnce(salesOrder('CREADO'));
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('CREADO'));
 
     await expect(submit(customerA, operation.id)).rejects.toMatchObject({
       status: 409,
@@ -215,6 +217,7 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     const pending = await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } });
     expect(pending.state).toBe(CheckoutOperationState.SUBMITTED);
     expect(pending.orderIdempotencyKey).toBe(orderKey);
+    expect(pending.externalOrderId).toBeNull();
 
     service = new CheckoutService(prisma, gateway as unknown as MarketplaceGateway, quotes);
     const recovered = await submit(customerA, operation.id);
@@ -222,6 +225,13 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     expect(gateway.createOrder).toHaveBeenNthCalledWith(1, expect.objectContaining({ idempotencyKey: orderKey }));
     expect(gateway.createOrder).toHaveBeenNthCalledWith(2, expect.objectContaining({ idempotencyKey: orderKey }));
     expect(await prisma.checkoutOperation.count({ where: { customerId: customerA } })).toBe(1);
+    expect(await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } })).toMatchObject({
+      state: CheckoutOperationState.SUBMITTED,
+      orderIdempotencyKey: orderKey,
+      externalOrderId,
+    });
+    await expect(submit(customerA, operation.id)).resolves.toMatchObject({ status: 202 });
+    expect(gateway.createOrder).toHaveBeenCalledTimes(2);
   });
 
   it('does not expose another owner operation and does not call Sales on unauthorized access', async () => {
@@ -240,7 +250,6 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
   it('rejects a second operation claiming the same owner-scoped Sales idempotency key', async () => {
     const first = await seedPreparedOperation();
     const second = await seedPreparedOperation(customerA, cartA, '77777777-7777-4777-8777-777777777777');
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('CREADO'));
 
     await submit(customerA, first.id);
     await expect(submit(customerA, second.id)).rejects.toMatchObject({
@@ -253,7 +262,6 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
 
   it('serializes concurrent submissions to one persisted state and uses the same provider key', async () => {
     const operation = await seedPreparedOperation();
-    gateway.getOrderByIdempotencyKey.mockResolvedValue(salesOrder('CREADO'));
     const results = await Promise.all(Array.from({ length: 6 }, () => submit(customerA, operation.id)));
 
     expect(results.every((result) => result.status === 202 && result.data.state === 'SUBMITTED')).toBe(true);
@@ -261,7 +269,11 @@ describe('Checkout order PostgreSQL 16 integration (Sales MOCK)', () => {
     expect(gateway.createOrder).toHaveBeenCalled();
     expect(gateway.createOrder.mock.calls.every(([input]) => input.idempotencyKey === orderKey)).toBe(true);
     const row = await prisma.checkoutOperation.findUniqueOrThrow({ where: { id: operation.id } });
-    expect(row).toMatchObject({ state: CheckoutOperationState.SUBMITTED, orderIdempotencyKey: orderKey });
+    expect(row).toMatchObject({
+      state: CheckoutOperationState.SUBMITTED,
+      orderIdempotencyKey: orderKey,
+      externalOrderId,
+    });
   });
 
   it('rolls back an interrupted database transaction without changing the order state', async () => {

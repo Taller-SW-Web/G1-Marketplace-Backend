@@ -1,38 +1,38 @@
 openapi: 3.0.3
 info:
-  title: Marketplace Checkout BFF — H4
-  version: 1.0.0
+  title: Marketplace BFF — Checkout, pedidos y webhook de Ventas
+  version: 1.1.0
   description: >-
-    Contrato versionado del BFF Checkout. Las operaciones están implementadas
-    con adaptadores MOCK; esto no acredita integración REAL ni despliegue. La
-    identidad se deriva del principal autenticado y customerId no se acepta en
-    payloads.
+    Contrato versionado de rutas implementadas en el BFF. La fuente efectiva
+    depende de la configuración de cada entorno. La especificación no acredita
+    homologación REAL. La identidad del comprador se deriva del principal
+    autenticado y no se acepta customerId en payloads.
   x-g6-compatibility:
     catalog-cart:
       status: implemented-mock-only
       behavior: Las líneas y la versión provienen del carrito vigente; el cliente no puede enviar importes.
-    dispatch-addresses:
+    shipping-quote:
       status: implemented-mock-only
-      behavior: addressId se valida contra las direcciones del titular antes de cotizar cobertura y envío.
+      behavior: El BFF valida addressId contra las direcciones del titular antes de cotizar. La cotización de envío no tiene proveedor REAL en este corte.
     benefits:
       status: implemented-mock-only
       behavior: El adaptador devuelve elegibilidad y descuento; omitir couponCode solicita una cotización base.
     inventory:
       status: implemented-mock-only
       behavior: La preparación revalida el contexto; PREPARED no representa pedido creado, pago ni reserva externa.
-    sales:
-      status: implemented-mock-only
-      behavior: Solo una respuesta autoritativa de Ventas con estado PAGADO permite SUCCEEDED; una respuesta incierta no es éxito.
     G-G6-COMPAT:
-      status: pending-real-provider-contract-and-sanitized-integration-evidence
-      evidence: No se localizaron contrato/provider externos G6 ni pruebas REAL sanitizadas en los repositorios locales revisados.
-      closure: Requiere registrar la frontera/provider y pruebas positivas, negativas y timeout con respuesta sanitizada.
+      status: pending-checkout-provider-homologation
+      closure: Registrar evidencia por frontera; un alta de Ventas no valida catálogo, cotización ni revalidación del checkout.
+  x-g5-compatibility:
+    sales:
+      status: implemented-configurable-g5
+      behavior: Solo una respuesta autoritativa de Ventas con estado PAGADO permite SUCCEEDED; una respuesta incierta no es éxito.
   x-g7-compatibility:
-    status: implemented-mock-only
+    status: implemented-authenticated-principal
     identity: customerId se deriva del subject autenticado; una operación solo es consultable por su titular.
     token: El token Bearer entrante se propaga servidor a servidor en llamadas que lo requieren; nunca llega en el payload.
     browser: El navegador consume el BFF y no llama directamente a proveedores internos.
-  x-runtime-status: implemented-mock-only
+  x-runtime-status: implemented-source-depends-on-environment
 servers:
   - url: http://localhost:10000
     description: Desarrollo local
@@ -52,13 +52,13 @@ paths:
         implementation: 'CheckoutController.listAddresses -> CheckoutService.listAddresses'
         authentication: 'AuthGuard; token Bearer requerido; el proveedor recibe el token en servidor.'
         ownership: 'Las direcciones devueltas pertenecen al titular autenticado; no se acepta customerId del cliente.'
-        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway lista las direcciones del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas.'
         errorCodes:
           '400': [ADDRESS_VALIDATION_ERROR]
           '401': [UNAUTHENTICATED]
           '503': [ADDRESS_SERVICE_UNAVAILABLE]
-        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 200 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
       responses:
         '200':
           description: Direcciones propias
@@ -77,13 +77,13 @@ paths:
         implementation: 'CheckoutController.createAddress -> CheckoutService.createAddress'
         authentication: 'AuthGuard; customerId se deriva del subject y el token se propaga en servidor.'
         ownership: 'No se admiten customerId/userId en el DTO; la dirección se crea para el titular autenticado.'
-        downstreamCompatibility: 'G7 Security; G6 addresses provider (MOCK only).'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway crea la dirección del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas. El teléfono del formulario no se reenvía ni se incluye en la respuesta.'
         errorCodes:
           '400': [ADDRESS_VALIDATION_ERROR]
           '401': [UNAUTHENTICATED]
           '503': [ADDRESS_SERVICE_UNAVAILABLE]
-        timeoutBehavior: 'Address provider timeout is normalized to 503 ADDRESS_SERVICE_UNAVAILABLE.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 201 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
       requestBody:
         required: true
         content:
@@ -108,7 +108,7 @@ paths:
         implementation: 'CheckoutController.createQuote -> CheckoutService.createQuote'
         authentication: 'AuthGuard; customerId y carrito se resuelven desde el contexto autenticado.'
         ownership: 'addressId debe pertenecer al titular; cartVersion debe coincidir con el carrito vigente.'
-        downstreamCompatibility: 'G6 Catalog/Cart y Dispatch (MOCK only); G7 Security.'
+        downstreamCompatibility: 'Carrito G1 y validación de dirección del titular por la fuente de direcciones configurada (G7 o doble local). Cotización comercial y de envío con fixture/doble; sin ruta externa G6 verificada para cotizar.'
         errorCodes:
           '400': [REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
           '401': [UNAUTHENTICATED]
@@ -116,7 +116,7 @@ paths:
           '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE]
           '503': [ADDRESS_SERVICE_UNAVAILABLE, QUOTE_UNAVAILABLE]
         timeoutBehavior: 'Timeout de direcciones o cotización se normaliza a 503; no se acepta una cotización parcial.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        runtimeEvidence: 'La compra histórica con Ventas REAL usó cotización MOCK aun con direcciones G7 REAL. Cotización REAL NOT_RUN.'
       description: >-
         cartVersion es control optimista; el servidor obtiene el carrito y el
         titular de la sesión autenticada. No se aceptan importes del cliente.
@@ -225,15 +225,16 @@ paths:
         authentication: 'AuthGuard; el checkoutOperationId debe pertenecer al titular autenticado.'
         ownership: 'La operación y carrito se consultan por customerId derivado del principal.'
         idempotency: 'Idempotency-Key UUID v4; la clave y el fingerprint impiden crear pedidos duplicados.'
-        downstreamCompatibility: 'G6 Sales (MOCK only); G7 Security.'
+        downstreamCompatibility: 'G5 Sales según configuración; G7 Security.'
         errorCodes:
           '400': [IDEMPOTENCY_KEY_REQUIRED, CONTACT_VALIDATION_ERROR]
           '401': [UNAUTHENTICATED]
           '404': [OPERATION_NOT_FOUND]
           '409': [IDEMPOTENCY_KEY_REUSED, OPERATION_NOT_PREPARED, ORDER_CREATION_PENDING, ORDER_NOT_COMPLETED, QUOTE_EXPIRED, CHECKOUT_CONTEXT_CHANGED, PAGO_NO_COMPLETADO]
+          '429': [SALES_RATE_LIMITED]
           '503': [SALES_UNAVAILABLE, ORDER_CREATION_PENDING]
         timeoutBehavior: 'Timeout o respuesta incierta de creación/consulta mantiene el resultado no pagado: 202 con recoveryRequired cuando la operación queda incierta; nunca inferir SUCCEEDED.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL, persistencia externa ni despliegue.'
+        runtimeEvidence: 'La configuración y la evidencia de homologación se documentan por entorno.'
       parameters:
         - $ref: '#/components/parameters/OrderIdempotencyKey'
       requestBody:
@@ -256,6 +257,16 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429':
+          description: Ventas aplicó un límite de llamadas; el cuerpo puede ser un error o una vista de operación pendiente.
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorEnvelope'
+                  - $ref: '#/components/schemas/OperationResult'
         '503': { $ref: '#/components/responses/Unavailable' }
   /api/v1/checkout/operations/{operationId}:
     get:
@@ -271,7 +282,7 @@ paths:
         implementation: 'CheckoutController.getOperation -> CheckoutService.getOperation'
         authentication: 'AuthGuard; operationId se consulta con el customerId del principal.'
         ownership: 'Operación ajena o inexistente devuelve 404 para evitar revelar su existencia.'
-        downstreamCompatibility: 'G6 Sales (MOCK only); G7 Security.'
+        downstreamCompatibility: 'G5 Sales según configuración; G7 Security.'
         errorCodes:
           '400': [INVALID_OPERATION_ID]
           '401': [UNAUTHENTICATED]
@@ -279,7 +290,7 @@ paths:
           '409': [ORDER_NOT_SUBMITTED]
           '503': [SALES_UNAVAILABLE]
         timeoutBehavior: 'Una operación SUBMITTED conserva 202/recoveryRequired mientras no se confirme; fallo al refrescar una operación final devuelve 503.'
-        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+        runtimeEvidence: 'La configuración y la evidencia de homologación se documentan por entorno.'
       parameters:
         - name: operationId
           in: path
@@ -300,11 +311,154 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429':
+          description: Ventas aplicó un límite; la operación no se interpreta como pagada.
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
         '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/orders/me:
+    get:
+      operationId: listMyOrders
+      tags: [Sales]
+      summary: Listar el historial del titular autenticado
+      description: No acepta un identificador de comprador. Si se indican ambas fechas, el rango debe ser válido y no superar un año.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+        - { name: state, in: query, schema: { type: string, enum: [CREADO, PAGADO, EN_PREPARACION, DESPACHADO, ENTREGADO, ANULADO] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Página de pedidos propios
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Orders-Source:
+              schema: { type: string, enum: [REAL, MOCK, UNCONFIGURED] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrdersHistory' }
+        '400':
+          description: Filtros o paginación inválidos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/orders/{orderId}:
+    get:
+      operationId: getMyOrderDetail
+      tags: [Sales]
+      summary: Consultar el detalle del pedido del titular
+      description: Lectura sin efectos. Ventas verifica la identidad del titular y devuelve el estado autoritativo. Respuesta sin envoltorio data.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Resumen del pedido
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/orders/{orderId}/tracking:
+    get:
+      operationId: getMyOrderTracking
+      tags: [Sales]
+      summary: Consultar seguimiento del pedido del titular
+      description: Primero autoriza con Ventas. En modo REAL puede proyectar eventos de envío persistidos sin exponer el inbox.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Seguimiento público del pedido propio
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackingResult' }
+        '202':
+          description: Seguimiento aún no disponible (TRACKING_NOT_READY)
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/webhooks/ventas/envios:
+    post:
+      operationId: receiveSalesShipmentEvent
+      tags: [Sales, Webhook]
+      summary: Recibir un evento de envío autenticado de Ventas
+      description: El receptor reconoce el identificador eventId en formato UUID, no idEvento. Se persiste un solo evento por UUID y se reconoce la repetición sin una segunda fila.
+      security:
+        - salesWebhookToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentEvent' }
+      responses:
+        '200':
+          description: Evento persistido o repetición reconocida
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [accepted, duplicate]
+                    properties:
+                      accepted: { type: boolean, enum: [true] }
+                      duplicate: { type: boolean }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: WEBHOOK_NOT_CONFIGURED o SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    salesWebhookToken:
+      type: apiKey
+      in: header
+      name: x-webhook-token
+      description: Nombre por defecto; el entorno puede configurar un nombre alternativo.
+  headers:
+    NoStore:
+      schema: { type: string, enum: [no-store] }
+    RetryAfter:
+      description: Presente si el BFF recibió y pudo normalizar el valor del proveedor.
+      schema: { type: integer, minimum: 0, maximum: 86400 }
   parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
     PreparationIdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -324,6 +478,18 @@ components:
         format: uuid
         pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
   responses:
+    OrdersForbidden:
+      description: Ventas rechazó el acceso al historial o pedido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    OrdersRateLimited:
+      description: Límite de Ventas (SALES_RATE_LIMITED)
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     InvalidRequest:
       description: >-
         DTO inválido o clave de idempotencia ausente/inválida. El código identifica
@@ -362,6 +528,73 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    OrderSummary:
+      type: object
+      required: [orderId, state, total, createdAt]
+      properties:
+        orderId: { type: string, minLength: 1 }
+        state: { type: string, minLength: 1 }
+        total:
+          type: object
+          required: [amount, currency]
+          properties:
+            amount: { type: number, minimum: 0 }
+            currency: { type: string, pattern: '^[A-Z]{3}$' }
+        createdAt: { type: string, format: date-time }
+    OrdersHistory:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/OrderSummary' }
+        page:
+          type: object
+          required: [number, size, totalElements, totalPages]
+          properties:
+            number: { type: integer, minimum: 0 }
+            size: { type: integer, minimum: 1 }
+            totalElements: { type: integer, minimum: 0 }
+            totalPages: { type: integer, minimum: 0 }
+    TrackingResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [state, milestones]
+          properties:
+            state: { type: string }
+            trackingNumber: { type: string }
+            estimatedDelivery: { type: string, format: date }
+            milestones:
+              type: array
+              items:
+                type: object
+                required: [state, at]
+                properties:
+                  state: { type: string, enum: [DESPACHADO, ENTREGADO] }
+                  at: { type: string, format: date-time }
+    ShipmentEvent:
+      type: object
+      required: [eventId, eventType, version, timestamp, emitter, data]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+        eventType: { type: string, enum: [ShipmentStatusUpdated] }
+        version: { type: string, enum: ['1.0.0'] }
+        timestamp: { type: string, format: date-time }
+        emitter: { type: string, enum: [modulo-ventas] }
+        data:
+          type: object
+          required: [orderId, publicStatus, trackingNumber, estimatedDeliveryDate]
+          properties:
+            orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+            publicStatus: { type: string, minLength: 1, maxLength: 64 }
+            trackingNumber: { type: string, minLength: 1, maxLength: 128 }
+            estimatedDeliveryDate: { type: string, format: date, nullable: true }
     ErrorEnvelope:
       type: object
       required: [error]
@@ -438,6 +671,13 @@ components:
       required: [checkoutOperationId, contact]
       properties:
         checkoutOperationId: { type: string, format: uuid }
+        paymentMethod:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z0-9_-]+$'
+          description: El DTO lo admite como opcional; el flujo G5 normal requiere un método efectivo.
+        deliveryRecipient: { type: string, minLength: 2, maxLength: 120 }
         contact:
           type: object
           additionalProperties: false

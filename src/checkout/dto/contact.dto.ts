@@ -2,9 +2,11 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
+  IsOptional,
   IsObject,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -45,4 +47,17 @@ export class CreateOrderRequestDto {
   @ValidateNested()
   @Type(() => CheckoutContactDto)
   contact!: CheckoutContactDto;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(30)
+  @Matches(/^[A-Z0-9_-]+$/i)
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  deliveryRecipient?: string;
 }

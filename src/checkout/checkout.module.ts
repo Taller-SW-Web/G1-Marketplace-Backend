@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '../security/auth.guard';
 import { MockHttpAdapter } from './external/mock-http.adapter';
 import { MarketplaceGateway } from './external/marketplace.gateway';
+import { G5SalesProvider } from './external/g5-sales.provider';
+import { G7SalesTokenProvider } from './external/g7-sales-token.provider';
 import { CheckoutController } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { QuotesService } from './quotes.service';
@@ -24,6 +26,8 @@ import { G7IntegrationModule } from '../auth/g7-integration.module';
     AuthGuard,
     MockHttpAdapter,
     MarketplaceGateway,
+    G5SalesProvider,
+    G7SalesTokenProvider,
     QuotesService,
     CheckoutService,
   ],
