@@ -1,0 +1,17 @@
+{
+  "repository": "Taller-SW-Web/G6-Productos-Ofertas-docs",
+  "commit": "f785accbc7c290ba10f873c8f12061405bb2c622",
+  "sourcePath": "contratos/http/openapi.yaml",
+  "sourceBlobSha": "e094988f0f0d92a7a4241c1dc30a5e50d9ff709a",
+  "openapiVersion": "0.7.0-rc.3",
+  "snapshot": "products-offers-h5.openapi.json",
+  "snapshotSha256": "060A824A98344ECDC0DA99C3250272E42CC681252A32B6A5E59F950B9AFAFF16",
+  "scope": [
+    "GET /productos",
+    "GET /productos/por-slug/{slug}",
+    "GET /precios/skus/{sku}",
+    "POST /promociones/evaluar",
+    "GET /inventario/disponibilidad/comercial"
+  ],
+  "sourceStatus": "G6 APPROVED_G6; selected external operations still require consumer-side homologation where marked provisional"
+}

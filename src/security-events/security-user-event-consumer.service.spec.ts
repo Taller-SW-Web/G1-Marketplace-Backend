@@ -208,6 +208,7 @@ describe('SecurityUserEventConsumerService', () => {
   ] as const)('persists and acknowledges a %s', async (_name, result) => {
     const { service, inbox } = createHarness();
     const { channel, raw } = makeChannel();
+    const log = jest.spyOn(Logger.prototype, 'log');
     inbox.record.mockResolvedValue(result);
 
     await handle(service, channel, makeMessage());
@@ -220,6 +221,16 @@ describe('SecurityUserEventConsumerService', () => {
     expect(raw.ack).toHaveBeenCalledTimes(1);
     expect(raw.nack).not.toHaveBeenCalled();
     expect(raw.sendToQueue).not.toHaveBeenCalled();
+    const trace = log.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+      .find((entry) => entry.event === 'security_user_event_processed');
+    expect(trace).toMatchObject({
+      event: 'security_user_event_processed', outcome: result,
+      eventType: validEvent.tipo, eventId: validEvent.eventoId,
+      correlationId: 'synthetic-correlation', messageId: 'synthetic-message',
+      routingKey: 'usuario.creado',
+    });
+    expect(JSON.stringify(trace)).not.toContain(validEvent.usuarioId);
   });
 
   it('acknowledges valid event types it does not yet project', async () => {

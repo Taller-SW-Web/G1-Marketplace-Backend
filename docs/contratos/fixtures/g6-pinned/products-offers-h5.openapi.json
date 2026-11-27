@@ -1,0 +1,2438 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API — Productos y Ofertas",
+    "version": "0.7.0-rc.3"
+  },
+  "x-g6-approval-status": "APPROVED_G6",
+  "x-snapshot-scope": "Selected consumer-facing H5 operations only",
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Base relativa del módulo"
+    }
+  ],
+  "paths": {
+    "/productos": {
+      "get": {
+        "tags": [
+          "Productos"
+        ],
+        "operationId": "listarProductos",
+        "summary": "Listar y buscar productos comercialmente activos",
+        "x-status": "stable",
+        "x-source-spec": [
+          "SPEC-003",
+          "SPEC-004"
+        ],
+        "x-consumers": [
+          "Marketplace",
+          "Chatbot",
+          "Retail",
+          "Ventas/Postventa"
+        ],
+        "x-service-audience": "api-productos",
+        "x-required-scope": "catalogo:leer",
+        "x-scope-registration-status": "pending-security-registration",
+        "security": [
+          {
+            "userBearer": []
+          },
+          {
+            "serviceBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoriaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "marcaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tipoProductoIdsIncluidos",
+            "in": "query",
+            "description": "Repetible, máximo 100 identificadores opacos exactos; incluir solo estos tipos. El proveedor filtra antes de contar, ordenar y paginar.",
+            "schema": {
+              "type": "array",
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "tipoProductoIdsExcluidos",
+            "in": "query",
+            "description": "Repetible, máximo 100 identificadores opacos exactos; excluir estos tipos. Se compone con los demás filtros antes de total y paginación.",
+            "schema": {
+              "type": "array",
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "canal",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Canal"
+            },
+            "description": "Contexto comercial. Obligatorio semánticamente para consumidores módulo-a-módulo de canal."
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamanio",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/EstadoProducto"
+            },
+            "description": "Filtro de backoffice/usuario autorizado. Las identidades de canal no pueden usarlo para ampliar visibilidad."
+          },
+          {
+            "name": "precioMin",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Extremo inclusivo en PEN del precio efectivo vigente de Pricing. Se aplica por SKU elegible antes de paginar; negativos, no finitos o precioMin > precioMax producen 400 VALIDACION."
+          },
+          {
+            "name": "precioMax",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Extremo inclusivo en PEN del precio efectivo vigente de Pricing. Se aplica por SKU elegible antes de paginar; negativos, no finitos o precioMin > precioMax producen 400 VALIDACION."
+          },
+          {
+            "name": "orden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrdenCatalogo"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de productos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaProductosComercial"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud inválida",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDACION"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "validacion": {
+                    "summary": "Datos de entrada inválidos",
+                    "value": {
+                      "type": "/errores/validacion",
+                      "title": "Datos de entrada inválidos",
+                      "status": 400,
+                      "code": "VALIDACION",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "TOKEN_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "Token ausente o inválido",
+                    "value": {
+                      "type": "/errores/token-invalido",
+                      "title": "Token ausente o inválido",
+                      "status": 401,
+                      "code": "TOKEN_INVALIDO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No autorizado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SCOPE_INSUFICIENTE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "scope_insuficiente": {
+                    "summary": "Permisos insuficientes",
+                    "value": {
+                      "type": "/errores/scope-insuficiente",
+                      "title": "Permisos insuficientes",
+                      "status": 403,
+                      "code": "SCOPE_INSUFICIENTE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 500
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ERROR_INTERNO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "error_interno": {
+                    "summary": "Error interno",
+                    "value": {
+                      "type": "/errores/error-interno",
+                      "title": "Error interno",
+                      "status": 500,
+                      "code": "ERROR_INTERNO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependencia o servicio no disponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SERVICIO_NO_DISPONIBLE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "servicio_no_disponible": {
+                    "summary": "Servicio temporalmente no disponible",
+                    "value": {
+                      "type": "/errores/servicio-no-disponible",
+                      "title": "Servicio temporalmente no disponible",
+                      "status": 503,
+                      "code": "SERVICIO_NO_DISPONIBLE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Filtros inválidos",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "CATEGORIA_INVALIDA",
+                            "MARCA_INVALIDA"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "categoria_invalida": {
+                    "summary": "Categoría inválida",
+                    "value": {
+                      "type": "/errores/categoria-invalida",
+                      "title": "Categoría inválida",
+                      "status": 422,
+                      "code": "CATEGORIA_INVALIDA",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  },
+                  "marca_invalida": {
+                    "summary": "Marca inválida",
+                    "value": {
+                      "type": "/errores/marca-invalida",
+                      "title": "Marca inválida",
+                      "status": 422,
+                      "code": "MARCA_INVALIDA",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          }
+        },
+        "x-error-codes": {
+          "400": [
+            "VALIDACION"
+          ],
+          "401": [
+            "TOKEN_INVALIDO"
+          ],
+          "403": [
+            "SCOPE_INSUFICIENTE"
+          ],
+          "422": [
+            "CATEGORIA_INVALIDA",
+            "MARCA_INVALIDA"
+          ],
+          "500": [
+            "ERROR_INTERNO"
+          ],
+          "503": [
+            "SERVICIO_NO_DISPONIBLE"
+          ],
+          "429": [
+            "RATE_LIMIT_EXCEDIDO"
+          ]
+        },
+        "x-route-basis": "existing-contract",
+        "x-allowed-client-ids": [
+          "modulo-marketplace",
+          "modulo-chatbot",
+          "modulo-retail"
+        ],
+        "description": "Lectura comercial. Los consumidores de servicio deben informar canal y solo reciben productos ACTIVO y comercialmente elegibles para ese canal. El parámetro estado no habilita a un canal a consultar BORRADOR/INACTIVO. La respuesta usa una proyección comercial sin flags administrativos."
+      }
+    },
+    "/productos/por-slug/{slug}": {
+      "get": {
+        "tags": [
+          "Productos"
+        ],
+        "operationId": "obtenerProductoPorSlug",
+        "summary": "Consultar producto por slug",
+        "x-status": "stable",
+        "x-source-spec": [
+          "SPEC-003"
+        ],
+        "x-route-basis": "derived-from-capability",
+        "security": [
+          {
+            "serviceBearer": []
+          },
+          {
+            "userBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "canal",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Canal"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductoDetalleComercial"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "TOKEN_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SCOPE_INSUFICIENTE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 500
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ERROR_INTERNO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SERVICIO_NO_DISPONIBLE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "PRODUCTO_NO_ENCONTRADO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          }
+        },
+        "description": "Lectura comercial por slug. Requiere producto ACTIVO y elegible para el canal; no expone datos administrativos.",
+        "x-error-codes": {
+          "401": [
+            "TOKEN_INVALIDO"
+          ],
+          "403": [
+            "SCOPE_INSUFICIENTE"
+          ],
+          "500": [
+            "ERROR_INTERNO"
+          ],
+          "503": [
+            "SERVICIO_NO_DISPONIBLE"
+          ],
+          "404": [
+            "PRODUCTO_NO_ENCONTRADO"
+          ],
+          "429": [
+            "RATE_LIMIT_EXCEDIDO"
+          ]
+        },
+        "x-consumers": [
+          "Marketplace",
+          "Chatbot",
+          "Retail"
+        ],
+        "x-service-audience": "api-productos",
+        "x-required-scope": "catalogo:leer",
+        "x-scope-registration-status": "pending-security-registration",
+        "x-allowed-client-ids": [
+          "modulo-marketplace",
+          "modulo-chatbot",
+          "modulo-retail"
+        ]
+      }
+    },
+    "/precios/skus/{sku}": {
+      "get": {
+        "tags": [
+          "Precios"
+        ],
+        "operationId": "obtenerPrecioSku",
+        "summary": "Obtener precio vigente o histórico de un SKU",
+        "x-status": "stable",
+        "x-source-spec": [
+          "SPEC-013"
+        ],
+        "x-consumers": [
+          "Catalog",
+          "Promotions",
+          "Combos"
+        ],
+        "description": "Resuelve el precio vigente o histórico (as-of) de un SKU. El canal es opcional para consumidores generales: sin canal se resuelve el alcance global; con canal, se usa el alcance específico con fallback al global. Promotions y otras llamadas internas de canal deben enviar el mismo canal validado en todas las operaciones.",
+        "x-service-audience": "api-productos",
+        "x-required-scope": "precios:leer",
+        "x-scope-registration-status": "pending-security-registration",
+        "x-allowed-client-ids": [
+          "modulo-marketplace",
+          "modulo-chatbot",
+          "modulo-retail",
+          "modulo-productos"
+        ],
+        "security": [
+          {
+            "userBearer": []
+          },
+          {
+            "serviceBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "canal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Canal"
+            },
+            "description": "Canal opcional. Si se omite, Pricing resuelve el precio global (channel_id efectivo = null). Si se informa, se intenta el alcance específico y, si no existe una vigencia aplicable, se usa el precio global."
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Precio resuelto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Precio"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "SKU o precio no encontrado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "PRECIO_NO_ENCONTRADO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "precio_no_encontrado": {
+                    "summary": "Precio no encontrado",
+                    "value": {
+                      "type": "/errores/precio-no-encontrado",
+                      "title": "Precio no encontrado",
+                      "status": 404,
+                      "code": "PRECIO_NO_ENCONTRADO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud inválida",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDACION"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "validacion": {
+                    "summary": "Datos de entrada inválidos",
+                    "value": {
+                      "type": "/errores/validacion",
+                      "title": "Datos de entrada inválidos",
+                      "status": 400,
+                      "code": "VALIDACION",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "TOKEN_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "Token ausente o inválido",
+                    "value": {
+                      "type": "/errores/token-invalido",
+                      "title": "Token ausente o inválido",
+                      "status": 401,
+                      "code": "TOKEN_INVALIDO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No autorizado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SCOPE_INSUFICIENTE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "scope_insuficiente": {
+                    "summary": "Permisos insuficientes",
+                    "value": {
+                      "type": "/errores/scope-insuficiente",
+                      "title": "Permisos insuficientes",
+                      "status": 403,
+                      "code": "SCOPE_INSUFICIENTE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 500
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ERROR_INTERNO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "error_interno": {
+                    "summary": "Error interno",
+                    "value": {
+                      "type": "/errores/error-interno",
+                      "title": "Error interno",
+                      "status": 500,
+                      "code": "ERROR_INTERNO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependencia o servicio no disponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SERVICIO_NO_DISPONIBLE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "servicio_no_disponible": {
+                    "summary": "Servicio temporalmente no disponible",
+                    "value": {
+                      "type": "/errores/servicio-no-disponible",
+                      "title": "Servicio temporalmente no disponible",
+                      "status": 503,
+                      "code": "SERVICIO_NO_DISPONIBLE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          }
+        },
+        "x-error-codes": {
+          "400": [
+            "VALIDACION"
+          ],
+          "401": [
+            "TOKEN_INVALIDO"
+          ],
+          "403": [
+            "SCOPE_INSUFICIENTE"
+          ],
+          "404": [
+            "PRECIO_NO_ENCONTRADO"
+          ],
+          "500": [
+            "ERROR_INTERNO"
+          ],
+          "503": [
+            "SERVICIO_NO_DISPONIBLE"
+          ],
+          "429": [
+            "RATE_LIMIT_EXCEDIDO"
+          ]
+        },
+        "x-route-basis": "existing-contract"
+      }
+    },
+    "/promociones/evaluar": {
+      "post": {
+        "tags": [
+          "Promociones"
+        ],
+        "operationId": "evaluarPromociones",
+        "summary": "Evaluar beneficios aplicables a una cesta",
+        "x-status": "stable",
+        "x-source-spec": [
+          "SPEC-006"
+        ],
+        "x-service-audience": "api-productos",
+        "x-required-scope": "promociones:evaluar",
+        "x-scope-registration-status": "pending-security-registration",
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluacionPromocionesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mejor beneficio aplicable o resultado sin beneficio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluacionPromocionesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Contexto de evaluación inválido",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "PROMOCION_INVALIDA",
+                            "ALCANCE_PROMOCION_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "promocion_invalida": {
+                    "summary": "Promoción inválida",
+                    "value": {
+                      "type": "/errores/promocion-invalida",
+                      "title": "Promoción inválida",
+                      "status": 422,
+                      "code": "PROMOCION_INVALIDA",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  },
+                  "alcance_promocion_invalido": {
+                    "summary": "Alcance de promoción inválido",
+                    "value": {
+                      "type": "/errores/alcance-promocion-invalido",
+                      "title": "Alcance de promoción inválido",
+                      "status": 422,
+                      "code": "ALCANCE_PROMOCION_INVALIDO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud inválida",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDACION"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "validacion": {
+                    "summary": "Datos de entrada inválidos",
+                    "value": {
+                      "type": "/errores/validacion",
+                      "title": "Datos de entrada inválidos",
+                      "status": 400,
+                      "code": "VALIDACION",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "TOKEN_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "Token ausente o inválido",
+                    "value": {
+                      "type": "/errores/token-invalido",
+                      "title": "Token ausente o inválido",
+                      "status": 401,
+                      "code": "TOKEN_INVALIDO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No autorizado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SCOPE_INSUFICIENTE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "scope_insuficiente": {
+                    "summary": "Permisos insuficientes",
+                    "value": {
+                      "type": "/errores/scope-insuficiente",
+                      "title": "Permisos insuficientes",
+                      "status": 403,
+                      "code": "SCOPE_INSUFICIENTE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 500
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ERROR_INTERNO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "error_interno": {
+                    "summary": "Error interno",
+                    "value": {
+                      "type": "/errores/error-interno",
+                      "title": "Error interno",
+                      "status": 500,
+                      "code": "ERROR_INTERNO",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependencia o servicio no disponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SERVICIO_NO_DISPONIBLE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "servicio_no_disponible": {
+                    "summary": "Servicio temporalmente no disponible",
+                    "value": {
+                      "type": "/errores/servicio-no-disponible",
+                      "title": "Servicio temporalmente no disponible",
+                      "status": 503,
+                      "code": "SERVICIO_NO_DISPONIBLE",
+                      "correlationId": "0c0d092e-6192-47c1-8d18-5ed0e2aa4518"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          }
+        },
+        "x-error-codes": {
+          "400": [
+            "VALIDACION"
+          ],
+          "401": [
+            "TOKEN_INVALIDO"
+          ],
+          "403": [
+            "SCOPE_INSUFICIENTE"
+          ],
+          "422": [
+            "PROMOCION_INVALIDA",
+            "ALCANCE_PROMOCION_INVALIDO"
+          ],
+          "500": [
+            "ERROR_INTERNO"
+          ],
+          "503": [
+            "SERVICIO_NO_DISPONIBLE"
+          ],
+          "429": [
+            "RATE_LIMIT_EXCEDIDO"
+          ]
+        },
+        "x-route-basis": "existing-contract",
+        "x-allowed-client-ids": [
+          "modulo-marketplace",
+          "modulo-chatbot",
+          "modulo-retail"
+        ]
+      }
+    },
+    "/inventario/disponibilidad/comercial": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "operationId": "consultarDisponibilidadComercial",
+        "summary": "Consultar disponibilidad comercial de uno o varios SKU",
+        "description": "Proyección informativa sin cantidades ni ubicaciones internas. No reserva ni garantiza stock. D-INV-01 prohíbe agregar saldos entre puntos de cumplimiento independientes; si no existe una ruta de abastecimiento única y ejecutable, el estado es INDETERMINADO. La autorización interna aprobada por Marco el 2026-11-13 permite proponer a modulo-productos en este GET para los canales MARKETPLACE, CHATBOT y RETAIL, con identidad G6 compartida que no distingue criptográficamente promotions-svc de otros bounded contexts G6. Inventory restringe por operación, cliente, scope inventario:disponibilidad:leer y enum de canal; los clientes externos conservan la correspondencia modulo-marketplace -> MARKETPLACE, modulo-chatbot -> CHATBOT y modulo-retail -> RETAIL. La red privada y la configuración de despliegue aíslan adicionalmente el origen. Esta precisión no concede a Combos nuevas capacidades ni altera DEC-G6-INT-11, y no acredita grant G7 ni homologación externa. Para verificar cantidades usar POST /inventario/disponibilidad/comercial/verificar, cuya allowlist no incluye modulo-productos.",
+        "x-status": "provisional",
+        "x-source-spec": [
+          "SPEC-015"
+        ],
+        "x-route-basis": "derived-from-capability",
+        "x-consumers": [
+          "Marketplace",
+          "Chatbot",
+          "Retail",
+          "Promotions",
+          "Combos"
+        ],
+        "x-service-audience": "api-productos",
+        "x-required-scope": "inventario:disponibilidad:leer",
+        "x-scope-registration-status": "pending-security-registration",
+        "x-allowed-client-ids": [
+          "modulo-marketplace",
+          "modulo-chatbot",
+          "modulo-retail",
+          "modulo-productos"
+        ],
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skus",
+            "in": "query",
+            "required": true,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 100
+            },
+            "description": "Lista separada por comas."
+          },
+          {
+            "name": "canal",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CanalComercial"
+            },
+            "description": "Canal comercial consultado. Los clientes externos deben corresponder al canal (modulo-marketplace -> MARKETPLACE, modulo-chatbot -> CHATBOT, modulo-retail -> RETAIL). La autorización interna aprobada por Marco el 2026-11-13 propone que modulo-productos use cualquiera de los tres canales solo en este GET; la identidad G6 es compartida y el JWT no identifica individualmente al bounded context. No concede otros endpoints/scopes ni acredita grant G7 u homologación externa."
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disponibilidad comercial",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultaDisponibilidadComercialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud inválida",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDACION"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "TOKEN_INVALIDO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No autorizado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SCOPE_INSUFICIENTE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 500
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ERROR_INTERNO"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Servicio no disponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer",
+                          "const": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "SERVICIO_NO_DISPONIBLE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "code"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          }
+        },
+        "x-error-codes": {
+          "400": [
+            "VALIDACION"
+          ],
+          "401": [
+            "TOKEN_INVALIDO"
+          ],
+          "403": [
+            "SCOPE_INSUFICIENTE"
+          ],
+          "500": [
+            "ERROR_INTERNO"
+          ],
+          "503": [
+            "SERVICIO_NO_DISPONIBLE"
+          ],
+          "429": [
+            "RATE_LIMIT_EXCEDIDO"
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Audiencia api-productos; validar firma, issuer, expiración, tipo, client_id, scope y allowlist por operación. Autorización propuesta; grants G7 pendientes."
+      },
+      "userBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT humano emitido por Seguridad y Usuarios. La validación ordinaria se realiza localmente con JWKS; las operaciones comerciales comprueban `GESTOR_COMERCIAL` en `roles` cuando corresponda. Las mutaciones de precio marcadas con `x-auth-validation=introspection` requieren además introspección previa."
+      }
+    },
+    "parameters": {
+      "CorrelationId": {
+        "name": "X-Correlation-Id",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Identificador de correlación extremo a extremo."
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "title",
+          "status",
+          "code"
+        ],
+        "description": "Problema HTTP uniforme basado en RFC 7807. La lógica cliente debe usar code; title y detail son texto humano.",
+        "x-error-catalog": "api/catalogo-errores.md"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Código estable de aplicación. El catálogo humano es api/catalogo-errores.md. Cada endpoint restringe este enum global al subconjunto aplicable.",
+        "enum": [
+          "VALIDACION",
+          "TOKEN_INVALIDO",
+          "SCOPE_INSUFICIENTE",
+          "VERSION_CONFLICT",
+          "IDEMPOTENCY_CONFLICT",
+          "ERROR_INTERNO",
+          "SERVICIO_NO_DISPONIBLE",
+          "OPERACION_MAESTRA_NO_ENCONTRADA",
+          "AUDITORIA_PRECIO_NO_ENCONTRADA",
+          "LIMITE_EXPORTACION_AUDITORIA_EXCEDIDO",
+          "PRODUCTO_NO_ENCONTRADO",
+          "SKU_DUPLICADO",
+          "CATEGORIA_INVALIDA",
+          "TIPO_PRODUCTO_INVALIDO",
+          "TIPO_PRODUCTO_NO_ENCONTRADO",
+          "MARCA_INVALIDA",
+          "DATOS_INCOMPLETOS",
+          "CAMBIO_ESTRUCTURAL_NO_PERMITIDO",
+          "PERFIL_FISICO_INVALIDO",
+          "DATOS_FISICOS_INCOMPLETOS",
+          "VARIANTE_NO_ENCONTRADA",
+          "PRODUCTO_NO_ADMITE_VARIANTES",
+          "COMBINACION_DUPLICADA",
+          "SKU_INVALIDO",
+          "ATRIBUTO_IDENTIFICADOR_INVALIDO",
+          "IMAGEN_INVALIDA",
+          "SKU_NO_ENCONTRADO",
+          "UBICACION_NO_ENCONTRADA",
+          "CANTIDAD_INVALIDA",
+          "SKU_INACTIVO",
+          "STOCK_INSUFICIENTE",
+          "RESERVA_NO_ENCONTRADA",
+          "OPERACION_INVENTARIO_NO_ENCONTRADA",
+          "CONTEXTO_ABASTECIMIENTO_INVALIDO",
+          "RESERVA_NO_ACTIVA",
+          "RESERVA_EXPIRADA",
+          "PRECIO_NO_ENCONTRADO",
+          "PRECIO_INVALIDO",
+          "OFERTA_INVALIDA",
+          "MOTIVO_CAMBIO_REQUERIDO",
+          "VIGENCIA_SUPERPUESTA",
+          "ACCION_OFERTA_INVALIDA",
+          "SCOPE_PRECIO_INVALIDO",
+          "PROMOCION_NO_ENCONTRADA",
+          "PROMOCION_INVALIDA",
+          "PROMOCION_INACTIVA",
+          "ALCANCE_PROMOCION_INVALIDO",
+          "CUSTOMER_REF_REQUERIDO",
+          "LIMITE_CUPON_INVALIDO",
+          "CUPON_DUPLICADO",
+          "COMBO_NO_ENCONTRADO",
+          "COMBO_ANIDADO_NO_PERMITIDO",
+          "COMBO_COMPONENTES_INSUFICIENTES",
+          "COMBO_COMPONENTE_DUPLICADO",
+          "COMBO_PRECIO_INVALIDO",
+          "REGLA_RECOMENDACION_NO_ENCONTRADA",
+          "REGLA_RECOMENDACION_INVALIDA",
+          "PRODUCTO_RECOMENDADO_INVALIDO",
+          "CATEGORIA_NO_ENCONTRADA",
+          "CATEGORIA_DUPLICADA",
+          "PROFUNDIDAD_CATEGORIA_EXCEDIDA",
+          "CICLO_CATEGORIA",
+          "CATEGORIA_PADRE_INACTIVA",
+          "CATEGORIA_CON_SUBCATEGORIAS_ACTIVAS",
+          "ENTIDAD_MAESTRA_CON_PRODUCTOS_ACTIVOS",
+          "BAJA_MAESTRA_EN_PROCESO",
+          "MARCA_NO_ENCONTRADA",
+          "MARCA_DUPLICADA",
+          "LOGO_INVALIDO",
+          "LOGO_EXCEDE_LIMITE",
+          "CARACTERISTICA_NO_ENCONTRADA",
+          "TIPO_CARACTERISTICA_INMUTABLE",
+          "VALOR_LISTA_LIMITE_EXCEDIDO",
+          "TEXTO_ATRIBUTO_EXCEDE_LIMITE",
+          "VALOR_NUMERICO_INVALIDO",
+          "VALOR_LISTA_EN_USO",
+          "ASOCIACION_NO_ENCONTRADA",
+          "ASOCIACION_DUPLICADA",
+          "LIMITE_CARACTERISTICAS_EXCEDIDO",
+          "ASOCIACION_EN_USO",
+          "SLUG_NO_ENCONTRADO",
+          "SLUG_DUPLICADO",
+          "METADATOS_SEO_INVALIDOS",
+          "ARCHIVO_INVALIDO",
+          "ARCHIVO_EXCEDE_LIMITE",
+          "PLANTILLA_INCOMPATIBLE",
+          "CONTENIDO_ACTIVO_NO_PERMITIDO",
+          "LOTE_NO_ENCONTRADO",
+          "CUPON_NO_ENCONTRADO",
+          "INCIDENCIA_NO_ENCONTRADA",
+          "INCIDENCIA_NO_ACTIVA",
+          "RESOLUCION_INCIDENCIA_INVALIDA",
+          "REINTEGRO_NO_APLICABLE",
+          "TRASLADO_NO_ENCONTRADO",
+          "TRASLADO_NO_RECIBIBLE",
+          "CANTIDAD_RECIBIDA_EXCEDE_TRASLADO",
+          "DISPOSICION_RECEPCION_INVALIDA",
+          "CODIGO_BARRAS_NO_ENCONTRADO",
+          "RATE_LIMIT_EXCEDIDO",
+          "PREPARACION_NO_REINTENTABLE"
+        ]
+      },
+      "ConsultaDisponibilidadComercialResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisponibilidadComercial"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "DisponibilidadComercial": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "STOCK_BAJO",
+              "AGOTADO",
+              "INDETERMINADO"
+            ],
+            "description": "INDETERMINADO significa que no hay abastecimiento único verificable; nunca equivale a AGOTADO."
+          }
+        },
+        "required": [
+          "sku",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "CanalComercial": {
+        "type": "string",
+        "enum": [
+          "MARKETPLACE",
+          "CHATBOT",
+          "RETAIL"
+        ],
+        "description": "Canales autorizados para consultar proyecciones comerciales de inventario. Para clientes externos, el canal solicitado debe corresponder al client_id autenticado: modulo-marketplace -> MARKETPLACE, modulo-chatbot -> CHATBOT, modulo-retail -> RETAIL. El consumidor funcional previsto para la autorización interna del GET es Promotions, mediante la identidad compartida G6 modulo-productos. El JWT no identifica individualmente al bounded context; la política de Inventory restringe operación, cliente, scope y canal. Red privada y configuración de despliegue aíslan adicionalmente el origen. Combos conserva las reglas DEC-G6-INT-11; esta adenda no le concede capacidades. El POST verificador conserva exclusivamente los clientes comerciales indicados en su operación. Reglas deterministas de error: - 400 + VALIDACION: el valor de canal o channel_id no pertenece al enum MARKETPLACE, CHATBOT, RETAIL, o existe un error de formato de la solicitud. - 403 + SCOPE_INSUFICIENTE: el canal solicitado es válido, pero no corresponde al client_id autenticado, o la identidad carece de autorización para la operación."
+      },
+      "EvaluacionPromocionesResponse": {
+        "type": "object",
+        "properties": {
+          "promotion_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "original_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discount_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "result_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "default": "PEN"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "original_amount",
+          "discount_amount",
+          "result_amount",
+          "currency"
+        ]
+      },
+      "EvaluacionPromocionesRequest": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "$ref": "#/components/schemas/Canal"
+          },
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineaCompra"
+            },
+            "minItems": 1
+          },
+          "coupon_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customer_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "description": "Referencia opaca del cliente: claim sub del token de acceso emitido por Seguridad."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Security user sub. Opcional cuando el beneficio no tiene límite por cliente; si el cupón exige max_usos_por_cliente y falta, la evaluación devuelve CUSTOMER_REF_REQUERIDO. Nunca usar aquí el sub de un token de servicio."
+          }
+        },
+        "required": [
+          "channel_id",
+          "lines"
+        ]
+      },
+      "LineaCompra": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sku": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "sku",
+          "quantity"
+        ]
+      },
+      "Canal": {
+        "type": "string",
+        "description": "Identificador comercial canónico de Pricing. El alcance global se expresa omitiendo canal y persiste como channel_id null; no es client_id de Seguridad.",
+        "enum": [
+          "MARKETPLACE",
+          "CHATBOT",
+          "RETAIL",
+          "VENTAS"
+        ]
+      },
+      "Precio": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "precio_regular": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "precio_oferta": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "default": "PEN"
+          },
+          "channel_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Canal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canal efectivo de la vigencia resuelta. Es null cuando el precio efectivo corresponde al alcance global."
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "price_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "vigencia_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Identificador de la vigencia temporal que respalda el precio resuelto, incluidas las consultas históricas as-of."
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "PRODUCTO",
+              "SKU_OVERRIDE"
+            ],
+            "description": "Origen efectivo del precio: PRODUCTO cuando el SKU usa o hereda el precio base del producto; SKU_OVERRIDE cuando existe un precio específico del SKU."
+          }
+        },
+        "required": [
+          "sku",
+          "precio_regular",
+          "currency",
+          "channel_id",
+          "valid_from",
+          "price_version",
+          "vigencia_id",
+          "origen"
+        ]
+      },
+      "ProductoDetalleComercial": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProductoResumenComercial"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "marca": {
+                "$ref": "#/components/schemas/MarcaComercial"
+              },
+              "variants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/VarianteComercial"
+                }
+              }
+            },
+            "required": [
+              "marca",
+              "variants"
+            ]
+          }
+        ]
+      },
+      "VarianteComercial": {
+        "type": "object",
+        "properties": {
+          "variant_id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "identifying_attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Atributo"
+            }
+          },
+          "non_identifying_attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Atributo"
+            }
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "required": [
+          "variant_id",
+          "sku"
+        ]
+      },
+      "Atributo": {
+        "type": "object",
+        "properties": {
+          "caracteristica_id": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "valor_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valor": {}
+        },
+        "required": [
+          "caracteristica_id",
+          "nombre",
+          "valor"
+        ]
+      },
+      "MarcaComercial": {
+        "type": "object",
+        "properties": {
+          "marca_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "country_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "marca_id",
+          "name"
+        ]
+      },
+      "ProductoResumenComercial": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categoria_id": {
+            "type": "string"
+          },
+          "tipo_producto_id": {
+            "type": "string"
+          },
+          "marca_id": {
+            "type": "string"
+          },
+          "tiene_variantes": {
+            "type": "boolean"
+          },
+          "sku_base": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Atributo"
+            }
+          }
+        },
+        "required": [
+          "product_id",
+          "slug",
+          "name",
+          "categoria_id",
+          "tipo_producto_id",
+          "marca_id",
+          "tiene_variantes"
+        ]
+      },
+      "PaginaProductosComercial": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductoResumenComercial"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tamanio": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "pagina",
+          "tamanio",
+          "total"
+        ]
+      },
+      "OrdenCatalogo": {
+        "type": "string",
+        "enum": [
+          "NOMBRE_ASC",
+          "NOMBRE_DESC"
+        ],
+        "description": "Ordenamiento contractual seguro a nivel de producto. El orden por precio permanece fuera mientras no exista una regla product-level."
+      },
+      "EstadoProducto": {
+        "type": "string",
+        "enum": [
+          "BORRADOR",
+          "ACTIVO",
+          "INACTIVO"
+        ]
+      }
+    },
+    "headers": {
+      "RetryAfter": {
+        "description": "Tiempo sugerido antes de reintentar. Puede expresarse según la semántica HTTP de Retry-After.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "RateLimitExceeded": {
+        "description": "Límite temporal de solicitudes excedido",
+        "headers": {
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "const": 429
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "RATE_LIMIT_EXCEDIDO"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "code"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

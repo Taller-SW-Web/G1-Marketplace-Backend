@@ -96,6 +96,13 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     }
   }
 
+  private correlationId(message: ConsumeMessage): string | null {
+    const value = message.properties.correlationId;
+    return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/u.test(value)
+      ? value
+      : null;
+  }
+
   private async connectAndConsume(isReconnect: boolean): Promise<void> {
     if (this.shuttingDown || this.connecting) return;
     this.connecting = true;
@@ -179,12 +186,21 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       parsed = parseSecurityUserEvent(message.content, routingKey);
     } catch (error) {
       const reason = error instanceof SecurityUserEventValidationError ? error.reasonCode : 'invalid_event';
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_rejected', reason,
+        correlationId: this.correlationId(message),
+        routingKey,
+      }));
       await this.moveToDlqOrRedeliver(channel, message, reason);
       return;
     }
     if (parsed.kind === 'unknown') {
       channel.ack(message);
-      this.logger.warn(`Ignored unknown security event type: ${parsed.eventType}`);
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_ignored', eventType: parsed.eventType,
+        correlationId: this.correlationId(message),
+        routingKey,
+      }));
       return;
     }
 
@@ -203,8 +219,12 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     }
 
     channel.ack(message);
-    if (result === 'recorded') this.logger.log(`Recorded security event type ${parsed.event.eventType}`);
-    else this.logger.debug(`Acknowledged duplicate security event type ${parsed.event.eventType}`);
+    const trace = {
+      event: 'security_user_event_processed', outcome: result,
+      eventType: parsed.event.eventType, eventId: parsed.event.eventId,
+      correlationId: this.correlationId(message), routingKey,
+    };
+    this.logger.log(JSON.stringify(trace));
   }
 
   private async assertRetryQueues(channel: ConfirmChannel): Promise<void> {
@@ -242,7 +262,11 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
       const delay = calculateSecurityUserEventBackoff(nextRetry, this.retrySettings);
       await this.publishToRetryQueue(channel, message, queue, nextRetry, reason);
       channel.ack(message);
-      this.logger.warn(`Scheduled security event retry ${nextRetry} after ${delay}ms`);
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_retry_scheduled', retryCount: nextRetry,
+        delayMs: delay, queue, reason,
+        correlationId: this.correlationId(message),
+      }));
     } catch (error) {
       if (error instanceof SecurityUserEventRetryMetadataError) {
         await this.moveToDlqOrRedeliver(channel, message, error.message);
@@ -257,7 +281,11 @@ export class SecurityUserEventConsumerService implements OnModuleInit, OnModuleD
     try {
       // The source queue's configured DLX routes rejected messages to seguridad.usuarios.dlq.
       channel.nack(message, false, false);
-      this.logger.warn(`Rejected security event for dead-letter routing (${reason})`);
+      this.logger.warn(JSON.stringify({
+        event: 'security_user_event_dead_lettered', reason,
+        correlationId: this.correlationId(message),
+        routingKey: message.fields.routingKey,
+      }));
     } catch {
       this.logger.error('Could not reject security event; forcing broker redelivery');
       await this.forceRedelivery(channel);
