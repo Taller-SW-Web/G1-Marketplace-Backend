@@ -164,13 +164,35 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
       .expect(200, { data: { accepted: true, duplicate: false } });
   });
 
-  it('applies the inbox migration and returns 200 for a repeated eventId with one durable row', async () => {
-    const shipmentEvent = createEvent(eventIds[0]);
+  describe('H-05 ShipmentStatusUpdated v1.0.0 contract (BE #296)', () => {
+    it('accepts and persists DESPACHADO for an orderId in PED-AAAA-NNNNN format', async () => {
+      const event = createEvent(eventIds[0], { publicStatus: 'DESPACHADO' });
 
-    await postEvent(shipmentEvent).expect(200, { data: { accepted: true, duplicate: false } });
-    await postEvent(shipmentEvent).expect(200, { data: { accepted: true, duplicate: true } });
+      await postEvent(event).expect(200, { data: { accepted: true, duplicate: false } });
 
-    expect(await prisma.shipmentEventInbox.count({ where: { eventId: eventIds[0] } })).toBe(1);
+      const stored = await prisma.shipmentEventInbox.findUnique({ where: { eventId: event.eventId } });
+      expect(stored).toMatchObject({ orderId: 'PED-2026-00001', payload: event });
+    });
+
+    it.each([
+      { label: 'an empty publicStatus', overrides: { publicStatus: '' } },
+      { label: 'an orderId with fewer than five sequence digits', overrides: { orderId: 'PED-2026-42' } },
+    ])('rejects $label without writing to the inbox', async ({ overrides }) => {
+      const event = createEvent(eventIds[0], { publicStatus: 'DESPACHADO', ...overrides });
+
+      await postEvent(event).expect(400, { error: { code: 'INVALID_SHIPMENT_EVENT' } });
+
+      expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(0);
+    });
+
+    it('acknowledges a repeated DESPACHADO eventId with duplicate true and one durable row', async () => {
+      const event = createEvent(eventIds[0], { publicStatus: 'DESPACHADO' });
+
+      await postEvent(event).expect(200, { data: { accepted: true, duplicate: false } });
+      await postEvent(event).expect(200, { data: { accepted: true, duplicate: true } });
+
+      expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(1);
+    });
   });
 
   it('acknowledges and persists a syntactically valid event for an unknown order', async () => {
