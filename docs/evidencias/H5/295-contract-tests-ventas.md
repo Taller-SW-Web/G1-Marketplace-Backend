@@ -11,7 +11,7 @@ Esta evidencia corresponde a **Ventas**, no a BE #293 (Productos y Ofertas). Se 
 | Contract tests | Snapshots OpenAPI offline: 6/6 aprobados |
 | Provider tests | Servidor local, datos y token sintéticos; no realizan llamadas a Ventas REAL |
 
-## Ampliación offline sobre `develop` (`23638be`)
+## Ampliación offline sobre `develop` (base `f487f97`)
 
 Se conservan los snapshots de #344 sin cambios. #401 (`be6ac8b`) documenta los contratos del BFF; #402 (`ea29475`) cubre la regresión PostgreSQL de checkout, y #409 (`769e3b7`) ajusta timestamps de eventos G7. No se modifican esos contratos, la persistencia ni los adaptadores de producción.
 
@@ -23,9 +23,9 @@ Se conservan los snapshots de #344 sin cambios. #401 (`be6ac8b`) documenta los c
 
 ### Validación local
 
-- `npm run test:g5:sales-adapter:offline`: 13 aprobados; `npm run test:pinned-spec:offline`: 7 aprobados.
+- `npm run test:g5:sales-adapter:offline`: 13 aprobados; `npm run test:pinned-spec:offline`: 12 aprobados en la base actual (7 de G5 y 5 de G6 incorporados desde `develop`).
 - `npm run test:e2e -- --runTestsByPath test/csat.e2e-spec.ts test/orders.e2e-spec.ts test/openapi-contract.e2e-spec.ts`: 3 suites, **53 aprobados, 0 omitidos** tras corregir el mapeo M2. La suite CSAT aislada: 25/25.
-- `npm run test:unit`: 67 suites, 788 tests aprobados. `npm run build` (motores de Prisma locales), `npm run typecheck` y `npm run docs:validate`: aprobados (5 contratos válidos).
+- `npm run test:unit`: 68 suites, **793 tests aprobados**. `npm run build`, `npm run typecheck` y `npm run docs:validate`: aprobados (5 contratos válidos). El build sólo generó el cliente Prisma local; no conectó a una base compartida.
 
 ### Pendientes REAL
 
