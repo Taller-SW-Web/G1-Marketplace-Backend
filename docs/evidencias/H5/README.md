@@ -1,6 +1,6 @@
 # H5 — índice de evidencia
 
-Paquete de exposición organizado por los cinco puntos prioritarios. Cada documento distingue evidencia **REAL**, **MOCK/LOCAL** y **LAB LOCAL**; esas etiquetas conservan el alcance de la corrida fuente.
+Paquete de exposición organizado por los cinco puntos prioritarios. Distinguir evidencia **REAL**, **LAB LOCAL**, **MOCK/OFFLINE** y casos **NOT_RUN**; las etiquetas conservan el alcance de la corrida fuente.
 
 ## Entregables prioritarios
 
@@ -14,6 +14,8 @@ Paquete de exposición organizado por los cinco puntos prioritarios. Cada docume
 
 ## Entregables relacionados
 
+- [BE #314, #315 y #394 — matriz asíncrona](asincrono/README.md): entrega automática G7 y recuperación manual REAL, con resiliencia del broker compartido y prueba correlacionada de Ventas pendientes.
+- [BE #394 — matriz APIM por política](apim/README.md): smoke histórico, nueva corrida NOT_RUN y conflicto de caché con el subset #308.
 - [BE #392 — informe go/no-go](392-go-no-go.md) y [selección de 15 casos trazables](392-casos-15.md). La recomendación requiere validación del PO.
 - [BE #291, BE #292 y FE #137 — matriz y cobertura](291-292-137-cobertura.md).
 - [BE #295 — contract tests de Ventas](295-contract-tests-ventas.md); este contrato no sustituye los de G6 requeridos por #293.

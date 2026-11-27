@@ -4,6 +4,7 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 - **BE #307 (`TASK-H5-APIM-001`):** Crear suscripción e instancia en plan Consumption y dar acceso IAM.
 - **BE #309 (`TASK-H5-APIM-003`):** Políticas `validate-jwt` (G7), Rate Limiting (429) y CORS.
 - **BE #311 (`TASK-H5-APIM-006`):** Políticas como código y despliegue por pipeline.
+- **BE #394:** [Matriz de aceptación por política y ventana QA](../docs/evidencias/H5/apim/README.md). La nueva corrida sigue **NOT_RUN**.
 
 ---
 
@@ -46,6 +47,8 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 
 ## 3. Importar el API del Backend (OpenAPI)
 
+Para #308, usar como referencia solamente el [subset contratado de PR #348](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/348). Las instrucciones genéricas que siguen no autorizan importar otra superficie del BFF. `/v1/health`, `/v1/docs` y `/v1/docs/specs` están excluidas del subset; no publicarlas ni probarlas para #394.
+
 1. En el menú lateral de APIM, ir a **APIs**.
 2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI**.
 3. Seleccionar **Full** y configurar:
@@ -69,24 +72,4 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 
 ## 5. Pruebas de Validación y Evidencias
 
-*(En plan Consumption, `<rate-limit>` cuenta por clave de suscripción: obtener la `Primary key` en el menú izquierdo **Subscriptions** $\rightarrow$ `Built-in all-access subscription`).*
-
-### A. Prueba de Rate Limiting (Issue #309)
-Ejecutar una ráfaga de más de 60 peticiones en menos de un minuto:
-```powershell
-$KEY = "<TU_PRIMARY_KEY>"
-1..65 | ForEach-Object { curl.exe -s -o NUL -H "Ocp-Apim-Subscription-Key: $KEY" -w "Req $_ -> HTTP %{http_code}`n" "https://apim-g1-marketplace-20.azure-api.net/v1/health" }
-```
-* **Resultado esperado:** Las primeras 60 responden `200`, a partir de la 61 responde **`429 Too Many Requests`**.
-
-### B. Prueba de Validación JWT contra G7 (Issue #309)
-Hacer una petición a un endpoint protegido sin token o con token alterado:
-```powershell
-curl.exe -i -H "Ocp-Apim-Subscription-Key: $KEY" "https://apim-g1-marketplace-20.azure-api.net/v1/cart"
-```
-* **Resultado esperado:** Código **`401 Unauthorized`** con el mensaje:
-  `Acceso no autorizado: Token JWT invalido, expirado o ausente`.
-
-> 📷 **Capturas para Issue #309:**
-> 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
-> 2. Terminal mostrando la respuesta `HTTP 429` al superar la cuota.
+La [matriz de #394](../docs/evidencias/H5/apim/README.md) distingue el smoke **REAL histórico** de los casos pendientes: JWT (`401`), rate limit (`429` con `Retry-After`), caché (`MISS/HIT`) y correlación APIM → BFF. Antes de emitir tráfico, confirmar ventana autorizada, suscripción QA por canal privado, revisión activa y acceso a los logs del BFF. Limitarse a las operaciones contratadas y aprobadas; no ejecutar una ráfaga contra `/v1/health`. Sin ruta cacheable aprobada dentro del subset, `MISS/HIT` queda **NOT_RUN**. La policy en Git no acredita su revisión activa; el export de solo lectura sigue pendiente. No guardar detalles de suscripciones ni credenciales en la evidencia.
