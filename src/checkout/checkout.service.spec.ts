@@ -758,6 +758,38 @@ describe('CheckoutService', () => {
     }
   });
 
+  it('lets the same operation and key be recovered after the budget expired before any POST, creating the order once', async () => {
+    const operation = baseOperation();
+    prisma.checkoutOperation.findFirst.mockImplementation(async ({ where }) => (where.id ? operation : null));
+    prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+      if (!where.id) return { count: 0 };
+      Object.assign(operation, data);
+      return { count: 1 };
+    });
+    prisma.checkoutOperation.update.mockImplementation(async ({ data }) => { Object.assign(operation, data); return operation; });
+    const order = { pedidoId: 'PED-2026-00007', estado: 'CREADO' as const, total: { amount: 355, currency: 'PEN' as const }, createdAt: new Date().toISOString() };
+    gateway.createOrder
+      .mockRejectedValueOnce(new ProviderError(504, 'SALES_TIMEOUT'))
+      .mockResolvedValueOnce(order);
+    gateway.getOrder.mockResolvedValue(order);
+    const key = '66666666-6666-4666-8666-666666666666';
+    const input = {
+      checkoutOperationId: operationId,
+      contact: { fullName: 'Ana Perez', documentType: 'DNI' as const, documentNumber: '12345678', phone: '999999999', email: 'ana@example.test' },
+    };
+
+    await expect(service.createOrder(customerId, input, key)).rejects.toBeDefined();
+    expect(operation.state).toBe(CheckoutOperationState.SUBMITTED);
+    expect(operation.externalOrderId ?? null).toBeNull();
+
+    const recovered = await service.createOrder(customerId, input, key);
+    expect(recovered.status).toBe(202);
+    expect(operation.externalOrderId).toBe('PED-2026-00007');
+    expect(gateway.createOrder).toHaveBeenCalledTimes(2);
+    expect(gateway.createOrder.mock.calls[0][0].idempotencyKey).toBe(gateway.createOrder.mock.calls[1][0].idempotencyKey);
+    expect(gateway.createOrder.mock.calls[0][0].checkoutOperationId).toBe(gateway.createOrder.mock.calls[1][0].checkoutOperationId);
+  });
+
   it('returns a conflict when the mock Sales idempotency scope rejects a changed payload', async () => {
     const operation = baseOperation();
     prisma.checkoutOperation.findFirst.mockResolvedValue(operation);

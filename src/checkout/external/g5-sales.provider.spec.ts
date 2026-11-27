@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import axios from 'axios';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { of } from 'rxjs';
 import { G5SalesProvider, type G5CreateOrderRequest } from './g5-sales.provider';
 
 const syntheticToken = 'synthetic-test-only-service-token';
@@ -159,6 +160,31 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       await expect(budgetProvider(lateToken as unknown as jest.Mock).createOrder(payload, idempotencyKey, Date.now() + 60))
         .rejects.toMatchObject({ status: 504 });
       expect(lastRequest).toEqual({});
+    });
+
+    it('sends zero POSTs when the budget expires and exactly one creation when the same operation and key are recovered', async () => {
+      const posts: Array<{ idempotencyKey: string }> = [];
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const http = {
+        post: jest.fn((_url: string, _body: unknown, options: { headers: Record<string, string> }) => {
+          posts.push({ idempotencyKey: options.headers['Idempotency-Key'] });
+          return of({ status: 201, data: {
+            pedidoId: 'PED-2026-00006', estado: 'CREADO', total: 215, moneda: 'PEN', canal: 'MARKETPLACE', fechaCreacion: '2026-11-24T10:15:00.000Z',
+          } });
+        }),
+      };
+      const config = { get: (key: string, fallback?: unknown) => ({
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', G5_SALES_TIMEOUT_MS: 30_000,
+      } as Record<string, unknown>)[key] ?? fallback };
+      const client = new G5SalesProvider(http as unknown as HttpService, config as ConfigService, { getAccessToken } as never);
+
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() - 1)).rejects.toMatchObject({ status: 504 });
+      expect(posts).toHaveLength(0);
+
+      const recovered = await client.createOrder(payload, idempotencyKey, Date.now() + 40_000);
+      expect(recovered).toMatchObject({ pedidoId: 'PED-2026-00006', estado: 'CREADO' });
+      expect(posts).toEqual([{ idempotencyKey }]);
     });
 
     it('limits the POST to the remaining budget instead of the configured 30 s', async () => {
