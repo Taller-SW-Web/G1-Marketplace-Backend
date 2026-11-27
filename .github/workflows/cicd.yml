@@ -216,7 +216,7 @@ jobs:
         with:
           node-version: 22
       - id: semrel
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v8
         with:
           semantic_version: 24
           extra_plugins: |
