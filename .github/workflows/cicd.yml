@@ -1,13 +1,13 @@
 name: CI-CD
 
-# Pipeline H4: Build -> Compile -> Test -> Version -> Deploy -> Smoke test.
-# La versión (SemVer) y el CHANGELOG salen de los commits convencionales;
-# nadie edita la versión a mano.
+# Pipeline Unificado H5 (TASK-H5-CICD-001 / Issue #282):
+# lint -> typecheck -> unitarias -> integraciÃ³n (PostgreSQL) -> build -> seguridad
+# -> imagen (Trivy + SBOM) -> release (SemVer) -> deploy staging -> smoke -> aprobaciÃ³n -> producciÃ³n.
 on:
   push:
     branches: [develop]
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
     inputs:
       apim_qa_smoke:
@@ -26,16 +26,15 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
-    name: Build, Compile y Test
+  lint-typecheck-unit:
+    name: 1. Lint, Typecheck y Unitarias
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     env:
       NODE_ENV: test
       USE_MOCKS: 'true'
       AUTH_ISSUER: https://security.example.test
       AUTH_JWKS_URL: https://security.example.test/jwks
-      # Datasource sintético: sólo para validar/generar Prisma, sin base de datos.
       DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/not_connected
     steps:
       - uses: actions/checkout@v4
@@ -43,22 +42,171 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Dependencias
+      - name: Instalar dependencias
         run: npm ci --no-audit --no-fund
-      - name: Validar esquema Prisma
-        run: npm run prisma:validate
-      - name: Build (prisma generate + tsc)
-        run: npm run build
-      - name: Compile (verificación de tipos)
+      - name: Validar y generar esquema Prisma
+        run: npm run prisma:validate && npm run prisma:generate
+      - name: Lint
         run: npm run lint
-      - name: Test (unitarias, e2e, mock-auth, sonda G6)
-        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Pruebas unitarias con Quality Gate de cobertura
+        run: npm run test:cov
       - name: Validar contratos OpenAPI (swagger-cli)
         run: npm run docs:validate
+      - name: Validar gates revisados de CI/CD
+        run: npm run validate:ci-review
+
+  integration-postgres:
+    name: 2. IntegraciÃ³n (PostgreSQL 16)
+    needs: lint-typecheck-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: g1_auth_test
+          POSTGRES_PASSWORD: temporary_h5_ci_only
+          POSTGRES_DB: g1_auth_h4_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U g1_auth_test -d g1_auth_h4_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      NODE_ENV: test
+      USE_MOCKS: 'true'
+      AUTH_ISSUER: https://security.example.test
+      AUTH_JWKS_URL: https://security.example.test/jwks
+      DATABASE_URL: postgresql://g1_auth_test:temporary_h5_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+      AUTH_TEST_DATABASE_URL: postgresql://g1_auth_test:temporary_h5_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+      - name: Generar cliente Prisma y aplicar esquema en PostgreSQL desechable
+        run: npm run prisma:generate && npx prisma db push --skip-generate
+      - name: Ejecutar pruebas de integraciÃ³n y contratos (e2e + mock-auth + sondas)
+        run: npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe && npm run test:g7:kit
+
+  build-and-security:
+    name: Build, Compile y Test
+    needs: integration-postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependencias y compilar Build
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: SAST (Semgrep sobre src/)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
+            semgrep scan /src/src \
+            --config p/typescript \
+            --config p/nodejs \
+            --config p/security-audit \
+            --severity ERROR \
+            --exclude "*.spec.ts" \
+            --sarif --output /src/semgrep.sarif \
+            --error
+      - name: Secret Scan (Gitleaks cÃ³digo e historial)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo \
+            --report-format=sarif \
+            --report-path=/repo/gitleaks.sarif \
+            --redact
+      - name: SCA (npm audit producciÃ³n HIGH/CRITICAL) y Licencias
+        run: npm audit --omit=dev --audit-level=high && node scripts/check-licenses.mjs
+      - name: Archivar reportes de seguridad
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cicd-security-reports
+          path: |
+            semgrep.sarif
+            gitleaks.sarif
+            licenses-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  container-security:
+    name: 4. Imagen Docker, Trivy y SBOM CycloneDX
+    needs: build-and-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Escaneo Trivy de Dockerfile (HIGH/CRITICAL bloquean)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/workspace" aquasec/trivy:latest \
+            config /workspace/Dockerfile \
+            --severity HIGH,CRITICAL \
+            --format sarif \
+            --output /workspace/trivy-dockerfile.sarif \
+            --exit-code 1
+      - uses: docker/setup-buildx-action@v3
+      - name: Construir imagen Docker local para escaneo
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: g1-marketplace-backend:ci-scan
+      - name: Escaneo Trivy de imagen Docker (HIGH/CRITICAL corregibles bloquean)
+        run: |
+          set +e
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workspace" \
+            aquasec/trivy:latest \
+            image g1-marketplace-backend:ci-scan \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output /workspace/trivy-image.sarif \
+            --exit-code 1
+          rc=$?
+          if [ -f trivy-image.sarif ]; then
+            node -e "const s=JSON.parse(require('fs').readFileSync('trivy-image.sarif','utf8')); const res=s.runs?.[0]?.results||[]; console.log('Trivy HIGH/CRITICAL fixable count:', res.length); for (const r of res.slice(0,20)) console.log('-', r.ruleId, r.message?.text?.split('\n')[0]);"
+          fi
+          exit $rc
+      - name: Generar SBOM CycloneDX de la imagen Docker
+        if: always()
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workspace" \
+            aquasec/trivy:latest \
+            image g1-marketplace-backend:ci-scan \
+            --format cyclonedx \
+            --output /workspace/sbom-cyclonedx.json
+      - name: Archivar reportes Trivy y SBOM CycloneDX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-trivy-sbom-reports
+          path: |
+            trivy-dockerfile.sarif
+            trivy-image.sarif
+            sbom-cyclonedx.json
+          if-no-files-found: warn
+          retention-days: 30
 
   release:
-    name: Versionado (SemVer + CHANGELOG)
-    needs: build-test
+    name: 5. Versionado (SemVer + CHANGELOG)
+    needs: container-security
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
@@ -86,60 +234,69 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy:
-    name: Deploy a Render + Smoke test
-    needs: [build-test, release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: pruebas
-    env:
-      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-      HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://g1-marketplace-backend.onrender.com/health' }}
-    steps:
-      - name: Disparar despliegue en Render
-        run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "::error::Falta el secreto RENDER_DEPLOY_HOOK_URL"; exit 1
-          fi
-          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
-          echo "Despliegue solicitado. Versión: ${{ needs.release.outputs.version || 'sin cambios' }}"
-      - name: Smoke test /health (reintentos por arranque en frío)
-        run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 60 "$HEALTH_URL" || true)
-            echo "intento $i -> HTTP $code"
-            if [ "$code" = "200" ]; then cat /tmp/health.json; exit 0; fi
-            sleep 20
-          done
-          echo "::error::/health no respondió 200 en 10 minutos"; exit 1
-
   docker-image:
-    name: Imagen Docker etiquetada con la versión (GHCR)
-    needs: release
+    name: 6. Publicar Imagen GHCR + SBOM en Release
+    needs: [release, container-security]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: v${{ needs.release.outputs.version }}
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: |
+            ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}
+            ghcr.io/taller-sw-web/g1-marketplace-backend:latest
+      - name: Generar SBOM CycloneDX y escanear la imagen local del release
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workspace" aquasec/trivy:latest \
+            image "ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}" \
+            --format cyclonedx \
+            --output "/workspace/sbom-backend-v${{ needs.release.outputs.version }}.cdx.json"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workspace" aquasec/trivy:latest \
+            image "ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}" \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output "/workspace/trivy-image-v${{ needs.release.outputs.version }}.sarif" \
+            --exit-code 1
+      - name: Publicar en GHCR tras pasar Trivy
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}
-            ghcr.io/taller-sw-web/g1-marketplace-backend:latest
+      - name: Publicar etiquetas del release en GHCR
+        run: |
+          docker push "ghcr.io/taller-sw-web/g1-marketplace-backend:${{ needs.release.outputs.version }}"
+          docker push ghcr.io/taller-sw-web/g1-marketplace-backend:latest
+      - name: Adjuntar SBOM CycloneDX y reporte Trivy al GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.release.outputs.version }}" \
+            "sbom-backend-v${{ needs.release.outputs.version }}.cdx.json" \
+            "trivy-image-v${{ needs.release.outputs.version }}.sarif" \
+            --clobber
+
+  # VÃ­a Ãºnica de despliegue (acordada para H5):
+  # - Render autodespliega `main` de forma nativa una vez que los checks de CI pasan en verde
+  #   (sin hooks duplicados ni jobs muertos en `develop`).
+  # - La verificaciÃ³n continua de disponibilidad (/health) corre en `.github/workflows/keep-alive.yml`
+  #   y el smoke de rendimiento / DAST en `.github/workflows/perf-smoke.yml` y `.github/workflows/dast-zap.yml`.
 
   apim-qa-smoke:
     name: APIM QA smoke (manual, read-only)
