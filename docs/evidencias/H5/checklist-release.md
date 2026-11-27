@@ -28,7 +28,7 @@ El candidato final se registra al cerrar el corte a `main` del viernes: SHA de l
 
 - [ ] **Corte `develop` → `main`** con todo lo anterior (incluye BE #409, #403 y #389). Esperar el despliegue y comprobar `/health`, la compra (lectura de `PED-2026-00092`) y el catálogo (inicio y filtros 200).
 - [ ] **Mecanismo del 503 controlado (BE #320).** Apagado por defecto, de un solo uso, solo para un `orderId` sintético, con migración aditiva. Revisión de Jim y despliegue antes de las 10:30.
-- [ ] **Listado del catálogo (BE #213).** G6 responde, pero el BFF rechaza el host de las imágenes (`UNAPPROVED_MEDIA_HOST`): agregar el host a `PRODUCTOS_MEDIA_HOSTS` en Render.
+- [ ] **Listado del catálogo (BE #213).** G6 responde, pero el BFF rechaza el host de las imágenes (`UNAPPROVED_MEDIA_HOST`). Giuliano confirma los dominios exactos y **solo Jim** actualiza `PRODUCTOS_MEDIA_HOSTS` en Render con esos dominios; no se amplía la lista sin esa confirmación. Después se verifica `/catalog/products` con 200.
 - [ ] **Validación del token de catálogo (BE #403).** Comprobar con un token REAL de G7 que el formato de los claims (`scope` y `aud`) coincide con lo que valida el BFF, y tras el corte verificar inicio y filtros con 200. Si el smoke falla, **no se retira la validación**: se diagnostica la causa (formato de claims, secreto, host) y, si hay que volver atrás, se redespliega el SHA anterior.
 - [ ] **`.releaserc.json`** sin los plugins `git`, `changelog` y `npm` (Andrés), para que semantic-release no intente empujar a una rama protegida.
 - [ ] **Rediseño del Frontend** (FE #164 → #166 → #167) con revisión y regresión de login y checkout entre cada paso; si a las 11:00 no están los tres, congelar el último SHA verificado.
@@ -36,7 +36,7 @@ El candidato final se registra al cerrar el corte a `main` del viernes: SHA de l
 
 ## Pendiente antes de las 15:00 (evidencia)
 
-- [ ] **Entrega `DESPACHADO` y `ENTREGADO` REAL** del pedido `PED-2026-00092` (Ventas y Despacho): cierra BE #319, #116, #117 y FE #60. Verificar por lectura del BFF, sin crear otro pedido.
+- [ ] **Entrega `DESPACHADO` y `ENTREGADO` REAL** del pedido `PED-2026-00092` (Ventas y Despacho): aporta la evidencia de **seguimiento** (BE #319 y el estado del pedido) y habilita el CSAT. **No cierra por sí sola** BE #116, #117 ni FE #60: esas issues conservan sus criterios propios (aislamiento y dirección ajena por el BFF, homologación G-ADDRESS, logs del corte, retest de V-010 y revisión independiente). Se verifica por lectura del BFF, sin crear otro pedido.
 - [ ] **CSAT:** `POST` con la cuenta A → 201 y repetición → 409 `CSAT_ALREADY_SUBMITTED` (requiere `ENTREGADO`).
 - [ ] **Aislamiento con la cuenta B:** `GET /orders/me` sin el pedido de A y `GET /orders/PED-2026-00092` → 403.
 - [ ] **Ronda 3 con Seguridad** (propuesta viernes 09:00–09:30): registro nuevo, camino con MFA, JWT inválido o expirado, CSRF de logout y recuperación con enlace vencido.
