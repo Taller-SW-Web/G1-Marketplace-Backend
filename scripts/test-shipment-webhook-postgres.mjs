@@ -49,4 +49,5 @@ run('Ejecutando pruebas HTTP H-05 contra Prisma/PostgreSQL…', 'jest/bin/jest.j
   '--runInBand',
   '--runTestsByPath',
   'test/ventas-shipment-webhook.postgres.e2e-spec.ts',
+  'test/c001-qa.postgres.e2e-spec.ts',
 ]);

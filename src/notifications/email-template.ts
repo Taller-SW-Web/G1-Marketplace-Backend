@@ -115,7 +115,7 @@ function buildContent(snapshot: EmailSnapshot, config: EmailConfiguration): Emai
       preheader: 'Tu compra está confirmada. Consulta los detalles de tu pedido.',
       title: 'Tu pedido fue confirmado',
       introduction: 'Gracias por comprar en Inka Athletics Marketplace. Este es el resumen de tu pedido.',
-      facts: [order, ['Estado', 'Pagado · Pago simulado confirmado por Ventas'], ['Fecha', eventTime.format(occurredAt)],
+      facts: [order, ['Estado', 'Pagado · Pago simulado confirmado por Ventas'], ['Fecha de confirmación', eventTime.format(occurredAt)],
         ...merchandise(snapshot.items), ['Total', formatMoney(snapshot.totalCents)]],
       action: 'Ver mi pedido',
       actionUrl: publicUrl(config.orderUrl, origin),

@@ -111,3 +111,22 @@ El destinatario se resuelve a partir de una fuente autorizada vinculada al pedid
 - Probar con un pedido y un buzón QA acordados. El borrador de la cola también considera eventos históricos, por lo que se debe controlar qué avisos procesa el primer ensayo.
 - Acreditar C-001 en `PAGADO`, C-002 en `DESPACHADO`, omisión de `ENTREGADO` y ausencia de reenvíos al repetir la consulta o el mismo evento. Cubrir fallo del proveedor y timeout en el entorno acordado.
 - Registrar URL y SHA o digest del despliegue, origen de cada señal, hora y resultado, recibo de Brevo y comprobación del buzón. La revisión independiente de esta documentación corresponde a Sebastián. El cierre integral conserva el resultado de BE #162, FE #82 y BE #163.
+
+## C-001 QA desde checkout
+
+Checkout ya consulta el detalle de Ventas con el bearer del comprador antes de confirmar la operación. El envío QA usa esa respuesta: el ID de Ventas debe coincidir con el pedido guardado y el estado debe ser `PAGADO`. `GET /api/v1/orders/:orderId` conserva su comportamiento de lectura.
+
+Para la operación QA seleccionada, la transición existente del checkout de `SUBMITTED` a `SUCCEEDED` y la inserción en `NotificationDelivery` comparten una transacción. La entrega usa `type=ORDER_CONFIRMATION` y `eventKey=c001:<orderId>`, con la restricción única existente. El snapshot guarda el total en PEN y el `completedAt` persistido como **hora de confirmación en Marketplace**. Ventas devuelve `createdAt` como hora de creación. Las líneas se omiten en este corte.
+
+| Variable | Uso en staging |
+| --- | --- |
+| `C001_QA_ENABLED` | `false` por defecto. Activar solo para la ventana acordada. |
+| `C001_QA_CHECKOUT_OPERATION_ID` | UUID exacto de la operación sintética que se va a confirmar. |
+| `C001_QA_TO` | Buzón QA autorizado. |
+| `C001_QA_ENCRYPTION_KEY` | Clave independiente de 32 bytes en Base64 canónico. Se carga desde los secretos del entorno y protege el destinatario de la entrega. Mantenerla estable durante el ensayo para que el proceso pueda leer la cola. |
+| `BREVO_ENABLED`, `MAIL_PROVIDER`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` | Configuración de Brevo de arriba. Requiere los dos interruptores activos. |
+| `G1_WEB_ORIGIN` | Origen HTTPS de la web de staging para el enlace al detalle del pedido. |
+
+Aplicar `20261126000400_c001_confirmation_snapshot` con el corte. La regla que permite conservar el ID de Ventas en `SUBMITTED` vive en `20261126000200_checkout_submitted_external_order_id` (BE #387). Si falla el registro de la entrega tras confirmar `PAGADO`, consultar de nuevo la operación para recuperar el mismo pedido. La prueba de PostgreSQL comprueba la aparición de una sola entrega y un único intento contra Brevo simulado. Preparar el checkout sintético y fijar su UUID antes de enviar la compra. Verificar que el entorno usa la revisión y configuración acordadas y que la preparación sigue vigente. Confirmar un pedido QA y comprobar que quede una sola entrega `ORDER_CONFIRMATION` para ese pedido y un solo correo en el buzón al repetir el procesamiento. Registrar el SHA, el ID del pedido QA, el resultado y el recibo sin incluir el correo ni credenciales. Al acabar, volver a `C001_QA_ENABLED=false`.
+
+El destinatario se cifra antes de encolar. El consumidor reclama el intento antes de llamar a Brevo y registra `SENT` y el ID del proveedor después de la aceptación. Si la respuesta queda incierta, la entrega conserva el intento sin marcarse enviada. Conciliar en el proveedor antes de repetir. La prueba automatizada de PostgreSQL usa un doble de Brevo para verificar la concurrencia. La recepción integrada y la fuente del destinatario comercial conservan seguimiento en [BE #162](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162).
