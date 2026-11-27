@@ -9,7 +9,9 @@ const PRODUCTS = {
   'g6-qa-marketplace-ord-002': '8ad24563-c9da-4305-b650-1dd47a14fffb',
 };
 const CASES = [
-  { id: 'F008-price-0-60', minPrice: '0', maxPrice: '60', expectedSlugs: Object.keys(PRODUCTS) },
+  // Equal names use G6's confirmed product_id ASC tie-break: 002, then 001.
+  { id: 'F008-price-0-60', minPrice: '0', maxPrice: '60',
+    expectedSlugs: ['g6-qa-marketplace-ord-002', 'g6-qa-marketplace-ord-001'] },
   { id: 'F008-price-0-45', minPrice: '0', maxPrice: '45', expectedSlugs: ['g6-qa-marketplace-ord-001'] },
 ];
 const DEFAULT_BASE_URL = 'https://g1-marketplace-backend.onrender.com';
@@ -54,10 +56,8 @@ function validateBody(body, testCase) {
   if (body.data.length !== expectedTotal) return 'FILTERED_CARD_COUNT';
   const actual = body.data.map(item => ({ productId: item?.productId, slug: item?.slug }));
   const expected = testCase.expectedSlugs.map(slug => ({ productId: PRODUCTS[slug], slug }));
-  const actualById = [...actual].sort((left, right) => String(left.productId).localeCompare(String(right.productId)));
-  const expectedById = [...expected].sort((left, right) => String(left.productId).localeCompare(String(right.productId)));
-  if (JSON.stringify(actualById) !== JSON.stringify(expectedById)) return 'UNEXPECTED_FILTERED_PRODUCTS';
   if (new Set(actual.map(item => item.productId)).size !== actual.length) return 'DUPLICATE_PRODUCT_ID';
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) return 'UNEXPECTED_FILTERED_PRODUCT_ORDER';
   return null;
 }
 
@@ -82,7 +82,9 @@ export async function retestF008PriceRanges({
       requested,
       g6Mapping: { canal: 'MARKETPLACE', pagina: 1, tamanio: 24,
         precioMin: testCase.minPrice, precioMax: testCase.maxPrice, orden: 'NOMBRE_ASC' },
-      expected: { status: 200, source: 'REAL', productIds: testCase.expectedSlugs.map(slug => PRODUCTS[slug]),
+      expected: { status: 200, source: 'REAL', sort: 'NAME_ASC',
+        orderingRule: 'equal names use G6 product_id ASC',
+        productIds: testCase.expectedSlugs.map(slug => PRODUCTS[slug]),
         page: { number: 0, size: 24, totalElements: testCase.expectedSlugs.length,
           totalPages: Math.ceil(testCase.expectedSlugs.length / 24) } },
       requestId,

@@ -26,9 +26,11 @@
       "expected": {
         "status": 200,
         "source": "REAL",
+        "sort": "NAME_ASC",
+        "orderingRule": "equal names use G6 product_id ASC",
         "productIds": [
-          "93f7f500-077d-432e-be98-31cb9ee0d66d",
-          "8ad24563-c9da-4305-b650-1dd47a14fffb"
+          "8ad24563-c9da-4305-b650-1dd47a14fffb",
+          "93f7f500-077d-432e-be98-31cb9ee0d66d"
         ],
         "page": {
           "number": 0,
@@ -60,6 +62,7 @@
     "The local contract does not publish inclusive/exclusive price-bound semantics. Tested bounds (0–60 and 0–45) do not equal either known product price (39.90 and 49.90), so this run does not infer boundary inclusivity.",
     "Known product IDs, slugs and prices come from G6 confirmation; the public BFF card does not expose price. This runner sends GET only, omits cookies and Authorization, and does not call G6 directly.",
     "The earlier 26/11 Render trace covers 0–100 and records 0–60/0–45 results as slugs and totals; the new requests add product IDs and filtered page metadata for 0–60 and 0–45.",
+    "The expected 0–60 productIds array is ordered: NAME_ASC plus the G6 product_id ASC tie-break yields 002 before 001; the runner compares the response array in that order, not as an unordered set.",
     "X-Catalog-Source=REAL, IDs and response totals do not independently attest the upstream contract revision, deployed SHA, I-01 approval, dependency #49, UI behavior, or independent acceptance."
   ]
 }
