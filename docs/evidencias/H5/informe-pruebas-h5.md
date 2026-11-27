@@ -63,7 +63,7 @@ La PR #408 tuvo verdes los runs #45920269522, #45920269558, #45920269539, #45920
 
 ## 7. Recomendación go/no-go
 
-**Pendiente de decisión.** Los 15 casos están compilados y enlazados; falta que el PO revise la evidencia, acepte los límites MOCK/LAB LOCAL y decida cómo tratar los riesgos residuales. No se declara GO ni NO-GO mientras falte esa validación. BE #392 sigue abierto.
+**GO condicionado (insumos del PO incorporados).** El detalle completo de la recomendación del PO (27/11/2026 ~16:45 Lima), la cadena REAL (`PED-2026-90013` hasta `ENTREGADO`, reintento idempotente `503 -> 200` con logs de Render, catálogo G6 por APIM, Mis pedidos, CSAT, incidente externo `PROVIDER_HTTP_403` de G6 y revisión parcial de logs G7) está en [informe-po-392-27nov.md](informe-po-392-27nov.md). Las PRs `#429`, `#430` y `#400` constan como **preparadas, no integradas**; las pruebas no ejecutadas REAL (checkout/V-010, correos Gmail/Outlook, #304/#345 con `TTL=0`) se mantienen declaradas como pendientes/MOCK.
 
 Este índice organiza la evidencia de extremo a extremo para la exposición. Cada responsable debe reemplazar `Pendiente` con enlaces permanentes a los runs, reportes y tablas originales. Conservar fecha/hora, ambiente, commit o versión, resultado y responsable; no copiar secretos ni datos personales. Si una prueba no aplica o falla, registrarlo explícitamente con su causa y enlace.
 
