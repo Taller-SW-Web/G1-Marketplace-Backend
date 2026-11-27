@@ -13,6 +13,8 @@ import { ProductCommerceModule } from './catalog/product-commerce.module';
 import { ProductDetailModule } from './catalog/product-detail.module';
 import { DocsModule } from './docs/docs.module';
 import { WishlistModule } from './wishlist/wishlist.module';
+import { ShipmentWebhookModule } from './webhooks/ventas/shipment-webhook.module';
+import { SecurityEventsModule } from './security-events/security-events.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { WishlistModule } from './wishlist/wishlist.module';
     ProductCommerceModule,
     CheckoutModule,
     DocsModule,
+    ShipmentWebhookModule,
+    SecurityEventsModule,
   ],
 })
 export class AppModule {}

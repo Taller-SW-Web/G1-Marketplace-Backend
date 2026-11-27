@@ -3,6 +3,7 @@ import type { CatalogFetch } from './types';
 
 export const SERVICE_CLIENT_ID = 'modulo-marketplace';
 export const SERVICE_SCOPE = 'catalogo:leer';
+const CATALOG_AUDIENCE = 'api-productos';
 
 const RENEWAL_MARGIN_MS = 60_000;
 const REFRESH_RETRY_DELAY_MS = 5_000;
@@ -26,7 +27,8 @@ export interface ClientCredentialsTokenOptions {
   clientSecret: string;
   timeoutMs: number;
   fetchImpl: CatalogFetch;
-  scopes?: readonly string[];
+  /** Explicit scopes for commerce callers. Catalog uses the issuer's client grant. */
+  requestedScopes?: readonly string[];
   now?: () => number;
 }
 
@@ -38,7 +40,26 @@ function unavailable(diagnostic: string): CatalogError {
   return new CatalogError('CATALOG_UNAVAILABLE', 503, diagnostic);
 }
 
-function parseTokenResponse(value: unknown, requiredScopes: readonly string[]): TokenResponse {
+function hasCatalogGrant(token: string): boolean {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts.some(part => !/^[A-Za-z0-9_-]+$/u.test(part))) return false;
+  try {
+    // Consistency check on the HTTPS issuer response. G6 validates the JWT signature.
+    const claims: unknown = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!isRecord(claims)) return false;
+    const { aud } = claims;
+    const audienceMatches = aud === CATALOG_AUDIENCE ||
+      (Array.isArray(aud) && aud.every(value => typeof value === 'string') && aud.includes(CATALOG_AUDIENCE));
+    const hasScope = (value: unknown) => typeof value === 'string'
+      ? value.split(/\s+/u).includes(SERVICE_SCOPE)
+      : Array.isArray(value) && value.every(scope => typeof scope === 'string') && value.includes(SERVICE_SCOPE);
+    return audienceMatches && (hasScope(claims.scope) || hasScope(claims.scopes));
+  } catch {
+    return false;
+  }
+}
+
+function parseTokenResponse(value: unknown, requiredScopes: readonly string[], catalogGrant: boolean): TokenResponse {
   if (!isRecord(value)) throw unavailable('G7_TOKEN_INVALID_RESPONSE');
 
   const { accessToken, tokenType, expiresIn, scopes } = value;
@@ -47,7 +68,7 @@ function parseTokenResponse(value: unknown, requiredScopes: readonly string[]): 
     !/^[\x21-\x7e]+$/.test(accessToken) || tokenType !== 'Bearer' ||
     typeof expiresIn !== 'number' || !Number.isSafeInteger(expiresIn) || expiresIn <= 0 ||
     !Array.isArray(scopes) || !scopes.every((scope) => typeof scope === 'string') ||
-    !requiredScopes.every((scope) => scopes.includes(scope))
+    !requiredScopes.every((scope) => scopes.includes(scope)) || (catalogGrant && !hasCatalogGrant(accessToken))
   ) throw unavailable('G7_TOKEN_INVALID_RESPONSE');
 
   return { accessToken, tokenType, expiresIn, scopes };
@@ -59,7 +80,8 @@ function parseTokenResponse(value: unknown, requiredScopes: readonly string[]): 
  */
 export function createClientCredentialsTokenProvider(options: ClientCredentialsTokenOptions) {
   const now = options.now ?? Date.now;
-  const requiredScopes = [...(options.scopes ?? [SERVICE_SCOPE])];
+  const catalogGrant = options.requestedScopes === undefined;
+  const requiredScopes = [...(options.requestedScopes ?? [SERVICE_SCOPE])];
   if (!requiredScopes.length || new Set(requiredScopes).size !== requiredScopes.length ||
       requiredScopes.some((scope) => !/^[a-z][a-z0-9:_-]{0,99}$/.test(scope))) {
     throw unavailable('G7_SCOPE_CONFIGURATION_INVALID');
@@ -75,8 +97,9 @@ export function createClientCredentialsTokenProvider(options: ClientCredentialsT
         grant_type: 'client_credentials',
         client_id: SERVICE_CLIENT_ID,
         client_secret: options.clientSecret,
-        scope: requiredScopes.join(' '),
       });
+      // G7 derives scope and aud from the catalog client's grant, as for Sales.
+      if (!catalogGrant) body.set('scope', requiredScopes.join(' '));
       response = await options.fetchImpl(options.tokenUrl, {
         method: 'POST',
         headers: {
@@ -97,7 +120,7 @@ export function createClientCredentialsTokenProvider(options: ClientCredentialsT
 
     let tokenResponse: TokenResponse;
     try {
-      tokenResponse = parseTokenResponse(await response.json(), requiredScopes);
+      tokenResponse = parseTokenResponse(await response.json(), requiredScopes, catalogGrant);
     } catch (error) {
       if (error instanceof CatalogError) throw error;
       throw unavailable('G7_TOKEN_INVALID_RESPONSE');
