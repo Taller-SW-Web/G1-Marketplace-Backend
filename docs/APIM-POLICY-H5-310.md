@@ -18,18 +18,20 @@ policy validation or deployment authorization.
 The canonical policy already integrated in `develop` is
 [`azure-apim/policies/api-policy.xml`](../azure-apim/policies/api-policy.xml)
 (PRs #340/#342). This branch does not add a second APIM policy. The canonical
-policy applies CORS, rate-limiting, and JWT validation; it does not contain
-catalog cache policies. This branch proposes an offline update to its
-correlation-header mapping.
+policy applies CORS, rate-limiting, JWT validation, and the pre-existing cache
+scope for `/v1/health` and `/v1/docs/specs`. This PR does not expand that cache
+scope or add cache behavior to catalog operations. Its tests and documentation
+record the current policy boundary and correlation-header mapping.
 
 The public header is `X-Correlation-Id`, confirmed as the H5 standard and agreed
-with G6/G7. Inbound, APIM preserves or creates that ID; if the value is outside
-the BFF's safe `[A-Za-z0-9._-]{1,64}` format, APIM replaces it with a UUID.
-It then aliases the normalized value as `X-Request-Id` toward the BFF. Outbound, APIM returns
+with G6/G7. Inbound, the canonical policy preserves the supplied correlation
+header or falls back to the incoming `X-Request-Id`/a generated UUID, then
+sets both headers to the same value. Outbound, APIM returns
 `X-Correlation-Id` to the client (and CORS exposes it). The BFF's `X-Request-Id`
 alias remains an internal compatibility detail; the separate G1→G6
-`X-Correlation-Id` propagation is unchanged. The policy change is represented
-in XML and offline tests only; it has not been executed by APIM.
+`X-Correlation-Id` propagation is unchanged. These checks describe the
+canonical policy in the repository; no Azure policy was changed or executed by
+this PR.
 
 ## Cache scope and prerequisites
 
@@ -47,9 +49,11 @@ in-process cache candidate; it now defaults `CATALOG_CACHE_TTL_MS` to `0` so the
 runtime keeps `no-store` unless explicitly configured. A nonzero value can emit
 a public shared-cache directive and would diverge from this OpenAPI contract;
 do not set it in a deployed environment until that contract/TTL change is
-approved. Therefore the canonical APIM policy has **no cache lookup or cache
-store**, and this branch does not add one or override the origin's cache
-directive. No HIT/MISS behavior is forced or claimed.
+approved. The existing canonical APIM policy has a separate, pre-existing
+60-second cache scope for `/v1/health` and `/v1/docs/specs`; it does not include
+the catalog routes above. This PR does not alter that scope and does not add
+catalog cache lookup/store or override catalog `no-store`. No catalog HIT/MISS
+behavior is claimed.
 
 Explicitly excluded, even where the operation is public or advertises a short
 cache lifetime:

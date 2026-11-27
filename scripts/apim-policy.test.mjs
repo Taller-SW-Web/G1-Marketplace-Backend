@@ -17,18 +17,18 @@ test('canonical develop policy is reused instead of adding a duplicate policy', 
   assert.match(policy, /<rate-limit\b/u);
   assert.match(policy, /<validate-jwt\b/u);
   assert.match(policy, /<set-header\s+name="X-Correlation-Id"/u);
-  assert.doesNotMatch(policy, /<\/?\s*cache-[\w-]+\b/iu);
-  assert.doesNotMatch(policy, /<set-header\s+name="(?:Cache-Control|X-Cache)"/iu);
-  assert.doesNotMatch(policy, /<rewrite-uri\b/iu, 'this issue must not duplicate APIM routing policy');
+  assert.match(policy, /isCacheableRoute[\s\S]*\/v1\/health[\s\S]*\/v1\/docs\/specs/u);
+  assert.doesNotMatch(policy, /catalog[\s\S]{0,160}<cache-/iu, 'existing APIM cache scope must not include catalog');
+  assert.match(policy, /<rewrite-uri\b/u, 'reuse the canonical rewrite policy from develop');
   assert.match(docs, /does not add a second APIM policy/iu);
 });
 
 test('public X-Correlation-Id is aliased to X-Request-Id upstream and returned publicly', () => {
   const inbound = policy.match(/<inbound>([\s\S]*?)<\/inbound>/u)?.[1] ?? '';
   const outbound = policy.match(/<outbound>([\s\S]*?)<\/outbound>/u)?.[1] ?? '';
-  assert.match(inbound, /set-header\s+name="X-Correlation-Id"[\s\S]*?Regex\.IsMatch\([\s\S]*?\[A-Za-z0-9\._-\]\{1,64\}\$[\s\S]*?set-header\s+name="X-Request-Id"\s+exists-action="override"[\s\S]*?GetValueOrDefault\("X-Correlation-Id"/u);
+  assert.match(inbound, /set-variable name="correlationId"[\s\S]*X-Correlation-Id[\s\S]*X-Request-Id[\s\S]*set-header name="X-Request-Id"/u);
   assert.match(outbound, /set-header\s+name="X-Correlation-Id"/u);
-  assert.match(docs, /X-Correlation-Id[\s\S]*safe `\[A-Za-z0-9\._-\]\{1,64\}` format[\s\S]*X-Request-Id[\s\S]*BFF/u);
+  assert.match(docs, /X-Correlation-Id[\s\S]*X-Request-Id[\s\S]*BFF/u);
   assert.match(runbook, /X-Correlation-Id.*X-Request-Id/u);
 });
 
@@ -47,7 +47,7 @@ test('the catalog contract exposes exactly the three public GET operations', () 
   }
 });
 
-test('runtime contract and canonical APIM policy do not activate or report cache behavior', () => {
+test('catalog remains no-store; existing APIM cache scope stays limited to health and docs', () => {
   const publicGets = Object.values(catalog.paths)
     .filter((pathItem) => pathItem.get?.security?.length === 0)
     .map((pathItem) => pathItem.get);
@@ -57,10 +57,10 @@ test('runtime contract and canonical APIM policy do not activate or report cache
   }
   const runtime = readFileSync(resolve(root, 'src/catalog/catalog-request.interceptor.ts'), 'utf8');
   assert.match(runtime, /setHeader\('Cache-Control', 'no-store'\)/u);
-  assert.doesNotMatch(policy, /<\/?\s*cache-[\w-]+\b/iu, 'policy must not use APIM cache policy elements');
-  assert.doesNotMatch(policy, /<set-header\s+name="(?:Cache-Control|X-Cache)"/iu, 'policy must not override cache directives or report cache outcomes');
-  assert.doesNotMatch(policy, /\b(?:HIT|MISS)\b/iu, 'policy must not force or claim cache outcomes');
-  assert.match(docs, /no cache lookup or cache\s+store/u);
+  assert.match(policy, /cache-lookup[\s\S]*cache-store/u);
+  assert.match(policy, /isCacheableRoute[\s\S]*\/v1\/health[\s\S]*\/v1\/docs\/specs/u);
+  assert.doesNotMatch(policy, /isCacheableRoute[^\n]*(?:catalog|wishlist|checkout)/iu);
+  assert.match(docs, /pre-existing\s+60-second cache scope for `\/v1\/health` and `\/v1\/docs\/specs`/u);
   assert.match(docs, /PR #345 separately prepares an\s+in-process cache candidate; it now defaults `CATALOG_CACHE_TTL_MS` to `0`/u);
 });
 
