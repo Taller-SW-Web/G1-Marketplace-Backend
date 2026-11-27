@@ -6,8 +6,9 @@ describe('Azure APIM policy configuration (BE #312 / TASK-H5-APIM-007)', () => {
   const xml = readFileSync(policyPath, 'utf8');
 
   it('configures X-Correlation-Id propagation in inbound, outbound and on-error', () => {
-    expect(xml).toContain('<set-header name="X-Correlation-Id" exists-action="skip">');
-    expect(xml).toContain('<set-header name="X-Correlation-Id" exists-action="override">');
+    const overrideCount = xml.split('<set-header name="X-Correlation-Id" exists-action="override">').length - 1;
+    expect(overrideCount).toBeGreaterThanOrEqual(3);
+    expect(xml).toContain('<set-header name="X-Request-Id" exists-action="override">');
     expect(xml).toContain('<header>X-Correlation-Id</header>');
     expect(xml).toContain('<on-error>');
   });
