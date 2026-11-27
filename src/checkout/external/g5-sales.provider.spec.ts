@@ -40,6 +40,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   let getRetryAfter: string | undefined;
   let getRequests = 0;
   let slowBodyMs = 0;
+  let withholdFirstCreateResponse = false;
   let responseBody: unknown;
   let lastRequest: { method?: string; url?: string; authorization?: string | string[]; idempotencyKey?: string | string[]; body?: unknown } = {};
   const created = new Map<string, string>();
@@ -78,6 +79,10 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
         }
         created.set(key, fingerprint);
         response.writeHead(previous ? 200 : postStatus, { 'content-type': 'application/json' });
+        if (withholdFirstCreateResponse && !previous) {
+          // Leave the committed response pending so the client observes its timeout.
+          return;
+        }
         if (slowBodyMs > 0) {
           // cabeceras al instante y cuerpo en partes con pausas menores que el timeout de inactividad de Axios:
           // el socket nunca queda inactivo, pero la respuesta completa tarda más que el plazo total
@@ -118,6 +123,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
     };
     lastRequest = {};
     slowBodyMs = 0;
+    withholdFirstCreateResponse = false;
     created.clear();
   });
 
