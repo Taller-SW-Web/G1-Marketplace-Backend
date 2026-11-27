@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import test from 'node:test';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const policy = readFileSync(resolve(root, 'azure-apim/policies/api-policy.xml'), 'utf8');
+const catalog = JSON.parse(readFileSync(resolve(root, 'docs/contratos/openapi-catalogo-h4.json'), 'utf8'));
+const docs = readFileSync(resolve(root, 'docs/APIM-POLICY-H5-310.md'), 'utf8');
+const runbook = readFileSync(resolve(root, 'azure-apim/README.md'), 'utf8');
+const cicd = readFileSync(resolve(root, '.github/workflows/cicd.yml'), 'utf8');
+const qaSmoke = readFileSync(resolve(root, 'scripts/apim-qa-smoke.mjs'), 'utf8');
+
+test('canonical develop policy is reused instead of adding a duplicate policy', () => {
+  assert.match(policy, /<cors\b/u);
+  assert.match(policy, /<rate-limit\b/u);
+  assert.match(policy, /<validate-jwt\b/u);
+  assert.match(policy, /<set-header\s+name="X-Correlation-Id"/u);
+  assert.match(policy, /isCacheableRoute[\s\S]*\/v1\/health[\s\S]*\/v1\/docs\/specs/u);
+  assert.doesNotMatch(policy, /catalog[\s\S]{0,160}<cache-/iu, 'existing APIM cache scope must not include catalog');
+  assert.match(policy, /<rewrite-uri\b/u, 'reuse the canonical rewrite policy from develop');
+  assert.match(docs, /does not add a second APIM policy/iu);
+});
+
+test('public X-Correlation-Id is aliased to X-Request-Id upstream and returned publicly', () => {
+  const inbound = policy.match(/<inbound>([\s\S]*?)<\/inbound>/u)?.[1] ?? '';
+  const outbound = policy.match(/<outbound>([\s\S]*?)<\/outbound>/u)?.[1] ?? '';
+  assert.match(inbound, /set-variable name="correlationId"[\s\S]*X-Correlation-Id[\s\S]*X-Request-Id[\s\S]*set-header name="X-Request-Id"/u);
+  assert.match(outbound, /set-header\s+name="X-Correlation-Id"/u);
+  assert.match(docs, /X-Correlation-Id[\s\S]*X-Request-Id[\s\S]*BFF/u);
+  assert.match(runbook, /X-Correlation-Id.*X-Request-Id/u);
+});
+
+test('the catalog contract exposes exactly the three public GET operations', () => {
+  const contractPublicGets = Object.entries(catalog.paths)
+    .filter(([, pathItem]) => pathItem.get && Array.isArray(pathItem.get.security) && pathItem.get.security.length === 0)
+    .map(([path]) => path)
+    .sort();
+  assert.deepEqual(contractPublicGets, [
+    '/api/v1/catalog/filters',
+    '/api/v1/catalog/home',
+    '/api/v1/catalog/products',
+  ]);
+  for (const path of contractPublicGets) {
+    assert.equal(catalog.paths[path].get.security.length, 0, `${path} must remain explicitly public`);
+  }
+});
+
+test('catalog remains no-store; existing APIM cache scope stays limited to health and docs', () => {
+  const publicGets = Object.values(catalog.paths)
+    .filter((pathItem) => pathItem.get?.security?.length === 0)
+    .map((pathItem) => pathItem.get);
+  assert.ok(publicGets.length > 0, 'catalog contract must expose its public GET operations');
+  for (const operation of publicGets) {
+    assert.equal(operation.responses['200'].headers['Cache-Control'].schema.const, 'no-store');
+  }
+  const runtime = readFileSync(resolve(root, 'src/catalog/catalog-request.interceptor.ts'), 'utf8');
+  assert.match(runtime, /setHeader\('Cache-Control', 'no-store'\)/u);
+  assert.match(policy, /cache-lookup[\s\S]*cache-store/u);
+  assert.match(policy, /isCacheableRoute[\s\S]*\/v1\/health[\s\S]*\/v1\/docs\/specs/u);
+  assert.doesNotMatch(policy, /isCacheableRoute[^\n]*(?:catalog|wishlist|checkout)/iu);
+  assert.match(docs, /pre-existing\s+60-second cache scope for `\/v1\/health` and `\/v1\/docs\/specs`/u);
+  assert.match(docs, /PR #345 separately prepares an\s+in-process cache candidate; it now defaults `CATALOG_CACHE_TTL_MS` to `0`/u);
+});
+
+test('documentation records current APIM status without treating it as policy validation or permission', () => {
+  assert.match(docs, /#307 was closed[\s\S]*APIM\s+Consumption is Online/iu);
+  assert.match(docs, /23 November 2026/u);
+  assert.match(docs, /has \*\*not\*\* been validated in the instance/iu);
+  assert.match(docs, /Do not deploy without express authorization/iu);
+});
+
+test('subscription-key configuration remains external and contains no key value', () => {
+  assert.match(docs, /current header is\s+`api-key`/u);
+  assert.match(docs, /`web-frontend-g1`[\s\S]*`APIM_SUBSCRIPTION_KEY`/u);
+  assert.match(docs, /`ci-qa-smoke`[\s\S]*`APIM_QA_SUBSCRIPTION_KEY`/u);
+  assert.match(docs, /`demo-team`[\s\S]*outside Git/u);
+  assert.match(runbook, /-H "api-key: \$KEY"/u);
+  assert.doesNotMatch(docs + runbook, /Ocp-Apim-Subscription-Key/u);
+  assert.match(docs, /key \*\*values\*\* only in the approved secret\s+store/u);
+  assert.match(docs, /Values remain only in their approved secret\s+stores/u);
+  assert.doesNotMatch(docs, /Blocked: APIM #307 pending/u);
+  assert.doesNotMatch(docs, /(?:SharedAccessSignature|DefaultEndpointsProtocol|Bearer\s+[A-Za-z0-9._~-]{20,})/u);
+});
+
+test('APIM QA smoke is opt-in, bounded, read-only, and does not print secret or response data', () => {
+  assert.match(cicd, /workflow_dispatch:[\s\S]*apim_qa_smoke:[\s\S]*RUN_APIM_QA_SMOKE/u);
+  assert.match(cicd, /if: github\.event_name == 'workflow_dispatch'[\s\S]*apim_qa_smoke == 'RUN_APIM_QA_SMOKE'/u);
+  assert.match(cicd, /APIM_QA_SUBSCRIPTION_KEY: \$\{\{ secrets\.APIM_QA_SUBSCRIPTION_KEY \}\}/u);
+  assert.match(qaSmoke, /method: 'GET'/u);
+  assert.match(qaSmoke, /catalog\/products\?page=0&pageSize=10/u);
+  assert.match(qaSmoke, /path: 'wishlist'[\s\S]*expectedStatus: 401/u);
+  assert.match(qaSmoke, /AbortSignal\.timeout\(45_000\)/u);
+  assert.doesNotMatch(qaSmoke, /console\.(?:log|error)\([^\n]*(?:subscriptionKey|response\.text|response\.json)/u);
+  assert.match(docs, /exactly two[\s\S]*GETs/u);
+  assert.match(docs, /Real QA attempt — 25 Nov 2026 UTC[\s\S]*Both requests\s+returned `404`[\s\S]*failed REAL gateway check/u);
+  assert.match(docs, /`X-Correlation-Id` matched[\s\S]*`X-Request-Id` did not/u);
+  assert.match(docs, /Recheck after APIM correction — 25 Nov 2026 UTC[\s\S]*returned `503`[\s\S]*returned `401` as expected/u);
+  assert.match(docs, /both response correlation headers matched[\s\S]*smoke remains\s+\*\*not fully passed\*\*/u);
+  assert.match(runbook, /RUN_APIM_QA_SMOKE/u);
+  assert.match(runbook, /Última revalidación[\s\S]*`45536575477`[\s\S]*`503`[\s\S]*`401`/u);
+});

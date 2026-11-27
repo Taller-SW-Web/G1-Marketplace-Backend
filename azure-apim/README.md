@@ -4,6 +4,7 @@ Este directorio contiene las políticas como código y las instrucciones para lo
 - **BE #307 (`TASK-H5-APIM-001`):** Crear suscripción e instancia en plan Consumption y dar acceso IAM.
 - **BE #309 (`TASK-H5-APIM-003`):** Políticas `validate-jwt` (G7), Rate Limiting (429) y CORS.
 - **BE #311 (`TASK-H5-APIM-006`):** Políticas como código y despliegue por pipeline.
+- **BE #394:** [Matriz de aceptación por política y ventana QA](../docs/evidencias/H5/apim/README.md). La nueva corrida sigue **NOT_RUN**.
 
 ---
 
@@ -35,6 +36,8 @@ El responsable de APIM confirmó por escrito que la instancia ya existe y está 
 
 ## 3. Importar el API del Backend (OpenAPI)
 
+Para #308, usar como referencia solamente el [subset contratado de PR #348](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/348). Las instrucciones genéricas que siguen no autorizan importar otra superficie del BFF. `/v1/health`, `/v1/docs` y `/v1/docs/specs` están excluidas del subset; no publicarlas ni probarlas para #394.
+
 1. En el menú lateral de APIM, ir a **APIs**.
 2. Clic en **Add API** $\rightarrow$ seleccionar mosaico **OpenAPI** e importar el archivo local `docs/apim/marketplace-bff-v1.subset.openapi.yaml`.
 3. Configurar el API confirmado:
@@ -61,17 +64,15 @@ El OpenAPI candidato contiene solo 34 operaciones contratadas; la importación d
 
 ## 5. Pruebas de Validación y Evidencias
 
-El header de suscripción confirmado es `api-key`. Para el smoke de QA usar únicamente `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets; no copiar ni imprimir su valor. No utilizar `Ocp-Apim-Subscription-Key`, la suscripción all-access ni `/v1/health` como endpoint de prueba.
+La [matriz de #394](../docs/evidencias/H5/apim/README.md) distingue el smoke **REAL histórico** de los casos pendientes: JWT (`401`), rate limit (`429` con `Retry-After`), caché (`MISS/HIT`) y correlación APIM → BFF. Antes de emitir tráfico, confirmar ventana autorizada, suscripción QA por canal privado, revisión activa y acceso a los logs del BFF. Limitarse a las operaciones contratadas y aprobadas; no ejecutar una ráfaga contra `/v1/health`. Sin ruta cacheable aprobada dentro del subset, `MISS/HIT` queda **NOT_RUN**. La policy en Git no acredita su revisión activa; el export de solo lectura sigue pendiente. No guardar detalles de suscripciones ni credenciales en la evidencia.
+
+El header de suscripción confirmado es `api-key`. Para cualquier smoke QA autorizado usar únicamente `APIM_QA_SUBSCRIPTION_KEY` desde GitHub Actions Secrets; no copiar ni imprimir su valor. No utilizar `Ocp-Apim-Subscription-Key`, la suscripción all-access ni `/v1/health` como endpoint de prueba.
 
 ### A. Rate limiting (Issue #309)
-La prueba de más de 60 llamadas requiere autorización expresa y una ventana QA aprobada. Está pendiente; este runbook no contiene ni ejecuta una ráfaga. Debe apuntar a una operación contratada, por ejemplo `GET /v1/catalog/products?page=0&pageSize=10`; el status previo al límite depende de la disponibilidad del BFF.
+La prueba de más de 60 llamadas requiere autorización expresa y una ventana QA aprobada. Está pendiente; este runbook no contiene ni ejecuta una ráfaga. Debe apuntar a una operación contratada; el status previo al límite depende de la disponibilidad del BFF.
 
 ### B. Validación JWT contra G7
-Usar `GET /v1/wishlist` sin JWT con la suscripción QA. Resultado esperado: **401 Unauthorized**. La ruta `/v1/cart` no corresponde al caso contractual documentado para este smoke.
+Usar únicamente una operación contratada y el caso QA previamente aprobado. Sin JWT se espera `401 Unauthorized`; no usar `/v1/cart` ni rutas fuera del subset.
 
 ### C. Rewrite y correlación
-El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica las 34 operaciones. No repetir hasta que el responsable de G6 confirme disponibilidad.
-
-> 📷 **Capturas para Issue #309:**
-> 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
-> 2. Terminal mostrando la respuesta `HTTP 429` al superar la cuota.
+El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica la superficie completa. No repetir hasta que el responsable de G6 confirme disponibilidad.

@@ -1,6 +1,6 @@
 # H5 — índice de evidencia
 
-Paquete canónico de exposición en `develop`, actualizado después del merge de [BE #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/408) (merge `7aa625c9ba0cd51d1704a5f0043d16473e790033`, head `064385d77b26698000161f0ba36cac6e8e8a2db2`). Cada documento distingue evidencia **REAL**, **MOCK/LOCAL** y **LAB LOCAL**; esas etiquetas conservan el alcance de la corrida fuente.
+Paquete canónico de exposición en `develop`, actualizado después del merge de [BE #408](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/408) (merge `7aa625c9ba0cd51d1704a5f0043d16473e790033`, head `064385d77b26698000161f0ba36cac6e8e8a2db2`). Distinguir evidencia **REAL**, **LAB LOCAL**, **MOCK/OFFLINE** y casos **NOT_RUN**; las etiquetas conservan el alcance de la corrida fuente.
 
 ## Entregables prioritarios
 
@@ -14,6 +14,8 @@ Paquete canónico de exposición en `develop`, actualizado después del merge de
 
 ## Entregables relacionados
 
+- [BE #314, #315 y #394 — matriz asíncrona](asincrono/README.md): entrega automática G7 y recuperación manual REAL, con resiliencia del broker compartido y prueba correlacionada de Ventas pendientes.
+- [BE #394 — matriz APIM por política](apim/README.md): smoke histórico, nueva corrida NOT_RUN y conflicto de caché con el subset #308.
 - [BE #392 — informe go/no-go](392-go-no-go.md) y [selección de 15 casos trazables](392-casos-15.md). La recomendación requiere validación del PO.
 - [BE #291, BE #292 y FE #137 — matriz y cobertura](291-292-137-cobertura.md).
 - [BE #295 — contract tests de Ventas](295-contract-tests-ventas.md); este contrato no sustituye los de G6 requeridos por #293.
