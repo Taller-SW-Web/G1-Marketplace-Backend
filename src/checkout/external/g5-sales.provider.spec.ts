@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import axios from 'axios';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { of } from 'rxjs';
 import { G5SalesProvider, type G5CreateOrderRequest } from './g5-sales.provider';
 
 const syntheticToken = 'synthetic-test-only-service-token';
@@ -38,6 +39,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
   let getStatus = 200;
   let getRetryAfter: string | undefined;
   let getRequests = 0;
+  let slowBodyMs = 0;
   let responseBody: unknown;
   let lastRequest: { method?: string; url?: string; authorization?: string | string[]; idempotencyKey?: string | string[]; body?: unknown } = {};
   const created = new Map<string, string>();
@@ -76,6 +78,20 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
         }
         created.set(key, fingerprint);
         response.writeHead(previous ? 200 : postStatus, { 'content-type': 'application/json' });
+        if (slowBodyMs > 0) {
+          // cabeceras al instante y cuerpo en partes con pausas menores que el timeout de inactividad de Axios:
+          // el socket nunca queda inactivo, pero la respuesta completa tarda más que el plazo total
+          const full = JSON.stringify(responseBody);
+          const parts = full.match(/[\s\S]{1,20}/g) ?? [full];
+          let sent = 0;
+          const timer = setInterval(() => {
+            response.write(parts[sent]);
+            sent += 1;
+            if (sent === parts.length) { clearInterval(timer); response.end(); }
+          }, slowBodyMs);
+          response.on('close', () => clearInterval(timer));
+          return;
+        }
         response.end(JSON.stringify(responseBody));
       });
     });
@@ -101,6 +117,7 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       fechaCreacion: '2026-11-24T10:15:00.000Z',
     };
     lastRequest = {};
+    slowBodyMs = 0;
     created.clear();
   });
 
@@ -120,6 +137,103 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
       getAccessToken: jest.fn().mockResolvedValue(syntheticToken),
     } as never);
   }
+
+  describe('total order budget (deadlineAt)', () => {
+    const slowToken = (ms: number) => jest.fn(() => new Promise<string>((resolve) => setTimeout(() => resolve(syntheticToken), ms)));
+    function budgetProvider(getAccessToken: jest.Mock, overrides: Record<string, unknown> = {}) {
+      const values: Record<string, unknown> = {
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', HTTP_TIMEOUT_MS: 1000, ...overrides,
+      };
+      const config = { get: (key: string, fallback?: unknown) => values[key] ?? fallback };
+      return new G5SalesProvider(new HttpService(axios.create()), config as ConfigService, { getAccessToken } as never);
+    }
+
+    it('does not start anything when the budget is already spent', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      await expect(budgetProvider(getAccessToken).createOrder(payload, idempotencyKey, Date.now() - 1))
+        .rejects.toMatchObject({ status: 504, message: expect.stringContaining('SALES_TIMEOUT') });
+      expect(getAccessToken).not.toHaveBeenCalled();
+      expect(lastRequest).toEqual({});
+    });
+
+    it('gives the technical token only the remaining time and never sends the POST when a slow token spends the budget', async () => {
+      const getAccessToken = slowToken(300);
+      // el doble recibe el tiempo restante y lo respeta como lo hace el proveedor real
+      const racing = jest.fn((remainingMs?: number) => Promise.race([
+        getAccessToken(), new Promise<string>((_r, reject) => setTimeout(() => reject({ status: 504 }), remainingMs)),
+      ]));
+      await expect(budgetProvider(racing as unknown as jest.Mock).createOrder(payload, idempotencyKey, Date.now() + 80))
+        .rejects.toBeDefined();
+      expect(racing).toHaveBeenCalledTimes(1);
+      expect(racing.mock.calls[0][0]).toBeLessThanOrEqual(80);
+      expect(racing.mock.calls[0][0]).toBeGreaterThan(0);
+      expect(lastRequest).toEqual({});
+    });
+
+    it('does not send the POST when the token returns after the budget has expired', async () => {
+      const lateToken = jest.fn(() => new Promise<string>((resolve) => setTimeout(() => resolve(syntheticToken), 120)));
+      await expect(budgetProvider(lateToken as unknown as jest.Mock).createOrder(payload, idempotencyKey, Date.now() + 60))
+        .rejects.toMatchObject({ status: 504 });
+      expect(lastRequest).toEqual({});
+    });
+
+    it('sends zero POSTs when the budget expires and exactly one creation when the same operation and key are recovered', async () => {
+      const posts: Array<{ idempotencyKey: string }> = [];
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const http = {
+        post: jest.fn((_url: string, _body: unknown, options: { headers: Record<string, string> }) => {
+          posts.push({ idempotencyKey: options.headers['Idempotency-Key'] });
+          return of({ status: 201, data: {
+            pedidoId: 'PED-2026-00006', estado: 'CREADO', total: 215, moneda: 'PEN', canal: 'MARKETPLACE', fechaCreacion: '2026-11-24T10:15:00.000Z',
+          } });
+        }),
+      };
+      const config = { get: (key: string, fallback?: unknown) => ({
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', G5_SALES_TIMEOUT_MS: 30_000,
+      } as Record<string, unknown>)[key] ?? fallback };
+      const client = new G5SalesProvider(http as unknown as HttpService, config as ConfigService, { getAccessToken } as never);
+
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() - 1)).rejects.toMatchObject({ status: 504 });
+      expect(posts).toHaveLength(0);
+
+      const recovered = await client.createOrder(payload, idempotencyKey, Date.now() + 40_000);
+      expect(recovered).toMatchObject({ pedidoId: 'PED-2026-00006', estado: 'CREADO' });
+      expect(posts).toEqual([{ idempotencyKey }]);
+    });
+
+    it('enforces an absolute deadline until the whole body is read and keeps the same key for recovery', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const client = budgetProvider(getAccessToken);
+      slowBodyMs = 60; // cada parte tarda 60 ms (< 180 ms de plazo) pero el cuerpo completo supera el plazo total
+      const startedAt = Date.now();
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() + 180))
+        .rejects.toMatchObject({ status: 504, message: expect.stringContaining('SALES_TIMEOUT') });
+      expect(Date.now() - startedAt).toBeLessThan(400);
+      // el POST sí llegó a Ventas: se conserva la clave y la recuperación crea una sola alta
+      expect(created.size).toBe(1);
+      expect(lastRequest).toMatchObject({ method: 'POST', idempotencyKey });
+      slowBodyMs = 0;
+      await expect(client.createOrder(payload, idempotencyKey, Date.now() + 5_000)).resolves.toMatchObject({ pedidoId: 'PED-2026-00001' });
+      expect(created.size).toBe(1);
+    });
+
+    it('limits the POST to the remaining budget instead of the configured 30 s', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const http = { post: jest.fn().mockReturnValue(new Promise(() => undefined)) };
+      const config = { get: (key: string, fallback?: unknown) => ({
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', G5_SALES_TIMEOUT_MS: 30_000,
+      } as Record<string, unknown>)[key] ?? fallback };
+      const client = new G5SalesProvider(http as unknown as HttpService, config as ConfigService, { getAccessToken } as never);
+      void client.createOrder(payload, idempotencyKey, Date.now() + 5_000).catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const options = http.post.mock.calls[0][2] as { timeout: number };
+      expect(options.timeout).toBeLessThanOrEqual(5_000);
+      expect(options.timeout).toBeGreaterThan(4_000);
+    });
+  });
 
   it('posts the pinned M1 request verbatim with the same Idempotency-Key and maps 201/200 responses', async () => {
     const client = provider();

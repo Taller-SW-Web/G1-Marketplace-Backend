@@ -46,8 +46,9 @@ export class MarketplaceGateway {
     return this.config.get<string>('G5_CONTRACT_PRODUCT_FALLBACK_ENABLED', 'false') === 'true';
   }
 
-  async listAddresses(owner: string, accessToken: string): Promise<DeliveryAddress[]> {
-    const result = await this.requestAddresses(owner, accessToken);
+  /** `deadlineAt` (ms epoch) acota la consulta a G7 hasta terminar de leer el cuerpo; sin él no cambia nada. */
+  async listAddresses(owner: string, accessToken: string, deadlineAt?: number): Promise<DeliveryAddress[]> {
+    const result = await this.requestAddresses(owner, accessToken, undefined, deadlineAt);
     if (!record(result) || !Array.isArray(result.direcciones)) {
       throw new ProviderError(503, 'ADDRESS_SERVICE_UNAVAILABLE');
     }
@@ -86,7 +87,7 @@ export class MarketplaceGateway {
     };
   }
 
-  private async requestAddresses(owner: string, accessToken: string, body?: unknown): Promise<unknown> {
+  private async requestAddresses(owner: string, accessToken: string, body?: unknown, deadlineAt?: number): Promise<unknown> {
     const source = this.config.get<string>('CHECKOUT_ADDRESS_SOURCE', 'fixture');
     const mocks = this.config.get<boolean>('USE_MOCKS', false);
     const production = this.config.get<string>('NODE_ENV') === 'production';
@@ -102,8 +103,14 @@ export class MarketplaceGateway {
     }
     const headers = { Authorization: `Bearer ${accessToken}` };
     const url = `${base}/usuarios/${encodeURIComponent(owner)}/direcciones`;
+    const remainingMs = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
+    if (remainingMs !== undefined && remainingMs <= 0) throw new ProviderError(504, 'SALES_TIMEOUT');
     try {
-      const options = { headers, maxRedirects: 0, proxy: false as const };
+      const options = {
+        headers, maxRedirects: 0, proxy: false as const,
+        // El timeout de Axios es de inactividad: con un plazo total, la señal corta también un cuerpo que llega por partes.
+        ...(remainingMs === undefined ? {} : { signal: AbortSignal.timeout(remainingMs) }),
+      };
       const response = await firstValueFrom(body === undefined
         ? this.http.get<unknown>(url, options)
         : this.http.post<unknown>(url, body, options));
@@ -112,6 +119,7 @@ export class MarketplaceGateway {
       }
       return response.data;
     } catch (error) {
+      if (remainingMs !== undefined && (error as AxiosError).code === 'ERR_CANCELED') throw new ProviderError(504, 'SALES_TIMEOUT');
       const status = (error as AxiosError).response?.status ?? 503;
       throw new ProviderError(status, 'ADDRESS_SERVICE_UNAVAILABLE');
     }
@@ -213,6 +221,8 @@ export class MarketplaceGateway {
       paymentMethod?: string;
       deliveryRecipient?: string;
       customerAccessToken?: string;
+      /** Límite (ms epoch) del presupuesto total de la creación; solo lo usa Ventas (G5). */
+      deadlineAt?: number;
   }): Promise<SalesOrder> {
     if (this.usesG5Sales()) return this.createG5Order(input);
     const { customerId, checkoutOperationId, idempotencyKey, contact, total } = input;
@@ -259,6 +269,7 @@ export class MarketplaceGateway {
     paymentMethod?: string;
     deliveryRecipient?: string;
     customerAccessToken?: string;
+    deadlineAt?: number;
     total: Money;
   }): Promise<SalesOrder> {
     if (!this.g5Sales || !input.customerAccessToken) throw new ProviderError(503, 'SALES_INTEGRATION_DISABLED');
@@ -279,8 +290,10 @@ export class MarketplaceGateway {
 
     let addresses: DeliveryAddress[];
     try {
-      addresses = await this.listAddresses(input.customerId, input.customerAccessToken);
-    } catch {
+      addresses = await this.listAddresses(input.customerId, input.customerAccessToken, input.deadlineAt);
+    } catch (error) {
+      // Un plazo vencido al consultar a G7 es un timeout del pedido, no una dirección no disponible.
+      if (error instanceof ProviderError && error.status === 504) throw error;
       throw new ProviderError(503, 'SALES_ADDRESS_UNAVAILABLE');
     }
     const address = addresses.find((candidate) => candidate.addressId === quote.addressId);
@@ -328,7 +341,9 @@ export class MarketplaceGateway {
         Math.round(request.pago.total * 100) !== Math.round((snapshot.subtotal.amount - discountAmount + snapshot.shipping.amount) * 100)) {
       throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
     }
-    return this.g5Sales.createOrder(request, input.idempotencyKey);
+    return input.deadlineAt === undefined
+      ? this.g5Sales.createOrder(request, input.idempotencyKey)
+      : this.g5Sales.createOrder(request, input.idempotencyKey, input.deadlineAt);
   }
 
   private g5Items(lines: QuoteLine[], quoteSubtotal: number): G5CreateOrderRequest['items'] {
