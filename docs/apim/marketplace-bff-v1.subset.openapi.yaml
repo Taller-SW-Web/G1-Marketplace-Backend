@@ -1,0 +1,3842 @@
+openapi: 3.1.0
+info:
+  title: "Marketplace BFF APIM /v1 - contracted subset"
+  version: "1.0.0"
+  description: >-
+    Import candidate containing only the 38 documented /api/v1 operations from the five source contracts.
+    This is a contracted subset of the BFF, not the complete BFF contract. It has no backend server URL.
+    It does not configure, import, or deploy an APIM API or backend.
+x-artifact-scope: "contracted-subset-of-bff-not-complete-contract"
+x-source-contracts:
+  - "docs/contratos/auth-h4.openapi.yaml"
+  - "docs/contratos/checkout-h4.openapi.yaml"
+  - "docs/contratos/openapi-catalogo-h4.json"
+  - "docs/contratos/openapi-h3.json"
+  - "docs/contratos/product-detail-h4.openapi.yaml"
+x-excluded-source-routes:
+  - "GET /health"
+x-blocked-uncontracted-bff-routes:
+  - "DELETE /api/v1/carts/current/items/{sku}"
+  - "POST /api/v1/carts/current/merge-anonymous"
+  - "POST /api/v1/carts/current/items/{sku}/move-to-wishlist"
+x-backend-host-configured: false
+x-source-security-errors:
+  "docs/contratos/checkout-h4.openapi.yaml":
+    '401': [UNAUTHENTICATED]
+    '503': [AUTH_CONFIGURATION_UNAVAILABLE, AUTH_KEYS_UNAVAILABLE, AUTH_UNAVAILABLE]
+paths:
+  "/v1/auth/capabilities":
+    get:
+      operationId: getAuthCapabilities
+      tags: [Cuenta]
+      summary: Consultar qué operaciones de cuenta están habilitadas
+      security: []
+      x-traceability:
+        feature: F-001, F-004
+        implementation: 'AccountController.capabilities -> AccountService.capabilities'
+        authentication: 'Pública.'
+        behavior: 'Permite que la interfaz oculte registro o recuperación mientras el entorno no las habilite. El resultado depende de las banderas del entorno.'
+      responses:
+        '200':
+          description: Banderas vigentes del entorno
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capabilities' }
+              examples:
+                banderasApagadas:
+                  summary: Entorno con registro y recuperación apagados
+                  value: { login: true, registro: false, recuperacion: false }
+                banderasEncendidas:
+                  summary: Entorno con registro y recuperación habilitados
+                  value: { login: true, registro: true, recuperacion: true }
+  "/v1/password/politica":
+    get:
+      operationId: getPasswordPolicy
+      tags: [Cuenta]
+      summary: Obtener la política de contraseña vigente de G7
+      security: []
+      x-traceability:
+        feature: F-001, F-005
+        implementation: 'AccountController.policy -> AccountService.policy -> G7 password/politica'
+        authentication: 'Pública.'
+        errorCodes: { '503': [AUTH_UNAVAILABLE] }
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
+        behavior: 'Se valida la forma de la respuesta de G7; si es inválida se responde 503 y no se inventa una política.'
+      responses:
+        '200':
+          description: Política de contraseña
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasswordPolicy' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/registro":
+    post:
+      operationId: registerCustomer
+      tags: [Cuenta]
+      summary: Registrar un cliente (queda pendiente de verificación)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-001
+        implementation: 'AccountController.register -> AccountService.register -> G7 auth/registro'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          El canal de origen se fija en el servidor como MARKETPLACE. El registro no
+          inicia sesión: la respuesta es solo PENDIENTE_VERIFICACION.
+        errorCodes:
+          '400': [VALIDACION]
+          '403': [FORBIDDEN]
+          '409': [CORREO_NO_DISPONIBLE]
+          '422': [POLITICA_INCUMPLIDA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrationInput' }
+      responses:
+        '201':
+          description: Registro recibido; falta verificar el correo en G7
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationAccepted' }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/EmailUnavailable' }
+        '422': { $ref: '#/components/responses/PolicyViolated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/password/recuperar":
+    post:
+      operationId: requestPasswordRecovery
+      tags: [Cuenta]
+      summary: Solicitar el enlace de recuperación de contraseña
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-004
+        implementation: 'AccountController.recover -> AccountService.recover -> G7 password/recuperar'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          Antienumeración: la respuesta es 202 sin cuerpo exista o no la cuenta. El
+          único error por solicitud es 429. Cualquier otra respuesta de G7 se
+          normaliza a 503 para que nada varíe por cuenta.
+        errorCodes:
+          '403': [FORBIDDEN]
+          '429': [DEMASIADAS_SOLICITUDES]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecoveryInput' }
+      responses:
+        '202': { description: 'Solicitud aceptada (respuesta uniforme, sin cuerpo)' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429':
+          description: Demasiadas solicitudes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: DEMASIADAS_SOLICITUDES, message: 'Espera antes de volver a solicitar instrucciones.', retryAfterSeconds: 60 }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/password/restablecer":
+    post:
+      operationId: resetPassword
+      tags: [Cuenta]
+      summary: Restablecer la contraseña con el token del enlace
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-005
+        implementation: 'AccountController.reset -> AccountService.reset -> G7 password/restablecer'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace.'
+        behavior: >-
+          G7 consume el token y revoca las sesiones del usuario; el BFF no crea
+          sesión ni infiere identidad. Solo se reenvían 401, 410, 422 y 429 del
+          contrato de restablecimiento; cualquier otro estado se normaliza a 503.
+        errorCodes:
+          '401': [TOKEN_RECUPERACION_INVALIDO]
+          '410': [TOKEN_RECUPERACION_EXPIRADO]
+          '422': [POLITICA_INCUMPLIDA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_OPERATION_UNAVAILABLE, AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS); al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetInput' }
+      responses:
+        '204': { description: 'Contraseña restablecida (sin cuerpo)' }
+        '401':
+          description: Token de recuperación inválido o ya usado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: TOKEN_RECUPERACION_INVALIDO, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410':
+          description: Token de recuperación vencido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: TOKEN_RECUPERACION_EXPIRADO, message: 'No pudimos completar el acceso.' }
+        '422': { $ref: '#/components/responses/PolicyViolated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/login":
+    post:
+      operationId: login
+      tags: [Sesión]
+      summary: Iniciar sesión (con desafío MFA por correo cuando aplica)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.login -> G7SessionService.login -> G7 auth/login'
+        authentication: 'Pública; exige Origin igual al frontend de Marketplace. No requiere cookie: descarta cualquier sesión o desafío previo.'
+        behavior: >-
+          Antes de empezar se descartan sesión y desafío anteriores. Con MFA, G7
+          devuelve un desafío: el BFF lo guarda en servidor y entrega solo la cookie
+          g1_challenge (respuesta mfaRequerido). Sin MFA, entrega directamente la
+          cookie de sesión. Con AUTH_ENABLED apagado se usa AuthService.login: solo
+          si H3_AUTH_MOCK=true y NODE_ENV no es production responde el resultado
+          MOCK de demostración (MockLogin), que nunca crea sesión ni cookie; con las
+          credenciales de demostración equivocadas responde 401, y fuera de ese modo
+          responde 503 MOCK_NO_DISPONIBLE.
+        errorCodes:
+          '400': [VALIDACION]
+          '401': [CREDENCIALES_INVALIDAS]
+          '403': [FORBIDDEN, PASSWORD_CADUCADA]
+          '429': [RATE_LIMITED]
+          '503': [AUTH_UNAVAILABLE, MOCK_NO_DISPONIBLE]
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
+        runtimeEvidence: 'REAL contra G7 con cuentas de prueba (23/10 y 25/10/2026). G1 no implementa bloqueo por intentos; cualquier política de ese tipo depende de G7 (429 RATE_LIMITED).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200':
+          description: Sesión iniciada, desafío MFA pendiente o, solo en modo de demostración, resultado MOCK
+          headers:
+            Set-Cookie:
+              description: >-
+                g1_session (sesión, HttpOnly) o g1_challenge (desafío MFA); no se
+                envía en el resultado MOCK. En producción llevan el prefijo __Host-
+                y el atributo Secure.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/Session' }
+                  - { $ref: '#/components/schemas/MfaChallenge' }
+                  - { $ref: '#/components/schemas/MockLogin' }
+              examples:
+                sesion:
+                  value: { authenticated: true, user: { id: 3f1c2e0a-9c1b-4a58-9d3e-0a6c1e4f7b21, nombreCompleto: Cliente Prueba, roles: [CLIENTE] }, scope: 8d1e3f4a-1b2c-4d5e-8f90-123456789abc }
+                mfa:
+                  value: { mfaRequerido: true, canal: EMAIL, expiraEn: 300 }
+                mockDesarrollo:
+                  summary: Solo con H3_AUTH_MOCK=true fuera de producción
+                  value: { mode: MOCK, authenticated: false, message: 'Validación de ejemplo completada. No se inició una sesión real.' }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '401':
+          description: Credenciales inválidas (mensaje genérico)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: CREDENCIALES_INVALIDAS, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/otp/solicitar":
+    post:
+      operationId: requestOtp
+      tags: [Sesión]
+      summary: Pedir el envío del código MFA al correo
+      security:
+        - challengeCookie: []
+        - challengeCookieProd: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.requestOtp -> G7SessionService.otp -> G7 auth/otp/solicitar'
+        authentication: 'Cookie g1_challenge de un login con MFA pendiente; exige Origin. Sin ese desafío responde 410 OTP_EXPIRADO.'
+        behavior: 'El cuerpo debe estar vacío. El correo se devuelve enmascarado.'
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '403': [FORBIDDEN]
+          '410': [OTP_EXPIRADO]
+          '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Código enviado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpRequested' }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/ChallengeExpired' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/otp/verificar":
+    post:
+      operationId: verifyOtp
+      tags: [Sesión]
+      summary: Verificar el código MFA y abrir la sesión
+      security:
+        - challengeCookie: []
+        - challengeCookieProd: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.verifyOtp -> G7SessionService.otp -> G7 auth/otp/verificar'
+        authentication: 'Cookie g1_challenge; exige Origin. Sin ese desafío responde 410 OTP_EXPIRADO.'
+        behavior: >-
+          Un código inválido, vencido o con intentos agotados no destruye el desafío
+          mientras siga vigente, para poder pedir otro código. Al verificar bien se
+          crea la sesión y se elimina el desafío.
+        errorCodes:
+          '400': [VALIDACION]
+          '401': [CODIGO_INVALIDO, OTP_INTENTOS_AGOTADOS, TOKEN_INVALIDO]
+          '403': [FORBIDDEN]
+          '410': [OTP_EXPIRADO]
+          '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: 'Hasta 15 s esperando a G7; al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyOtpInput' }
+      responses:
+        '200':
+          description: Sesión iniciada
+          headers:
+            Set-Cookie:
+              description: Cookie de sesión g1_session (HttpOnly) y borrado de g1_challenge.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '401':
+          description: Código incorrecto, intentos agotados o desafío inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: CODIGO_INVALIDO, message: 'No pudimos completar el acceso.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/ChallengeExpired' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/session":
+    get:
+      operationId: getSession
+      tags: [Sesión]
+      summary: Consultar la sesión actual (rehidratación al recargar)
+      security:
+        - {}
+        - sessionCookie: []
+        - sessionCookieProd: []
+      x-traceability:
+        feature: F-002, F-003
+        implementation: 'AuthController.session -> G7SessionService.session'
+        authentication: 'Cookie g1_session opcional (sesión opcional): sin ella, o sin sesión local válida, responde 200 anónimo.'
+        behavior: >-
+          Es el equivalente de GET /auth/me: la interfaz lo llama al cargar la página
+          y tras F5 para recuperar la identidad sin leer tokens. Si no hay sesión
+          local válida responde 200 con authenticated=false y borra la cookie. Renueva
+          el access token si hace falta (refresh de un solo uso, serializado). Solo
+          responde 401 en dos casos: cuando G7_INTROSPECTION_ENABLED=true y G7 rechaza
+          la sesión (UNAUTHORIZED, se borra la cookie), o cuando G7 rechaza el refresh
+          (REFRESCO_INVALIDO, se borra la cookie y la sesión local).
+        errorCodes:
+          '401': [UNAUTHORIZED, REFRESCO_INVALIDO]
+          '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s para renovar con G7 (HTTP_TIMEOUT_MS) y hasta 16 s esperando a otra solicitud que ya renueva la misma sesión; al agotarse responde 503 AUTH_UNAVAILABLE.'
+      responses:
+        '200':
+          description: Sesión autenticada o anónima
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/Session' }
+                  - { $ref: '#/components/schemas/AnonymousSession' }
+              examples:
+                anonima: { value: { authenticated: false, scope: anonymous } }
+        '401':
+          description: Sesión rechazada por G7 (revocada o refresh inválido); se borra la cookie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: UNAUTHORIZED, message: 'Inicia sesión para continuar.' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/refresh":
+    post:
+      operationId: refreshSession
+      tags: [Sesión]
+      summary: Renovar la sesión
+      security:
+        - sessionCookie: []
+        - sessionCookieProd: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-002
+        implementation: 'AuthController.refresh -> G7SessionService.refresh'
+        authentication: 'Cookie g1_session obligatoria; exige Origin.'
+        behavior: >-
+          El refresh token de G7 es de un solo uso: se reclama con un marcador
+          durable antes de llamar a G7 para que ningún reintento lo reutilice. El
+          cuerpo debe estar vacío. Sin sesión válida responde 401 UNAUTHORIZED.
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '401': [UNAUTHORIZED, REFRESCO_INVALIDO]
+          '403': [FORBIDDEN]
+          '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s (HTTP_TIMEOUT_MS) más hasta 16 s de espera si otra solicitud ya renueva la misma sesión; al agotarse responde 503 AUTH_UNAVAILABLE.'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Sesión renovada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '401':
+          description: Sin sesión válida o refresh rechazado por G7
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { code: UNAUTHORIZED, message: 'Inicia sesión para continuar.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/auth/logout":
+    post:
+      operationId: logout
+      tags: [Sesión]
+      summary: Cerrar sesión
+      security:
+        - {}
+        - sessionCookie: []
+        - sessionCookieProd: []
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      x-traceability:
+        feature: F-003
+        implementation: 'AuthController.logout -> G7SessionService.logout'
+        authentication: 'Cookie g1_session opcional: la operación es idempotente y responde 200 aunque no haya sesión; exige Origin.'
+        behavior: >-
+          Borra la sesión local y revoca el refresh token en G7. Si G7 falla, el
+          cierre local igualmente se completa. Todas las cookies de sesión enviadas se
+          revocan y se limpian las cookies de sesión y desafío.
+        remoteRevocationPending: >-
+          true cuando el cierre local se completó pero no se pudo confirmar la
+          revocación en G7 (la llamada a G7 falló o había un refresh en curso). En la
+          rama develop actual, una fila de sesión ilegible no activa el indicador; la
+          PR #253, aún abierta, cambia ese comportamiento. Este contrato debe
+          actualizarse al fusionarse esa PR.
+        errorCodes:
+          '400': [INVALID_REQUEST]
+          '403': [FORBIDDEN]
+          '503': [AUTH_UNAVAILABLE]
+        timeoutBehavior: '5 s por llamada de revocación (HTTP_TIMEOUT_MS); un fallo de G7 no impide el cierre local y se refleja en remoteRevocationPending.'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: Sesión cerrada localmente (también si no había sesión)
+          headers:
+            Set-Cookie:
+              description: Borra g1_session y g1_challenge (Max-Age=0).
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoggedOut' }
+              example: { authenticated: false, remoteRevocationPending: false }
+        '400': { $ref: '#/components/responses/AuthInvalidRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/AuthUnavailable' }
+  "/v1/checkout/delivery-addresses":
+    get:
+      security:
+        - bearerAuth: []
+      operationId: listDeliveryAddresses
+      tags: [Checkout, Security]
+      summary: Listar direcciones del titular
+      x-traceability:
+        featureIssues: ['#114']
+        implementation: 'CheckoutController.listAddresses -> CheckoutService.listAddresses'
+        authentication: 'AuthGuard; token Bearer requerido; el proveedor recibe el token en servidor.'
+        ownership: 'Las direcciones devueltas pertenecen al titular autenticado; no se acepta customerId del cliente.'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway lista las direcciones del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas.'
+        errorCodes:
+          '400': [ADDRESS_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE]
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 200 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
+      responses:
+        '200':
+          description: Direcciones propias
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressList' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+    post:
+      security:
+        - bearerAuth: []
+      operationId: createDeliveryAddress
+      tags: [Checkout, Security]
+      summary: Crear dirección para el titular autenticado
+      x-traceability:
+        featureIssues: ['#114']
+        implementation: 'CheckoutController.createAddress -> CheckoutService.createAddress'
+        authentication: 'AuthGuard; customerId se deriva del subject y el token se propaga en servidor.'
+        ownership: 'No se admiten customerId/userId en el DTO; la dirección se crea para el titular autenticado.'
+        downstreamCompatibility: 'G7 Security: MarketplaceGateway crea la dirección del sub con el Bearer del titular; fixture y Prism son fuentes locales alternativas. El teléfono del formulario no se reenvía ni se incluye en la respuesta.'
+        errorCodes:
+          '400': [ADDRESS_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE]
+        timeoutBehavior: 'El timeout del proveedor se normaliza a 503 ADDRESS_SERVICE_UNAVAILABLE.'
+        runtimeEvidence: 'REAL histórico con G7: 201 por el BFF desplegado el 26/11/2026 (corte f17896d). Retest NOT_RUN.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddressInput' }
+      responses:
+        '201':
+          description: Dirección creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddressResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/checkout/quotes":
+    post:
+      security:
+        - bearerAuth: []
+      operationId: createCheckoutQuote
+      tags: [Checkout, Catalog, Cart]
+      summary: Cotizar el carrito vigente para una dirección
+      x-traceability:
+        featureIssues: ['#118']
+        implementation: 'CheckoutController.createQuote -> CheckoutService.createQuote'
+        authentication: 'AuthGuard; customerId y carrito se resuelven desde el contexto autenticado.'
+        ownership: 'addressId debe pertenecer al titular; cartVersion debe coincidir con el carrito vigente.'
+        downstreamCompatibility: 'Carrito G1 y validación de dirección del titular por la fuente de direcciones configurada (G7 o doble local). Cotización comercial y de envío con fixture/doble; sin ruta externa G6 verificada para cotizar.'
+        errorCodes:
+          '400': [REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
+          '401': [UNAUTHENTICATED]
+          '404': [ADDRESS_NOT_FOUND]
+          '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE]
+          '503': [ADDRESS_SERVICE_UNAVAILABLE, QUOTE_UNAVAILABLE]
+        timeoutBehavior: 'Timeout de direcciones o cotización se normaliza a 503; no se acepta una cotización parcial.'
+        runtimeEvidence: 'La compra histórica con Ventas REAL usó cotización MOCK aun con direcciones G7 REAL. Cotización REAL NOT_RUN.'
+      description: >-
+        cartVersion es control optimista; el servidor obtiene el carrito y el
+        titular de la sesión autenticada. No se aceptan importes del cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteInput' }
+      responses:
+        '200':
+          description: Cotización autoritativa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/CheckoutConflict' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/checkout/benefits":
+    post:
+      security:
+        - bearerAuth: []
+      operationId: applyCheckoutBenefit
+      tags: [Checkout, Benefits]
+      summary: Aplicar o quitar un cupón
+      description: Omitir couponCode solicita una cotización base sin beneficio.
+      x-traceability:
+        featureIssues: ['#122']
+        implementation: 'CheckoutController.applyBenefit -> CheckoutService.applyBenefit'
+        authentication: 'AuthGuard; quoteId se valida dentro del contexto del titular autenticado.'
+        ownership: 'La cotización es propiedad del titular y expira; no se aceptan importes/descuentos del cliente.'
+        downstreamCompatibility: 'G6 Benefits (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [INVALID_COUPON_FORMAT, REQUEST_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '409': [QUOTE_EXPIRED]
+          '422': [COUPON_NOT_APPLICABLE]
+          '503': [BENEFITS_UNAVAILABLE]
+        timeoutBehavior: 'Timeout del proveedor de beneficios se normaliza a 503 BENEFITS_UNAVAILABLE.'
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BenefitInput' }
+      responses:
+        '200':
+          description: Beneficio validado y cotización actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/CheckoutConflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/checkout/preparations":
+    post:
+      security:
+        - bearerAuth: []
+      operationId: prepareCheckout
+      tags: [Checkout, Inventory]
+      summary: Revalidar y preparar la compra
+      x-traceability:
+        featureIssues: ['#126', '#127']
+        implementation: 'CheckoutController.prepare -> CheckoutService.prepare'
+        authentication: 'AuthGuard; operación y carrito se asocian al titular autenticado.'
+        ownership: 'Idempotency-Key se restringe al titular; quoteId/cartVersion se verifican contra el contexto vigente.'
+        idempotency: 'UUID con variante RFC; repetición idéntica recupera la operación, reutilización incompatible devuelve 409.'
+        downstreamCompatibility: 'G6 Inventory/revalidation (MOCK only); G7 Security.'
+        errorCodes:
+          '400': [IDEMPOTENCY_KEY_REQUIRED, SIMULATION_NOT_CONFIRMED, REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [CART_NOT_FOUND, QUOTE_EXPIRED, CART_CHANGED, REVALIDATION_CHANGED, STOCK_NOT_AVAILABLE, IDEMPOTENCY_KEY_REUSED, PREPARATION_CONTEXT_UNAVAILABLE]
+          '503': [REVALIDATION_UNAVAILABLE]
+        timeoutBehavior: 'Una revalidación temporalmente no disponible conserva PREPARING para reintentar la misma clave; se responde 503.'
+        runtimeEvidence: 'MOCK; no acredita transacción/constraints PostgreSQL temporal ni integración REAL.'
+      parameters:
+        - $ref: '#/components/parameters/PreparationIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrepareInput' }
+      responses:
+        '201':
+          description: Operación preparada; no representa pedido pagado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/CheckoutConflict' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/checkout/orders":
+    post:
+      security:
+        - bearerAuth: []
+      operationId: createCheckoutOrder
+      tags: [Checkout, Sales]
+      summary: Solicitar creación idempotente de pedido
+      description: >-
+        La respuesta 202 representa un envío pendiente o resultado incierto;
+        no equivale a pedido pagado. Solo un resultado autoritativo de Ventas
+        con estado PAGADO se expone como SUCCEEDED.
+      x-traceability:
+        featureIssues: ['#131', '#132']
+        implementation: 'CheckoutController.createOrder -> CheckoutService.createOrder'
+        authentication: 'AuthGuard; el checkoutOperationId debe pertenecer al titular autenticado.'
+        ownership: 'La operación y carrito se consultan por customerId derivado del principal.'
+        idempotency: 'Idempotency-Key UUID v4; la clave y el fingerprint impiden crear pedidos duplicados.'
+        downstreamCompatibility: 'G5 Sales según configuración; G7 Security.'
+        errorCodes:
+          '400': [IDEMPOTENCY_KEY_REQUIRED, CONTACT_VALIDATION_ERROR]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [IDEMPOTENCY_KEY_REUSED, OPERATION_NOT_PREPARED, ORDER_CREATION_PENDING, ORDER_NOT_COMPLETED, QUOTE_EXPIRED, CHECKOUT_CONTEXT_CHANGED, PAGO_NO_COMPLETADO]
+          '429': [SALES_RATE_LIMITED]
+          '503': [SALES_UNAVAILABLE, ORDER_CREATION_PENDING]
+        timeoutBehavior: 'Timeout o respuesta incierta de creación/consulta mantiene el resultado no pagado: 202 con recoveryRequired cuando la operación queda incierta; nunca inferir SUCCEEDED.'
+        runtimeEvidence: 'La configuración y la evidencia de homologación se documentan por entorno.'
+      parameters:
+        - $ref: '#/components/parameters/OrderIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderInput' }
+      responses:
+        '200':
+          description: Resultado autoritativo final de Ventas (PAGADO o ANULADO)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '202':
+          description: Resultado pendiente; no presentar como pago exitoso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/CheckoutConflict' }
+        '429':
+          description: Ventas aplicó un límite de llamadas; el cuerpo puede ser un error o una vista de operación pendiente.
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorEnvelope'
+                  - $ref: '#/components/schemas/OperationResult'
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/checkout/operations/{operationId}":
+    get:
+      security:
+        - bearerAuth: []
+      operationId: getCheckoutOperation
+      tags: [Checkout, Sales]
+      summary: Consultar operación del titular
+      description: >-
+        El estado y los datos del pedido se revelan únicamente al titular. El
+        estado final no se infiere de un timeout; una operación aún no verificable
+        se mantiene pendiente.
+      x-traceability:
+        featureIssues: ['#136', '#137']
+        implementation: 'CheckoutController.getOperation -> CheckoutService.getOperation'
+        authentication: 'AuthGuard; operationId se consulta con el customerId del principal.'
+        ownership: 'Operación ajena o inexistente devuelve 404 para evitar revelar su existencia.'
+        downstreamCompatibility: 'G5 Sales según configuración; G7 Security.'
+        errorCodes:
+          '400': [INVALID_OPERATION_ID]
+          '401': [UNAUTHENTICATED]
+          '404': [OPERATION_NOT_FOUND]
+          '409': [ORDER_NOT_SUBMITTED]
+          '503': [SALES_UNAVAILABLE]
+        timeoutBehavior: 'Una operación SUBMITTED conserva 202/recoveryRequired mientras no se confirme; fallo al refrescar una operación final devuelve 503.'
+        runtimeEvidence: 'La configuración y la evidencia de homologación se documentan por entorno.'
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Estado de la operación; los datos de orden solo aparecen al verificarse con Ventas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
+        '202':
+          description: Estado aún pendiente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/CheckoutConflict' }
+        '429':
+          description: Ventas aplicó un límite; la operación no se interpreta como pagada.
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationStatusResult' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/orders/me":
+    get:
+      security:
+        - bearerAuth: []
+      operationId: listMyOrders
+      tags: [Sales]
+      summary: Listar el historial del titular autenticado
+      description: No acepta un identificador de comprador. Si se indican ambas fechas, el rango debe ser válido y no superar un año.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+        - { name: state, in: query, schema: { type: string, enum: [CREADO, PAGADO, EN_PREPARACION, DESPACHADO, ENTREGADO, ANULADO] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Página de pedidos propios
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Orders-Source:
+              schema: { type: string, enum: [REAL, MOCK, UNCONFIGURED] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrdersHistory' }
+        '400':
+          description: Filtros o paginación inválidos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/orders/{orderId}":
+    get:
+      security:
+        - bearerAuth: []
+      operationId: getMyOrderDetail
+      tags: [Sales]
+      summary: Consultar el detalle del pedido del titular
+      description: Lectura sin efectos. Ventas verifica la identidad del titular y devuelve el estado autoritativo. Respuesta sin envoltorio data.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Resumen del pedido
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/orders/{orderId}/tracking":
+    get:
+      security:
+        - bearerAuth: []
+      operationId: getMyOrderTracking
+      tags: [Sales]
+      summary: Consultar seguimiento del pedido del titular
+      description: Primero autoriza con Ventas. En modo REAL puede proyectar eventos de envío persistidos sin exponer el inbox.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Seguimiento público del pedido propio
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackingResult' }
+        '202':
+          description: Seguimiento aún no disponible (TRACKING_NOT_READY)
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OrdersForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/OrdersRateLimited' }
+        '503': { $ref: '#/components/responses/CheckoutUnavailable' }
+  "/v1/webhooks/ventas/envios":
+    post:
+      operationId: receiveSalesShipmentEvent
+      tags: [Sales, Webhook]
+      summary: Recibir un evento de envío autenticado de Ventas
+      description: El receptor reconoce el identificador eventId en formato UUID, no idEvento. Se persiste un solo evento por UUID y se reconoce la repetición sin una segunda fila.
+      security:
+        - salesWebhookToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentEvent' }
+      responses:
+        '200':
+          description: Evento persistido o repetición reconocida
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [accepted, duplicate]
+                    properties:
+                      accepted: { type: boolean, enum: [true] }
+                      duplicate: { type: boolean }
+        '400': { $ref: '#/components/responses/CheckoutInvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: WEBHOOK_NOT_CONFIGURED o SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  "/v1/catalog/home":
+    "get":
+      "operationId": "catalogHome"
+      "tags": ["Catalog"]
+      "security": []
+      "parameters": []
+      "responses":
+        "200":
+          "description": "Lectura pública válida; arreglos vacíos permitidos"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Home"
+        "400":
+          "description": "Criterios inválidos antes del proveedor"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+        "503":
+          "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+  "/v1/catalog/filters":
+    "get":
+      "operationId": "catalogFilters"
+      "tags": ["Catalog"]
+      "security": []
+      "parameters": []
+      "responses":
+        "200":
+          "description": "Lectura pública válida; arreglos vacíos permitidos"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Filters"
+        "400":
+          "description": "Criterios inválidos antes del proveedor"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+        "503":
+          "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+  "/v1/catalog/products":
+    "get":
+      "operationId": "catalogProducts"
+      "tags": ["Catalog"]
+      "security": []
+      "parameters": [{"name":"q","in":"query","required":false,"schema":{"anyOf":[{"type":"string","const":""},{"type":"string","minLength":2,"maxLength":120}]},"description":"Normalizada: trim y espacios consecutivos; vacía significa catálogo"},{"name":"categoryIds","in":"query","required":false,"schema":{"type":"string","minLength":1,"maxLength":120},"description":"Un ID activo, no CSV. Mapea a categoriaId G6"},{"name":"brandIds","in":"query","required":false,"schema":{"type":"string","minLength":1,"maxLength":120},"description":"Un ID activo, no CSV. AND con categoría; mapea a marcaId"},{"name":"minPrice","in":"query","required":false,"schema":{"type":"number","minimum":0,"maximum":9999999999999.99,"multipleOf":0.01},"description":"PEN; sin notación exponencial; precioMin G6"},{"name":"maxPrice","in":"query","required":false,"schema":{"type":"number","minimum":0,"maximum":9999999999999.99,"multipleOf":0.01},"description":"PEN; mínimo ≤ máximo; precioMax G6"},{"name":"sort","in":"query","required":false,"schema":{"type":"string","enum":["NAME_ASC","NAME_DESC"]},"description":"NOMBRE_ASC/DESC G6; no ordenar una página incompleta localmente"},{"name":"page","in":"query","required":false,"schema":{"type":"integer","minimum":0,"maximum":1000000,"default":0},"description":"Cero basada; G6 pagina=page+1. Fuera de total conserva vacío sin retry automático"},{"name":"pageSize","in":"query","required":false,"schema":{"type":"integer","minimum":1,"maximum":48,"default":24},"description":"tamanio G6"}]
+      "responses":
+        "200":
+          "description": "Lectura pública válida; arreglos vacíos permitidos"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CatalogPage"
+        "400":
+          "description": "Criterios inválidos antes del proveedor"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+        "503":
+          "description": "CATALOG_TIMEOUT: presupuesto de espera agotado; CATALOG_UNAVAILABLE: otro fallo. Sin fallback MOCK"
+          "headers":
+            "Cache-Control":
+              "schema":
+                "type": "string"
+                "const": "no-store"
+            "X-Catalog-Source":
+              "schema":
+                "type": "string"
+                "enum": ["MOCK","REAL","UNCONFIGURED"]
+            "X-Request-Id":
+              "schema":
+                "type": "string"
+                "minLength": 1
+          "content":
+            "application/problem+json":
+              "schema":
+                "$ref": "#/components/schemas/Problem"
+  "/v1/orders/{orderId}/csat":
+    "post":
+      "operationId": "submitPostDeliveryCsat"
+      "tags": ["CSAT"]
+      "summary": "F-040: evaluación de pedido entregado del titular"
+      "description": "Desactivado por defecto. Requiere CSAT_ENABLED, CSAT_INTEGRATION_APPROVED y CSAT_PROMPT_APPROVED. Prompt propio SHOWN previamente autorizado; no crea ni muestra prompts. Conserva estado ante respuesta incierta, sin reintento automático. Cache-Control: no-store, private."
+      "security": [{"bearerAuth":[]}]
+      "parameters": [{"name":"orderId","in":"path","required":true,"schema":{"type":"string","maxLength":100,"pattern":"^PED-[0-9]{4}-[0-9]{5,}$"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/SubmitCsat"
+      "responses":
+        "201":
+          "description": "Ventas confirmó la evaluación; sin cuerpo. Prompt local SUBMITTED."
+        "400":
+          "description": "Solicitud inválida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_REQUEST"
+                "message": "Solicitud inválida"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "403":
+          "description": "Pedido ajeno"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_FORBIDDEN"
+                "message": "Pedido ajeno"
+        "404":
+          "description": "Pedido no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_NOT_AVAILABLE"
+                "message": "Pedido no disponible"
+        "409":
+          "description": "PROMPT_NOT_ELIGIBLE o CSAT_ALREADY_SUBMITTED. Sólo duplicado canónico confirmado por Ventas reconcilia el prompt."
+        "422":
+          "description": "Pedido no entregado"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "ORDER_NOT_DELIVERED"
+                "message": "Pedido no entregado"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "CSAT_UNAVAILABLE":
+                  "value":
+                    "code": "CSAT_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "SALES_UNAVAILABLE":
+                  "value":
+                    "code": "SALES_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+  "/v1/carts/current/items":
+    "post":
+      "operationId": "addCartItem"
+      "tags": ["Cart"]
+      "summary": "F-016: Agregar ítem al carrito actual (alta o incremento)"
+      "description": "Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. No implementa deduplicación por Idempotency-Key: repetir el POST puede incrementar de nuevo. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax."
+      "security": [{"bearerAuth":[]},{}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AddCartItemPayload"
+            "example":
+              "sku": "AERO-42-BLK"
+              "quantity": 1
+      "responses":
+        "200":
+          "description": "Línea existente incrementada (ITEM_INCREMENTED)."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartMutationResponse"
+              "example":
+                "status": "ITEM_INCREMENTED"
+                "data":
+                  "cartId": "11111111-1111-4111-8111-111111111111"
+                  "version": 3
+                  "items": [{"sku":"AERO-42-BLK","quantity":2,"unitPrice":{"amount":89.9,"currency":"PEN","version":1}}]
+        "201":
+          "description": "Nueva línea creada en el carrito (ITEM_CREATED)."
+          "headers":
+            "Set-Cookie":
+              "description": "Cookie de sesión anónima HttpOnly (solo para invitados)"
+              "schema":
+                "type": "string"
+                "example": "cart_session=uuid; Path=/; HttpOnly; SameSite=Lax"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartMutationResponse"
+              "example":
+                "status": "ITEM_CREATED"
+                "data":
+                  "cartId": "11111111-1111-4111-8111-111111111111"
+                  "version": 2
+                  "items": [{"sku":"AERO-42-BLK","quantity":1,"unitPrice":{"amount":89.9,"currency":"PEN","version":1}}]
+        "400":
+          "description": "Validación fallida: SKU ausente o cantidad fuera del rango permitido [1, 99]."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "invalidSku":
+                  "value":
+                    "code": "INVALID_SKU"
+                    "message": "El parámetro sku es requerido."
+                "invalidQuantity":
+                  "value":
+                    "code": "INVALID_QUANTITY"
+                    "message": "La cantidad debe ser un entero entre 1 y 99."
+        "401":
+          "description": "Token de autenticación inválido, expirado o firma corrupta."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHENTICATED"
+                "message": "Token de autenticación inválido, expirado o firma corrupta."
+        "404":
+          "description": "Producto o SKU no disponible para venta."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "SKU_NOT_AVAILABLE"
+                "message": "Producto o SKU no disponible para venta."
+        "409":
+          "description": "Conflicto de negocio: límite de stock excedido o error de cotización."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "stockLimitReached":
+                  "value":
+                    "code": "STOCK_LIMIT_REACHED"
+                    "message": "La cantidad excede el límite permitido de 99 unidades por ítem."
+                "commerceDataUnavailable":
+                  "value":
+                    "code": "COMMERCE_DATA_UNAVAILABLE"
+                    "message": "Cotización no válida o datos comerciales no disponibles."
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+  "/v1/carts/current/items/{sku}":
+    "patch":
+      "operationId": "updateCartItemQuantity"
+      "tags": ["Cart"]
+      "summary": "F-017: Cambiar la cantidad de un ítem en el carrito"
+      "description": "Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND. No usa Idempotency-Key; repetir la misma cantidad no incrementa unidades adicionales, aunque avanza la versión si no se envía If-Match vigente."
+      "security": [{"bearerAuth":[]},{}]
+      "parameters": [{"name":"sku","in":"path","required":true,"schema":{"type":"string","minLength":1},"description":"Identificador SKU del ítem a modificar."},{"name":"If-Match","in":"header","required":false,"schema":{"type":"string"},"description":"Versión esperada del carrito para control de concurrencia optimista."}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "type": "object"
+              "required": ["quantity"]
+              "additionalProperties": false
+              "properties":
+                "quantity":
+                  "type": "integer"
+                  "minimum": 1
+                  "maximum": 99
+                  "description": "Nueva cantidad absoluta del ítem (entero entre 1 y 99)."
+                  "example": 3
+      "responses":
+        "200":
+          "description": "Cantidad actualizada exitosamente; versión del carrito incrementada."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required": ["status","data"]
+                "properties":
+                  "status":
+                    "type": "string"
+                    "example": "OK"
+                  "data":
+                    "$ref": "#/components/schemas/CartSnapshot"
+        "400":
+          "description": "Cantidad inválida (ej. 0, negativa o > 99)."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_QUANTITY"
+                "message": "La cantidad debe ser un entero entre 1 y 99. La cantidad 0 no es admitida."
+        "401":
+          "description": "Token de autenticación inválido o expirado."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHENTICATED"
+                "message": "Token de autenticación inválido o expirado."
+        "404":
+          "description": "El ítem no existe en el carrito actual."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "CART_ITEM_NOT_FOUND"
+                "message": "El ítem no existe en el carrito actual."
+        "409":
+          "description": "Conflicto de concurrencia (If-Match) o límite de stock alcanzado."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "cartConflict":
+                  "value":
+                    "code": "CART_CONFLICT"
+                    "message": "Conflicto de versión en carrito."
+                "stockLimitReached":
+                  "value":
+                    "code": "STOCK_LIMIT_REACHED"
+                    "message": "La cantidad excede el límite permitido."
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+  "/v1/carts/current":
+    "get":
+      "operationId": "getCurrentCart"
+      "tags": ["Cart"]
+      "summary": "F-019: Obtener el carrito actual del titular o invitado"
+      "description": "Recupera el snapshot del carrito activo asociado al customer_id (vía Bearer token) o a la sesión anónima (vía cookie cart_session). Devuelve items, cantidades, snapshots de precios y la versión actual."
+      "security": [{"bearerAuth":[]},{}]
+      "responses":
+        "200":
+          "description": "Carrito recuperado exitosamente."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required": ["status","data"]
+                "properties":
+                  "status":
+                    "type": "string"
+                    "example": "OK"
+                  "data":
+                    "$ref": "#/components/schemas/CartSnapshot"
+        "500":
+          "description": "Error interno del servidor."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servidor."
+  "/v1/wishlist":
+    "get":
+      "operationId": "listWishlist"
+      "tags": ["Wishlist"]
+      "summary": "F-037: favoritos del titular por createdAt DESC"
+      "security": [{"bearerAuth":[]}]
+      "responses":
+        "200":
+          "description": "Arreglo confirmado; [] solo para lista vacía. Cache-Control: no-store, private."
+          "content":
+            "application/json":
+              "schema":
+                "type": "array"
+                "items":
+                  "$ref": "#/components/schemas/WishlistItemView"
+              "example": [{"productId":"PRD-1","createdAt":"2026-10-16T12:00:00.000Z","name":"Producto de prueba","slug":"producto-de-prueba","brand":"Marca sandbox","image":null,"price":{"amount":89.9,"currency":"PEN"},"availability":"AVAILABLE"}]
+        "400":
+          "description": "No se admiten parámetros"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_REQUEST"
+                "message": "No se admiten parámetros"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "500":
+          "description": "Error interno del servicio"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servicio"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "CATALOG_UNAVAILABLE":
+                  "value":
+                    "code": "CATALOG_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+  "/v1/wishlist/items/{productId}/add-to-cart":
+    "post":
+      "operationId": "addWishlistItemToCart"
+      "tags": ["Wishlist"]
+      "summary": "Agregar una unidad al carrito conservando el favorito"
+      "security": [{"bearerAuth":[]}]
+      "description": "Sin cuerpo ni Idempotency-Key. Cada solicitud aceptada agrega una unidad y conserva el favorito. Sin deduplicación durable ni tabla de movimientos. Ante timeout consultar carrito, sin reintentar automáticamente. No confirma reservas ni acredita F-039 original."
+      "parameters": [{"name":"productId","in":"path","required":true,"schema":{"type":"string","minLength":1,"maxLength":100},"description":"Identificador textual, no SKU; sin espacios exteriores ni controles."}]
+      "responses":
+        "200":
+          "description": "Adición confirmada; favorito conservado; Cache-Control: no-store, private."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AddFromWishlistResult"
+              "example":
+                "productId": "PRD-1"
+                "cart":
+                  "cartId": "11111111-1111-4111-8111-111111111111"
+                  "version": 2
+                  "items": [{"sku":"SKU-SIMPLE","quantity":1,"unitPrice":{"amount":89.9,"currency":"PEN","version":1}}]
+        "400":
+          "description": "Solicitud inválida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "invalidRequest":
+                  "value":
+                    "code": "INVALID_REQUEST"
+                    "message": "Adición inválida"
+                "invalidProductId":
+                  "value":
+                    "code": "INVALID_PRODUCT_ID"
+                    "message": "Identificador inválido"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "404":
+          "description": "Producto no disponible; favorito conservado"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "PRODUCT_NOT_AVAILABLE"
+                "message": "Producto no disponible; favorito conservado"
+        "409":
+          "description": "Conflicto; ninguna nueva mutación confirmada"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "STOCK_LIMIT_REACHED":
+                  "value":
+                    "code": "STOCK_LIMIT_REACHED"
+                    "message": "Adición no confirmada"
+                "CART_CONFLICT":
+                  "value":
+                    "code": "CART_CONFLICT"
+                    "message": "Adición no confirmada"
+        "422":
+          "description": "Seleccionar variante; favorito conservado"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VariantSelectionError"
+              "example":
+                "code": "VARIANT_SELECTION_REQUIRED"
+                "message": "Selecciona una variante"
+                "redirectUrl": "/productos/producto-con-variantes"
+        "500":
+          "description": "Error interno del servicio"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servicio"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "CATALOG_UNAVAILABLE":
+                  "value":
+                    "code": "CATALOG_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "COMMERCE_DATA_UNAVAILABLE":
+                  "value":
+                    "code": "COMMERCE_DATA_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+  "/v1/wishlist/items":
+    "post":
+      "operationId": "saveWishlistItem"
+      "tags": ["Wishlist"]
+      "summary": "F-036: guardar favorito propio"
+      "security": [{"bearerAuth":[]}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/WishlistItem"
+      "responses":
+        "200":
+          "description": "Ya existente; no altera createdAt"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/WishlistItem"
+              "example":
+                "productId": "PRD-1"
+        "201":
+          "description": "Creado"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/WishlistItem"
+              "example":
+                "productId": "PRD-1"
+        "400":
+          "description": "Cuerpo o producto inválido"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "invalidRequest":
+                  "summary": "Cuerpo inválido o campos adicionales"
+                  "value":
+                    "code": "INVALID_REQUEST"
+                    "message": "Solicitud inválida"
+                "invalidProductId":
+                  "summary": "productId inválido"
+                  "value":
+                    "code": "INVALID_PRODUCT_ID"
+                    "message": "Identificador de producto inválido"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "404":
+          "description": "Producto no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "PRODUCT_NOT_AVAILABLE"
+                "message": "Producto no disponible"
+        "500":
+          "description": "Error interno del servicio"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servicio"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "CATALOG_UNAVAILABLE":
+                  "value":
+                    "code": "CATALOG_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+  "/v1/wishlist/items/{productId}":
+    "delete":
+      "operationId": "removeWishlistItem"
+      "tags": ["Wishlist"]
+      "summary": "F-038: eliminar favorito propio, sin consultar catálogo"
+      "security": [{"bearerAuth":[]}]
+      "parameters": [{"name":"productId","in":"path","required":true,"schema":{"type":"string","minLength":1,"maxLength":100},"description":"Sin espacios exteriores ni caracteres de control. Referencia textual, no SKU."}]
+      "responses":
+        "204":
+          "description": "Eliminado o ya ausente; sin cuerpo"
+        "400":
+          "description": "Identificador inválido"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INVALID_PRODUCT_ID"
+                "message": "Identificador inválido"
+        "401":
+          "description": "Autenticación requerida"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "UNAUTHORIZED"
+                "message": "Autenticación requerida"
+        "500":
+          "description": "Error interno del servicio"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "example":
+                "code": "INTERNAL_ERROR"
+                "message": "Error interno del servicio"
+        "503":
+          "description": "Proveedor no disponible"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+              "examples":
+                "AUTH_UNAVAILABLE":
+                  "value":
+                    "code": "AUTH_UNAVAILABLE"
+                    "message": "Servicio no disponible"
+  "/v1/catalog/products/{slug}":
+    get:
+      operationId: getProductDetail
+      tags: [Detalle]
+      summary: Obtener la ficha descriptiva de un producto por slug canónico
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-011
+        implementation: 'ProductDetailController.getBySlug -> ProductDetailService.getBySlug'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Devuelve sólo identidad comercial, marca, descripción, especificaciones
+          técnicas y galería. No devuelve precio, stock, SKU, variantes, cupón ni
+          recomendaciones. Un slug inválido se rechaza antes de consultar el origen.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '502': [PRODUCT_CATALOG_INVALID_RESPONSE]
+          '503': [PRODUCT_CATALOG_UNAVAILABLE]
+          '504': [PRODUCT_CATALOG_TIMEOUT]
+        downstreamCompatibility: 'G6 GET /api/v1/productos/por-slug/{slug}?canal=MARKETPLACE; G7 sólo para token técnico en client-credentials.'
+        runtimeEvidence: 'Lectura pública histórica contra Azure del 06/11/2026; validación del grant de #403 en runtime NOT_RUN.'
+      responses:
+        '200':
+          description: Ficha descriptiva completa; no contiene campos comerciales
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetailResponse'
+              examples:
+                fichaMock:
+                  summary: Ficha MOCK de F-011
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      slug: zapatillas-running-aero-x
+                      name: Zapatillas Running Aero X [MOCK]
+                      brand:
+                        brandId: BR-MOCK
+                        name: BrandMock
+                      description: Descripción de prueba. Producto ficticio.
+                      technicalSpecifications:
+                        - group: Características
+                          name: Material
+                          value: Malla técnica
+                          displayOrder: 1
+                        - group: Características
+                          name: Peso
+                          value: '280'
+                          unit: g
+                          displayOrder: 2
+                      media:
+                        - mediaId: MED-001
+                          type: IMAGE
+                          url: https://placehold.co/600x400
+                          alt: Vista frontal [MOCK]
+                          displayOrder: 1
+                        - mediaId: MED-002
+                          type: IMAGE
+                          url: https://placehold.co/600x400?text=2
+                          alt: Vista lateral [MOCK]
+                          displayOrder: 2
+                    meta:
+                      source: MOCK
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '502':
+          $ref: '#/components/responses/ProductDetailInvalidResponse'
+        '503':
+          $ref: '#/components/responses/ProductDetailUnavailable'
+        '504':
+          $ref: '#/components/responses/ProductDetailTimeout'
+  "/v1/catalog/products/{slug}/price":
+    get:
+      operationId: getProductPrice
+      tags: [Comercial]
+      summary: Consultar el precio vigente y la oferta del producto o SKU
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+        - $ref: '#/components/parameters/OptionalSku'
+      x-traceability:
+        feature: F-012
+        implementation: 'ProductPriceController.getPrice -> ProductPriceService.getPrice'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Para productos con variantes exige sku y valida que pertenezca al
+          producto. discountPercent se deriva de regularAmount y saleAmount
+          cuando la oferta está vigente; sin oferta, saleAmount, discountPercent
+          y validUntil son null. No expone cupón, stock ni total de pedido.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '409': [PRODUCT_VARIANT_SELECTION_REQUIRED, SKU_NOT_BELONG_TO_PRODUCT]
+          '422': [PRICE_NOT_AVAILABLE]
+          '502': [PRICING_INVALID_RESPONSE]
+          '503': [PRICING_UNAVAILABLE]
+          '504': [PRICING_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Precio vigente con oferta derivada o sin oferta
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPriceResponse'
+              examples:
+                conOferta:
+                  summary: Oferta vigente con descuento derivado
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      sku: SKU-MOCK-001
+                      price:
+                        regularAmount: 299.9
+                        saleAmount: 254.9
+                        currency: PEN
+                        discountPercent: 15
+                        validFrom: '2026-09-01T00:00:00.000Z'
+                        validUntil: '2026-12-31T23:59:59.000Z'
+                        priceVersion: 8
+                    meta:
+                      channel: MARKETPLACE
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+                sinOferta:
+                  summary: Precio regular sin oferta vigente
+                  value:
+                    data:
+                      productId: mock-product-2
+                      sku: SKU-MOCK-003
+                      price:
+                        regularAmount: 99.9
+                        saleAmount: null
+                        currency: PEN
+                        discountPercent: null
+                        validFrom: '2026-09-01T00:00:00.000Z'
+                        validUntil: null
+                        priceVersion: 1
+                    meta:
+                      channel: MARKETPLACE
+                      retrievedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/ProductDetailConflict'
+        '422':
+          $ref: '#/components/responses/PriceNotAvailable'
+        '502':
+          $ref: '#/components/responses/PriceInvalidResponse'
+        '503':
+          $ref: '#/components/responses/PriceUnavailable'
+        '504':
+          $ref: '#/components/responses/PriceTimeout'
+  "/v1/catalog/products/{slug}/variants":
+    get:
+      operationId: getProductVariants
+      tags: [Comercial]
+      summary: Listar atributos y variantes activas del producto
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-013
+        implementation: 'ProductVariantsController.getBySlug -> ProductVariantsService.getBySlug'
+        authentication: 'Pública; no requiere Authorization.'
+        downstreamCompatibility: 'G6 GET /api/v1/productos/por-slug/{slug}?canal=MARKETPLACE; G7 sólo para token técnico en client-credentials.'
+        behavior: >-
+          Sólo publica variantes ACTIVE. Cada sku y variantId es único y cada
+          combinación de atributos aparece una sola vez. No expone stock ni
+          precio. Un producto sin variantes devuelve hasVariants=false con
+          atributos y variantes vacíos.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '502': [CATALOG_INVALID_RESPONSE]
+          '503': [CATALOG_UNAVAILABLE]
+          '504': [CATALOG_TIMEOUT]
+        runtimeEvidence: 'Lectura histórica sin Authorization contra Azure del 06/11/2026; validación del grant de #403 en runtime NOT_RUN.'
+      responses:
+        '200':
+          description: Variantes activas o producto simple sin variantes
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductVariantsResponse'
+              examples:
+                productoSimple:
+                  summary: Producto sin variantes
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      hasVariants: false
+                      attributes: []
+                      variants: []
+                productoVariable:
+                  summary: Producto con color y talla
+                  value:
+                    data:
+                      productId: PRD-VAR-MOCK-001
+                      hasVariants: true
+                      attributes:
+                        - id: color
+                          label: Color
+                          values:
+                            - id: negro
+                              label: Negro
+                            - id: blanco
+                              label: Blanco
+                        - id: size
+                          label: Talla
+                          values:
+                            - id: '42'
+                              label: '42'
+                            - id: '43'
+                              label: '43'
+                      variants:
+                        - variantId: VAR-MOCK-1
+                          sku: SKU-MOCK-VAR-1
+                          status: ACTIVE
+                          attributes:
+                            color: negro
+                            size: '42'
+                          image:
+                            url: https://placehold.co/600x400?text=AERO-NEGRO-42
+                            alt: Zapatilla negro talla 42
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '502':
+          $ref: '#/components/responses/VariantsInvalidResponse'
+        '503':
+          $ref: '#/components/responses/VariantsUnavailable'
+        '504':
+          $ref: '#/components/responses/VariantsTimeout'
+  "/v1/catalog/products/{slug}/availability":
+    get:
+      operationId: getProductAvailability
+      tags: [Comercial]
+      summary: Consultar la disponibilidad comercial del producto o SKU
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+        - $ref: '#/components/parameters/OptionalSku'
+      x-traceability:
+        feature: F-014
+        implementation: 'ProductAvailabilityController.getAvailability -> ProductAvailabilityService.getAvailability'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Para productos con variantes exige sku y valida que pertenezca al
+          producto. Publica AVAILABLE, STOCK_LOW, OUT_OF_STOCK y UNDETERMINED. No expone
+          cantidades, onHand, reserved ni ubicaciones. Un error de inventario se
+          publica como 502/503/504 y nunca como OUT_OF_STOCK ni UNDETERMINED.
+          UNDETERMINED es una respuesta comercial válida con 200, sin compra.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+          '404': [PRODUCT_NOT_AVAILABLE]
+          '409': [PRODUCT_VARIANT_SELECTION_REQUIRED, SKU_NOT_BELONG_TO_PRODUCT]
+          '502': [INVENTORY_INVALID_RESPONSE]
+          '503': [INVENTORY_UNAVAILABLE]
+          '504': [INVENTORY_TIMEOUT]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Estado comercial sin saldos ni ubicaciones
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+            Cache-Control:
+              description: Caché corta de la lectura de disponibilidad
+              schema:
+                type: string
+                example: public, max-age=30
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAvailabilityResponse'
+              examples:
+                disponible:
+                  summary: Producto simple disponible
+                  value:
+                    data:
+                      productId: PRD-MOCK-001
+                      sku: SKU-MOCK-001
+                      availability: AVAILABLE
+                      checkedAt: '2026-11-04T12:00:00.000Z'
+                stockBajo:
+                  summary: Variante con stock bajo
+                  value:
+                    data:
+                      productId: PRD-VAR-MOCK-001
+                      sku: SKU-MOCK-VAR-2
+                      availability: STOCK_LOW
+                      checkedAt: '2026-11-04T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/ProductDetailConflict'
+        '502':
+          $ref: '#/components/responses/AvailabilityInvalidResponse'
+        '503':
+          $ref: '#/components/responses/AvailabilityUnavailable'
+        '504':
+          $ref: '#/components/responses/AvailabilityTimeout'
+  "/v1/catalog/products/{slug}/recommendations":
+    get:
+      operationId: getProductRecommendations
+      tags: [Comercial]
+      summary: Listar productos relacionados completos y deduplicados
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      x-traceability:
+        feature: F-015
+        implementation: 'ProductRecommendationsController.getRecommendations -> ProductRecommendationsService.getRecommendations'
+        authentication: 'Pública; no requiere Authorization.'
+        behavior: >-
+          Región no crítica: devuelve como máximo 8 tarjetas completas, activas
+          y deduplicadas, sin el producto de origen. Un candidato incompleto se
+          omite y un fallo técnico se degrada a 200 con arreglo vacío. Sólo un
+          slug fuera del patrón canónico responde 400.
+        errorCodes:
+          '400': [INVALID_PRODUCT_SLUG]
+        runtimeEvidence: 'MOCK; no acredita integración REAL ni despliegue.'
+      responses:
+        '200':
+          description: Tarjetas relacionadas o arreglo vacío por ausencia o degradación
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-Catalog-Source:
+              $ref: '#/components/headers/XCatalogSource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationsResponse'
+              examples:
+                conRelacionados:
+                  summary: Cuatro tarjetas relacionadas
+                  value:
+                    data:
+                      - productId: mock-product-1
+                        slug: producto-demostracion-1
+                        name: Zapatillas de running 01
+                        image:
+                          url: https://placehold.co/600x400?text=1A
+                          alt: Zapatillas de running 01 [MOCK]
+                        type: CROSS_SELL
+                        price:
+                          amount: 89.9
+                          currency: PEN
+                        presentationOrder: 1
+                      - productId: mock-product-2
+                        slug: producto-demostracion-2
+                        name: Polo de entrenamiento 02
+                        image:
+                          url: https://placehold.co/600x400?text=2A
+                          alt: Polo de entrenamiento 02 [MOCK]
+                        type: UPSELL
+                        price: null
+                        presentationOrder: 2
+                    meta:
+                      sourceProductId: PRD-MOCK-001
+                sinRelacionados:
+                  summary: Degradación válida a arreglo vacío
+                  value:
+                    data: []
+                    meta:
+                      sourceProductId: PRD-MOCK-NONE
+        '400':
+          $ref: '#/components/responses/InvalidProductSlug'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: g1_session
+      description: >-
+        Cookie de sesión opaca en desarrollo y pruebas (NODE_ENV distinto de
+        production). HttpOnly, SameSite=Lax, Path=/ y vigencia de 7 días. En
+        producción el navegador usa sessionCookieProd. Contiene solo un
+        identificador: los tokens de G7 viven cifrados en el servidor.
+    sessionCookieProd:
+      type: apiKey
+      in: cookie
+      name: __Host-g1_session
+      description: >-
+        La misma cookie de sesión con el nombre que usa NODE_ENV=production
+        (G7SessionService.cookieName antepone __Host-). Además de HttpOnly,
+        SameSite=Lax, Path=/ y 7 días, lleva el atributo Secure. Es una alternativa
+        de sessionCookie: en cada entorno aplica solo una de las dos.
+    challengeCookie:
+      type: apiKey
+      in: cookie
+      name: g1_challenge
+      description: >-
+        Cookie del desafío MFA pendiente en desarrollo y pruebas. HttpOnly,
+        SameSite=Lax, Path=/ y vigencia igual a expiraEn (hasta 300 s). Se emite en
+        el login con MFA y se elimina al verificar el código. En producción el
+        navegador usa challengeCookieProd.
+    challengeCookieProd:
+      type: apiKey
+      in: cookie
+      name: __Host-g1_challenge
+      description: >-
+        La misma cookie de desafío MFA con el nombre de producción (prefijo
+        __Host-) y el atributo Secure. Alternativa de challengeCookie según el
+        entorno.
+    CheckoutbearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    salesWebhookToken:
+      type: apiKey
+      in: header
+      name: x-webhook-token
+      description: Nombre por defecto; el entorno puede configurar un nombre alternativo.
+    "H3bearerAuth":
+      "type": "http"
+      "scheme": "bearer"
+      "bearerFormat": "JWT"
+  parameters:
+    OriginHeader:
+      name: Origin
+      in: header
+      required: true
+      description: >-
+        Debe coincidir con el origen del frontend de Marketplace (G1_WEB_ORIGIN) y
+        Sec-Fetch-Site no puede ser cross-site; de lo contrario responde 403
+        FORBIDDEN. El navegador lo envía automáticamente.
+      schema: { type: string, example: 'https://g1-marketplace-frontend.vercel.app' }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    PreparationIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID persistida por titular; el fingerprint debe coincidir al reintentar.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    OrderIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID versión 4; la misma clave y solicitud recuperan el resultado original.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    ProductSlug:
+      name: slug
+      in: path
+      required: true
+      description: Slug canónico del producto (1 a 120 caracteres).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      example: zapatillas-running-aero-x
+    OptionalSku:
+      name: sku
+      in: query
+      required: false
+      description: >-
+        SKU vendible. Es obligatorio para productos con variantes y, si se
+        envía, debe pertenecer al producto.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+      example: SKU-MOCK-001
+  schemas:
+    Capabilities:
+      type: object
+      required: [login, registro, recuperacion]
+      properties:
+        login: { type: boolean }
+        registro: { type: boolean }
+        recuperacion: { type: boolean }
+    PasswordPolicy:
+      type: object
+      required: [longitudMinima, requiereMayuscula, requiereMinuscula, requiereDigito, requiereCaracterEspecial, historial]
+      properties:
+        longitudMinima: { type: integer, minimum: 1, maximum: 256 }
+        requiereMayuscula: { type: boolean }
+        requiereMinuscula: { type: boolean }
+        requiereDigito: { type: boolean }
+        requiereCaracterEspecial: { type: boolean }
+        historial: { type: integer, minimum: 0 }
+        rechazaComunes: { type: boolean }
+        rechazaDatosPersonales: { type: boolean }
+    RegistrationInput:
+      type: object
+      additionalProperties: false
+      required: [correo, contrasena, nombres, apellidos, celular, aceptaTerminos]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+        contrasena: { type: string, minLength: 1, maxLength: 256 }
+        nombres: { type: string, maxLength: 100, pattern: '\S', description: 'Debe contener al menos un carácter no blanco' }
+        apellidos: { type: string, maxLength: 100, pattern: '\S', description: 'Debe contener al menos un carácter no blanco' }
+        celular: { type: string, pattern: '^\+51[0-9]{9}$', example: '+51987654321' }
+        aceptaTerminos: { type: boolean, enum: [true] }
+    RegistrationAccepted:
+      type: object
+      required: [id, estado]
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F-]{36}$'
+          description: 'Identificador devuelto por G7: cadena de 36 caracteres hexadecimales o guiones (el BFF no exige formato UUID estricto)'
+        estado: { type: string, enum: [PENDIENTE_VERIFICACION] }
+    RecoveryInput:
+      type: object
+      additionalProperties: false
+      required: [correo]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+    ResetInput:
+      type: object
+      additionalProperties: false
+      required: [token, nuevaContrasena]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 2048 }
+        nuevaContrasena: { type: string, minLength: 1, maxLength: 256 }
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required: [correo, contrasena]
+      properties:
+        correo: { type: string, format: email, maxLength: 254 }
+        contrasena: { type: string, minLength: 1, maxLength: 256 }
+    VerifyOtpInput:
+      type: object
+      additionalProperties: false
+      required: [codigo]
+      properties:
+        codigo: { type: string, pattern: '^\d{6}$', example: '123456' }
+    MfaChallenge:
+      type: object
+      required: [mfaRequerido, canal, expiraEn]
+      properties:
+        mfaRequerido: { type: boolean, enum: [true] }
+        canal: { type: string, enum: [EMAIL] }
+        expiraEn: { type: integer, minimum: 1, maximum: 300, description: Segundos de vigencia del desafío }
+    MockLogin:
+      type: object
+      description: >-
+        Resultado de demostración de AuthService.login. Solo existe con H3_AUTH_MOCK=true
+        fuera de producción y con AUTH_ENABLED apagado; nunca crea sesión ni cookie.
+      required: [mode, authenticated, message]
+      properties:
+        mode: { type: string, enum: [MOCK] }
+        authenticated: { type: boolean, enum: [false] }
+        message: { type: string }
+    OtpRequested:
+      type: object
+      required: [canal, destinoEnmascarado, expiraEn, desafioExpiraEn]
+      properties:
+        canal: { type: string, enum: [EMAIL] }
+        destinoEnmascarado: { type: string, maxLength: 254, example: 'c***@correo.com' }
+        expiraEn: { type: number, description: Segundos de vigencia del código (G7 los entrega como número) }
+        desafioExpiraEn: { type: number, description: Segundos restantes del desafío (G7 los entrega como número) }
+    SessionUser:
+      type: object
+      required: [id, nombreCompleto, roles]
+      properties:
+        id: { type: string, description: Identificador (sub) del usuario en G7 }
+        nombreCompleto: { type: string, maxLength: 200 }
+        roles: { type: array, items: { type: string }, example: [CLIENTE] }
+    Session:
+      type: object
+      required: [authenticated, user, scope]
+      properties:
+        authenticated: { type: boolean, enum: [true] }
+        user: { $ref: '#/components/schemas/SessionUser' }
+        scope: { type: string, format: uuid, description: Identificador de la sesión para aislar datos en el cliente }
+    AnonymousSession:
+      type: object
+      required: [authenticated, scope]
+      properties:
+        authenticated: { type: boolean, enum: [false] }
+        scope: { type: string, enum: [anonymous] }
+    LoggedOut:
+      type: object
+      required: [authenticated, remoteRevocationPending]
+      properties:
+        authenticated: { type: boolean, enum: [false] }
+        remoteRevocationPending: { type: boolean, description: 'true si el cierre local se completó pero no se pudo confirmar la revocación en G7' }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: Código estable para integradores }
+        message: { type: string, description: 'Mensaje genérico, sin datos de cuenta' }
+        retryAfterSeconds: { type: integer, description: Presente en 429 }
+    ValidationError:
+      type: object
+      description: Formato por defecto del ValidationPipe de NestJS.
+      properties:
+        statusCode: { type: integer, example: 400 }
+        message: { type: array, items: { type: string } }
+        error: { type: string, example: Bad Request }
+    OrderSummary:
+      type: object
+      required: [orderId, state, total, createdAt]
+      properties:
+        orderId: { type: string, minLength: 1 }
+        state: { type: string, minLength: 1 }
+        total:
+          type: object
+          required: [amount, currency]
+          properties:
+            amount: { type: number, minimum: 0 }
+            currency: { type: string, pattern: '^[A-Z]{3}$' }
+        createdAt: { type: string, format: date-time }
+    OrdersHistory:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/OrderSummary' }
+        page:
+          type: object
+          required: [number, size, totalElements, totalPages]
+          properties:
+            number: { type: integer, minimum: 0 }
+            size: { type: integer, minimum: 1 }
+            totalElements: { type: integer, minimum: 0 }
+            totalPages: { type: integer, minimum: 0 }
+    TrackingResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [state, milestones]
+          properties:
+            state: { type: string }
+            trackingNumber: { type: string }
+            estimatedDelivery: { type: string, format: date }
+            milestones:
+              type: array
+              items:
+                type: object
+                required: [state, at]
+                properties:
+                  state: { type: string, enum: [DESPACHADO, ENTREGADO] }
+                  at: { type: string, format: date-time }
+    ShipmentEvent:
+      type: object
+      required: [eventId, eventType, version, timestamp, emitter, data]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+        eventType: { type: string, enum: [ShipmentStatusUpdated] }
+        version: { type: string, enum: ['1.0.0'] }
+        timestamp: { type: string, format: date-time }
+        emitter: { type: string, enum: [modulo-ventas] }
+        data:
+          type: object
+          required: [orderId, publicStatus, trackingNumber, estimatedDeliveryDate]
+          properties:
+            orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+            publicStatus: { type: string, minLength: 1, maxLength: 64 }
+            trackingNumber: { type: string, minLength: 1, maxLength: 128 }
+            estimatedDeliveryDate: { type: string, format: date, nullable: true }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string, minLength: 1 }
+            fields:
+              type: array
+              items: { type: string }
+    AddressInput:
+      type: object
+      additionalProperties: false
+      required: [street, district, province, department, phone]
+      properties:
+        label: { type: string, maxLength: 80 }
+        street: { type: string, minLength: 1, maxLength: 180 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        province: { type: string, minLength: 1, maxLength: 100 }
+        department: { type: string, minLength: 1, maxLength: 100 }
+        reference: { type: string, maxLength: 180 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+    Address:
+      type: object
+      additionalProperties: false
+      required: [addressId, street, district, province, department]
+      properties:
+        addressId: { type: string, minLength: 1 }
+        label: { type: string, maxLength: 80 }
+        street: { type: string, minLength: 1, maxLength: 180 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        province: { type: string, minLength: 1, maxLength: 100 }
+        department: { type: string, minLength: 1, maxLength: 100 }
+        reference: { type: string, maxLength: 180 }
+    AddressResult:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Address' }
+    AddressList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+    QuoteInput:
+      type: object
+      additionalProperties: false
+      required: [addressId, cartVersion]
+      properties:
+        addressId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+    BenefitInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        couponCode: { type: string, maxLength: 30 }
+    PrepareInput:
+      type: object
+      additionalProperties: false
+      required: [quoteId, cartVersion, simulationConfirmed]
+      properties:
+        quoteId: { type: string, minLength: 1, maxLength: 100 }
+        cartVersion: { type: integer, minimum: 0 }
+        simulationConfirmed: { type: boolean }
+    OrderInput:
+      type: object
+      additionalProperties: false
+      required: [checkoutOperationId, contact]
+      properties:
+        checkoutOperationId: { type: string, format: uuid }
+        paymentMethod:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z0-9_-]+$'
+          description: El DTO lo admite como opcional; el flujo G5 normal requiere un método efectivo.
+        deliveryRecipient: { type: string, minLength: 2, maxLength: 120 }
+        contact:
+          type: object
+          additionalProperties: false
+          required: [fullName, documentType, documentNumber, phone, email]
+          properties:
+            fullName: { type: string, minLength: 2, maxLength: 120 }
+            documentType: { type: string, enum: [DNI, RUC, CE, PASAPORTE] }
+            documentNumber: { type: string, minLength: 5, maxLength: 24 }
+            phone: { type: string, minLength: 5, maxLength: 40 }
+            email: { type: string, format: email, maxLength: 254 }
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: number, minimum: 0 }
+        currency: { type: string, enum: [PEN] }
+    QuoteLine:
+      type: object
+      additionalProperties: false
+      required: [sku, quantity]
+      properties:
+        sku: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 1 }
+    SelectedBenefit:
+      type: object
+      additionalProperties: false
+      required: [type, id, discount]
+      properties:
+        type: { type: string, enum: [COUPON] }
+        id: { type: string, minLength: 1 }
+        discount: { $ref: '#/components/schemas/Money' }
+    QuoteResult:
+      type: object
+      description: Cotización recalculada por el servidor a partir del carrito y proveedor.
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [quoteId, expiresAt, subtotal, discount, shipping, total, lines, addressId, cartVersion]
+          properties:
+            quoteId: { type: string, minLength: 1 }
+            expiresAt: { type: string, format: date-time }
+            subtotal: { $ref: '#/components/schemas/Money' }
+            discount: { $ref: '#/components/schemas/Money' }
+            shipping:
+              type: object
+              additionalProperties: false
+              required: [amount, currency, estimatedDays]
+              properties:
+                amount: { type: number, minimum: 0 }
+                currency: { type: string, enum: [PEN] }
+                estimatedDays: { type: number, minimum: 0 }
+            total: { $ref: '#/components/schemas/Money' }
+            lines:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/QuoteLine' }
+            addressId: { type: string, minLength: 1 }
+            cartVersion: { type: integer, minimum: 0 }
+            selectedBenefit: { $ref: '#/components/schemas/SelectedBenefit' }
+    CheckoutOperation:
+      type: object
+      required: [checkoutOperationId, state]
+      properties:
+        checkoutOperationId: { type: string, format: uuid }
+        state: { type: string, enum: [PREPARED, SUBMITTED, SUCCEEDED, FAILED] }
+        orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+        orderState: { type: string, enum: [CREADO, PAGADO, ANULADO] }
+        total: { $ref: '#/components/schemas/Money' }
+        createdAt: { type: string, format: date-time }
+        revalidatedAt: { type: string, format: date-time }
+        simulationConsent: { type: string, enum: [RECORDED] }
+        failureCode: { type: string }
+        recoveryRequired: { type: boolean }
+    OperationResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/CheckoutOperation'
+    CheckoutOperationStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [PREPARED, SUBMITTED, SUCCEEDED, FAILED] }
+        order:
+          type: object
+          required: [orderId, state, total, createdAt]
+          properties:
+            orderId: { type: string, pattern: '^PED-[0-9]{4}-[0-9]{5}$' }
+            state: { type: string, enum: [CREADO, PAGADO, ANULADO] }
+            total: { $ref: '#/components/schemas/Money' }
+            createdAt: { type: string, format: date-time }
+        failureCode: { type: string }
+        recoveryRequired: { type: boolean }
+    OperationStatusResult:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/CheckoutOperationStatus' }
+
+    "Category":
+      "type": "object"
+      "properties":
+        "categoryId":
+          "type": "string"
+          "minLength": 1
+        "name":
+          "type": "string"
+          "minLength": 1
+      "required": ["categoryId","name"]
+      "additionalProperties": false
+    "Brand":
+      "type": "object"
+      "properties":
+        "brandId":
+          "type": "string"
+          "minLength": 1
+        "name":
+          "type": "string"
+          "minLength": 1
+      "required": ["brandId","name"]
+      "additionalProperties": false
+    "ProductCard":
+      "type": "object"
+      "properties":
+        "productId":
+          "type": "string"
+          "minLength": 1
+        "slug":
+          "type": "string"
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          "maxLength": 120
+        "name":
+          "type": "string"
+          "minLength": 1
+        "categoryId":
+          "type": "string"
+          "minLength": 1
+        "brandId":
+          "type": "string"
+          "minLength": 1
+        "image":
+          "anyOf": [{"type":"null"},{"type":"object","properties":{"url":{"type":"string","minLength":1},"alt":{"type":"string","minLength":1}},"required":["url","alt"],"additionalProperties":false}]
+      "required": ["productId","slug","name","categoryId","brandId","image"]
+      "additionalProperties": false
+    "Home":
+      "type": "object"
+      "properties":
+        "categories":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Category"
+        "featuredProducts":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/ProductCard"
+      "required": ["categories","featuredProducts"]
+      "additionalProperties": false
+    "Filters":
+      "type": "object"
+      "properties":
+        "categories":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Category"
+        "brands":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Brand"
+      "required": ["categories","brands"]
+      "additionalProperties": false
+    "CatalogPage":
+      "type": "object"
+      "properties":
+        "sort":
+          "type": ["string","null"]
+          "enum": ["NAME_ASC","NAME_DESC",null]
+          "description": "Orden explícito delegado a G6; null conserva el orden predeterminado del proveedor. No acredita desempate global externo."
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/ProductCard"
+        "page":
+          "type": "object"
+          "properties":
+            "number":
+              "type": "integer"
+              "minimum": 0
+            "size":
+              "type": "integer"
+              "minimum": 1
+              "maximum": 48
+            "totalElements":
+              "type": "integer"
+              "minimum": 0
+            "totalPages":
+              "type": "integer"
+              "minimum": 0
+          "required": ["number","size","totalElements","totalPages"]
+          "additionalProperties": false
+      "required": ["sort","data","page"]
+      "additionalProperties": false
+    "Problem":
+      "type": "object"
+      "properties":
+        "type":
+          "type": "string"
+          "minLength": 1
+        "title":
+          "type": "string"
+          "minLength": 1
+        "status":
+          "type": "integer"
+        "code":
+          "type": "string"
+          "enum": ["INVALID_SEARCH_QUERY","INVALID_PAGE","INVALID_PARAMETERS","INVALID_FILTER","INVALID_PRICE_RANGE","INVALID_SORT","CATALOG_UNAVAILABLE","CATALOG_TIMEOUT"]
+        "requestId":
+          "type": "string"
+          "minLength": 1
+      "required": ["type","title","status","code","requestId"]
+      "additionalProperties": false
+    "SubmitCsat":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["sentiment"]
+      "properties":
+        "sentiment":
+          "type": "string"
+          "enum": ["GOOD","REGULAR","BAD"]
+        "reasons":
+          "type": "array"
+          "maxItems": 10
+          "uniqueItems": true
+          "items":
+            "type": "string"
+            "pattern": "^[A-Z][A-Z0-9_]{0,49}$"
+        "comment":
+          "type": "string"
+          "maxLength": 1000
+    "AddCartItemPayload":
+      "type": "object"
+      "additionalProperties": false
+      "anyOf": [{"required":["sku"]},{"required":["productId"]}]
+      "properties":
+        "sku":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+          "description": "Identificador único del SKU del producto."
+          "example": "AERO-42-BLK"
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+          "description": "Sólo compatibilidad de fixtures en BFF_MODE=mock; producción requiere sku. Si se envían ambos campos, sku tiene precedencia. Los productos con variantes requieren el SKU elegido."
+        "quantity":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 99
+          "default": 1
+          "description": "Cantidad de unidades a sumar al carrito (entero entre 1 y 99)."
+          "example": 1
+    "CartMutationResponse":
+      "type": "object"
+      "required": ["status","data"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["ITEM_CREATED","ITEM_INCREMENTED"]
+          "example": "ITEM_CREATED"
+        "data":
+          "$ref": "#/components/schemas/CartSnapshot"
+    "CartMergeResponse":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["status","data"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["OK"]
+        "data":
+          "$ref": "#/components/schemas/CartMergeResult"
+    "CartMergeResult":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["cartId","version","merged","adjustments"]
+      "properties":
+        "cartId":
+          "type": "string"
+          "description": "ID del carrito del titular; vacío si todavía no existe uno."
+        "version":
+          "type": "integer"
+          "minimum": 0
+        "merged":
+          "type": "boolean"
+        "adjustments":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/CartMergeAdjustment"
+    "CartMergeAdjustment":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["sku","requestedQuantity","confirmedQuantity","reason"]
+      "properties":
+        "sku":
+          "type": "string"
+          "minLength": 1
+        "requestedQuantity":
+          "type": "integer"
+          "minimum": 1
+        "confirmedQuantity":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 99
+        "reason":
+          "type": "string"
+          "enum": ["STOCK_LIMIT","COMMERCE_POLICY"]
+    "CartMoveToWishlistResponse":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["status","data"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["OK"]
+        "data":
+          "$ref": "#/components/schemas/CartMoveToWishlistResult"
+    "CartMoveToWishlistResult":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["cartId","version","productId","wishlistCreated"]
+      "properties":
+        "cartId":
+          "type": "string"
+          "format": "uuid"
+        "version":
+          "type": "integer"
+          "minimum": 0
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+        "wishlistCreated":
+          "type": "boolean"
+          "description": "False si el favorito ya existía; la línea del carrito se elimina en ambos casos."
+    "CartSnapshot":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["cartId","version","items"]
+      "properties":
+        "cartId":
+          "type": "string"
+          "format": "uuid"
+          "nullable": true
+          "description": "Identificador único UUID del carrito."
+          "example": "11111111-1111-4111-8111-111111111111"
+        "version":
+          "type": "integer"
+          "minimum": 0
+          "description": "Versión incremental del carrito para control de concurrencia optimista."
+          "example": 2
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/CartItemSnapshot"
+        "subtotal":
+          "type": "object"
+          "nullable": true
+          "additionalProperties": false
+          "required": ["amount","currency"]
+          "properties":
+            "amount":
+              "type": "number"
+              "minimum": 0
+            "currency":
+              "type": "string"
+              "pattern": "^[A-Z]{3}$"
+          "description": "Subtotal informativo; null si no hay líneas o faltan precios."
+    "CartItemSnapshot":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["sku","quantity"]
+      "properties":
+        "sku":
+          "type": "string"
+          "example": "AERO-42-BLK"
+        "product":
+          "type": "object"
+          "additionalProperties": false
+          "required": ["slug","name"]
+          "properties":
+            "slug":
+              "type": "string"
+            "name":
+              "type": "string"
+            "imageUrl":
+              "type": "string"
+          "description": "Metadatos opcionales de presentación cuando los suministra la proyección del carrito."
+        "quantity":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 99
+          "example": 1
+        "availability":
+          "type": "string"
+          "enum": ["AVAILABLE","OUT_OF_STOCK","UNAVAILABLE"]
+          "description": "Campo opcional de disponibilidad informativa devuelto por el snapshot."
+        "attention":
+          "type": "string"
+          "nullable": true
+          "description": "Código de atención informativo; por ejemplo PRECIO_PENDIENTE."
+        "unitPrice":
+          "type": "object"
+          "additionalProperties": false
+          "required": ["amount","currency","version"]
+          "properties":
+            "amount":
+              "type": "number"
+              "minimum": 0
+              "example": 89.9
+            "currency":
+              "type": "string"
+              "pattern": "^[A-Z]{3}$"
+              "example": "PEN"
+            "version":
+              "type": "integer"
+              "minimum": 0
+              "example": 1
+    "WishlistItemView":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["productId","createdAt","name","slug","brand","image","price","availability"]
+      "properties":
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+        "createdAt":
+          "type": "string"
+          "format": "date-time"
+        "name":
+          "type": "string"
+          "nullable": true
+          "minLength": 1
+        "slug":
+          "type": "string"
+          "nullable": true
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        "brand":
+          "type": "string"
+          "nullable": true
+          "minLength": 1
+        "image":
+          "type": "object"
+          "nullable": true
+          "additionalProperties": false
+          "required": ["url","alt"]
+          "properties":
+            "url":
+              "type": "string"
+              "pattern": "^https://"
+            "alt":
+              "type": "string"
+              "minLength": 1
+        "price":
+          "type": "object"
+          "nullable": true
+          "additionalProperties": false
+          "required": ["amount","currency"]
+          "properties":
+            "amount":
+              "type": "number"
+              "minimum": 0
+            "currency":
+              "type": "string"
+              "pattern": "^[A-Z]{3}$"
+        "availability":
+          "type": "string"
+          "enum": ["AVAILABLE","OUT_OF_STOCK","UNDETERMINED","UNAVAILABLE"]
+    "AddFromWishlistResult":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["productId","cart"]
+      "properties":
+        "productId":
+          "type": "string"
+        "cart":
+          "$ref": "#/components/schemas/CartSnapshot"
+    "VariantSelectionError":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["code","message","redirectUrl"]
+      "properties":
+        "code":
+          "type": "string"
+          "enum": ["VARIANT_SELECTION_REQUIRED"]
+        "message":
+          "type": "string"
+        "redirectUrl":
+          "type": "string"
+          "pattern": "^/productos/[a-z0-9]+(?:-[a-z0-9]+)*$"
+    "WishlistItem":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["productId"]
+      "properties":
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+          "example": "PRD-1"
+          "description": "Sin espacios exteriores ni caracteres de control; conserva capitalización."
+    "ApiError":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["code","message"]
+      "properties":
+        "code":
+          "type": "string"
+        "message":
+          "type": "string"
+    "Health":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["status","service","environment","database","timestamp"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["UP","DOWN"]
+        "service":
+          "type": "string"
+          "example": "g1-marketplace-backend"
+        "environment":
+          "type": "string"
+          "example": "development"
+        "database":
+          "type": "object"
+          "additionalProperties": false
+          "required": ["connected"]
+          "properties":
+            "connected":
+              "type": "boolean"
+        "timestamp":
+          "type": "string"
+          "format": "date-time"
+    ProductDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductDetail'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [source, retrievedAt]
+          properties:
+            source:
+              type: string
+              enum: [MOCK, PRODUCTS_OFFERS]
+              description: MOCK identifica datos de demostración; PRODUCTS_OFFERS es la fuente real post I-01.
+            retrievedAt:
+              type: string
+              format: date-time
+    ProductDetail:
+      type: object
+      additionalProperties: false
+      required: [productId, slug, name, brand, technicalSpecifications, media]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        brand:
+          $ref: '#/components/schemas/ProductBrand'
+        description:
+          type: string
+          maxLength: 10000
+        technicalSpecifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/TechnicalSpecification'
+        media:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProductMedia'
+    ProductBrand:
+      type: object
+      additionalProperties: false
+      required: [brandId, name]
+      properties:
+        brandId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    TechnicalSpecification:
+      type: object
+      additionalProperties: false
+      required: [name, value, displayOrder]
+      properties:
+        group:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+          minimum: 0
+    ProductMedia:
+      type: object
+      additionalProperties: false
+      required: [mediaId, type, url, alt, displayOrder]
+      properties:
+        mediaId:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [IMAGE]
+        url:
+          type: string
+          format: uri
+          pattern: '^https://\S+$'
+        alt:
+          type: string
+          minLength: 1
+        displayOrder:
+          type: integer
+          minimum: 0
+    ProductPriceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductPrice'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [channel, retrievedAt]
+          properties:
+            channel:
+              type: string
+              enum: [MARKETPLACE]
+            retrievedAt:
+              type: string
+              format: date-time
+    ProductPrice:
+      type: object
+      additionalProperties: false
+      required: [productId, sku, price]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        price:
+          $ref: '#/components/schemas/Price'
+    Price:
+      type: object
+      additionalProperties: false
+      required: [regularAmount, saleAmount, currency, discountPercent, validFrom, validUntil, priceVersion]
+      properties:
+        regularAmount:
+          type: number
+          minimum: 0.01
+        saleAmount:
+          type: number
+          minimum: 0.01
+          nullable: true
+          description: Debe ser menor que regularAmount cuando no es null.
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Derivado por el BFF como round((regularAmount - saleAmount) / regularAmount * 100).
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: No puede ser anterior a validFrom cuando no es null.
+        priceVersion:
+          type: integer
+          minimum: 0
+    ProductVariantsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductVariants'
+    ProductVariants:
+      type: object
+      additionalProperties: false
+      required: [productId, hasVariants, attributes, variants]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        hasVariants:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariantAttribute'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+      description: >-
+        Si hasVariants=false, attributes y variants deben ser arreglos vacíos.
+        Si hasVariants=true, ambos deben tener al menos un elemento.
+    VariantAttribute:
+      type: object
+      additionalProperties: false
+      required: [id, label, values]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        label:
+          type: string
+          minLength: 1
+        values:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VariantAttributeValue'
+    VariantAttributeValue:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        label:
+          type: string
+          minLength: 1
+    ProductVariant:
+      type: object
+      additionalProperties: false
+      required: [variantId, sku, status, attributes, image]
+      properties:
+        variantId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [ACTIVE]
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+            minLength: 1
+        image:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [url, alt]
+          properties:
+            url:
+              type: string
+              format: uri
+              pattern: '^https://\S+$'
+            alt:
+              type: string
+              minLength: 1
+    ProductAvailabilityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductAvailability'
+    ProductAvailability:
+      type: object
+      additionalProperties: false
+      required: [productId, sku, availability, checkedAt]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        availability:
+          type: string
+          enum: [AVAILABLE, STOCK_LOW, OUT_OF_STOCK, UNDETERMINED]
+          description: >-
+            UNDETERMINED indica disponibilidad por confirmar, con reintento y sin
+            compra. Un error externo nunca se convierte en estado comercial.
+        checkedAt:
+          type: string
+          format: date-time
+    RecommendationsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/RecommendationCard'
+        meta:
+          type: object
+          additionalProperties: false
+          required: [sourceProductId]
+          properties:
+            sourceProductId:
+              type: string
+              minLength: 1
+    RecommendationCard:
+      type: object
+      additionalProperties: false
+      required: [productId, slug, name, image, type, price, presentationOrder]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        name:
+          type: string
+          minLength: 1
+        image:
+          $ref: '#/components/schemas/RecommendationImage'
+        type:
+          type: string
+          enum: [CROSS_SELL, UPSELL]
+        price:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [amount, currency]
+          properties:
+            amount:
+              type: number
+              minimum: 0.01
+            currency:
+              type: string
+              pattern: '^[A-Z]{3}$'
+        presentationOrder:
+          type: integer
+          minimum: 0
+    RecommendationImage:
+      type: object
+      additionalProperties: false
+      required: [url, alt]
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: '^https://\S+$'
+        alt:
+          type: string
+          minLength: 1
+    ProblemDetails:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, instance, requestId]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          minLength: 1
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          minLength: 1
+          description: Código estable del contrato; nunca un código interno del proveedor.
+        detail:
+          type: string
+          description: Mensaje propio de Marketplace; nunca datos del proveedor.
+        instance:
+          type: string
+          minLength: 1
+        requestId:
+          type: string
+          minLength: 1
+  responses:
+    AuthInvalidRequest:
+      description: Solicitud inválida (validación de campos o cuerpo no permitido)
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - { $ref: '#/components/schemas/ValidationError' }
+              - { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: La operación no se hizo desde el frontend de Marketplace (Origin) o la contraseña caducó
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: FORBIDDEN, message: 'Realiza esta operación desde Marketplace.' }
+    EmailUnavailable:
+      description: El correo no está disponible (mensaje genérico)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: CORREO_NO_DISPONIBLE, message: 'No pudimos completar el acceso.' }
+    PolicyViolated:
+      description: La contraseña no cumple la política vigente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: POLITICA_INCUMPLIDA, message: 'No pudimos completar el acceso.' }
+    RateLimited:
+      description: Demasiadas solicitudes
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: RATE_LIMITED, message: 'Espera antes de volver a intentarlo.', retryAfterSeconds: 60 }
+    ChallengeExpired:
+      description: El desafío MFA venció o no existe; hay que volver a iniciar sesión
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: OTP_EXPIRADO, message: 'Vuelve a iniciar sesión.' }
+    AuthUnavailable:
+      description: Acceso no disponible temporalmente (G7 caído, tiempo agotado u operación apagada)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { code: AUTH_UNAVAILABLE, message: 'Acceso no disponible temporalmente.' }
+
+    OrdersForbidden:
+      description: Ventas rechazó el acceso al historial o pedido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    OrdersRateLimited:
+      description: Límite de Ventas (SALES_RATE_LIMITED)
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    CheckoutInvalidRequest:
+      description: >-
+        DTO inválido o clave de idempotencia ausente/inválida. El código identifica
+        la causa; `fields` puede enumerar campos de DTO rechazados.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Autenticación inválida o ausente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    CheckoutConflict:
+      description: >-
+        Carrito/cotización/contexto/stock en conflicto, estado no preparado o
+        reutilización incompatible de una clave de idempotencia.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unprocessable:
+      description: Beneficio no aplicable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    CheckoutUnavailable:
+      description: >-
+        Proveedor no disponible, timeout mapeado por el BFF o configuración de
+        autenticación no disponible. En creación de pedido una respuesta incierta
+        puede ser 202 o 409 ORDER_CREATION_PENDING; nunca se interpreta como pago exitoso.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Recurso no encontrado o fuera del contexto/propiedad del titular
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InvalidProductSlug:
+      description: 400 INVALID_PRODUCT_SLUG — el slug no cumple el patrón canónico
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            slugInvalido:
+              value:
+                type: https://marketplace.example.com/problems/invalid-product-slug
+                title: El slug no cumple el formato definido.
+                status: 400
+                code: INVALID_PRODUCT_SLUG
+                instance: /api/v1/catalog/products/SLUG_INVALIDO!
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductNotFound:
+      description: 404 PRODUCT_NOT_AVAILABLE — producto inexistente, inactivo o no elegible
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            noDisponible:
+              value:
+                type: https://marketplace.example.com/problems/product-not-available
+                title: Producto no disponible
+                status: 404
+                code: PRODUCT_NOT_AVAILABLE
+                instance: /api/v1/catalog/products/producto-no-existente-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailConflict:
+      description: 409 — selección de variante requerida o SKU ajeno al producto
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            seleccionRequerida:
+              value:
+                type: https://marketplace.example.com/problems/product-variant-selection-required
+                title: Selecciona una variante antes de consultar el precio.
+                status: 409
+                code: PRODUCT_VARIANT_SELECTION_REQUIRED
+                instance: /api/v1/catalog/products/producto-variable-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+            skuAjeno:
+              value:
+                type: https://marketplace.example.com/problems/sku-not-belong-to-product
+                title: El SKU no corresponde a este producto.
+                status: 409
+                code: SKU_NOT_BELONG_TO_PRODUCT
+                instance: /api/v1/catalog/products/producto-variable-mock/price?sku=SKU-MOCK-001
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceNotAvailable:
+      description: 422 PRICE_NOT_AVAILABLE — no hay precio comercial vigente para el SKU
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            sinPrecio:
+              value:
+                type: https://marketplace.example.com/problems/price-not-available
+                title: Precio no disponible por el momento.
+                status: 422
+                code: PRICE_NOT_AVAILABLE
+                instance: /api/v1/catalog/products/producto-variable-mock/price?sku=SKU-MOCK-VAR-3
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailInvalidResponse:
+      description: 502 PRODUCT_CATALOG_INVALID_RESPONSE — ficha fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            fichaInvalida:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-invalid-response
+                title: Respuesta inválida del catálogo.
+                status: 502
+                code: PRODUCT_CATALOG_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/zapatillas-running-aero-x
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailUnavailable:
+      description: 503 PRODUCT_CATALOG_UNAVAILABLE — no se obtuvo una ficha utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-unavailable
+                title: El catálogo no está disponible.
+                status: 503
+                code: PRODUCT_CATALOG_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    ProductDetailTimeout:
+      description: 504 PRODUCT_CATALOG_TIMEOUT — el origen agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoLento:
+              value:
+                type: https://marketplace.example.com/problems/product-catalog-timeout
+                title: El catálogo tardó demasiado en responder.
+                status: 504
+                code: PRODUCT_CATALOG_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-mock
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceInvalidResponse:
+      description: 502 PRICING_INVALID_RESPONSE — importes, moneda o vigencia inválidos
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            precioInvalido:
+              value:
+                type: https://marketplace.example.com/problems/pricing-invalid-response
+                title: La respuesta de precios no es válida.
+                status: 502
+                code: PRICING_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceUnavailable:
+      description: 503 PRICING_UNAVAILABLE — no se obtuvo una respuesta de precios utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            preciosNoDisponibles:
+              value:
+                type: https://marketplace.example.com/problems/pricing-unavailable
+                title: El servicio de precios no está disponible.
+                status: 503
+                code: PRICING_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    PriceTimeout:
+      description: 504 PRICING_TIMEOUT — el servicio de precios agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            preciosLentos:
+              value:
+                type: https://marketplace.example.com/problems/pricing-timeout
+                title: El servicio de precios tardó demasiado en responder.
+                status: 504
+                code: PRICING_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-precio-mock/price
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsInvalidResponse:
+      description: 502 CATALOG_INVALID_RESPONSE — variantes fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            variantesInvalidas:
+              value:
+                type: https://marketplace.example.com/problems/catalog-invalid-response
+                title: La respuesta de variantes no es válida.
+                status: 502
+                code: CATALOG_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsUnavailable:
+      description: 503 CATALOG_UNAVAILABLE — no se obtuvo una respuesta de variantes utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/catalog-unavailable
+                title: El catálogo no está disponible.
+                status: 503
+                code: CATALOG_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    VariantsTimeout:
+      description: 504 CATALOG_TIMEOUT — el catálogo agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            catalogoLento:
+              value:
+                type: https://marketplace.example.com/problems/catalog-timeout
+                title: El catálogo tardó demasiado en responder.
+                status: 504
+                code: CATALOG_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-variantes-mock/variants
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityInvalidResponse:
+      description: 502 INVENTORY_INVALID_RESPONSE — disponibilidad fuera de contrato
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioInvalido:
+              value:
+                type: https://marketplace.example.com/problems/inventory-invalid-response
+                title: La respuesta de inventario no es válida.
+                status: 502
+                code: INVENTORY_INVALID_RESPONSE
+                instance: /api/v1/catalog/products/producto-error-502-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityUnavailable:
+      description: 503 INVENTORY_UNAVAILABLE — no se obtuvo una disponibilidad utilizable
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioNoDisponible:
+              value:
+                type: https://marketplace.example.com/problems/inventory-unavailable
+                title: El inventario no está disponible.
+                status: 503
+                code: INVENTORY_UNAVAILABLE
+                instance: /api/v1/catalog/products/producto-error-503-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+    AvailabilityTimeout:
+      description: 504 INVENTORY_TIMEOUT — inventario agotó el tiempo de espera
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        X-Catalog-Source:
+          $ref: '#/components/headers/XCatalogSource'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            inventarioLento:
+              value:
+                type: https://marketplace.example.com/problems/inventory-timeout
+                title: El inventario tardó demasiado en responder.
+                status: 504
+                code: INVENTORY_TIMEOUT
+                instance: /api/v1/catalog/products/producto-error-504-stock-mock/availability
+                requestId: 0f873b84-ae5d-4cd2-a530-f88672e4af85
+
+  headers:
+    NoStore:
+      schema: { type: string, enum: [no-store] }
+    RetryAfter:
+      description: Presente si el BFF recibió y pudo normalizar el valor del proveedor.
+      schema: { type: integer, minimum: 0, maximum: 86400 }
+    XRequestId:
+      description: Identificador de correlación generado o conservado por el BFF.
+      schema:
+        type: string
+        minLength: 1
+    XCatalogSource:
+      description: Origen de la respuesta de catálogo.
+      schema:
+        type: string
+        enum: [MOCK, REAL]

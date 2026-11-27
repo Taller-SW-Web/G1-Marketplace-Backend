@@ -5,6 +5,7 @@ import { ShipmentWebhookController } from './shipment-webhook.controller';
 import { SHIPMENT_EVENT_SINK } from './shipment-event';
 import { ShipmentWebhookService } from './shipment-webhook.service';
 import { PrismaShipmentEventSink } from './prisma-shipment-event.sink';
+import { ShipmentWebhookQaFailure } from './shipment-webhook-qa-failure';
 
 @Module({
   imports: [PrismaModule],
@@ -13,6 +14,7 @@ import { PrismaShipmentEventSink } from './prisma-shipment-event.sink';
     ShipmentWebhookService,
     C002QaWorker,
     PrismaShipmentEventSink,
+    ShipmentWebhookQaFailure,
     { provide: SHIPMENT_EVENT_SINK, useExisting: PrismaShipmentEventSink },
   ],
 })
