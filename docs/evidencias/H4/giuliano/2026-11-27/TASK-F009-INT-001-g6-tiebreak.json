@@ -178,9 +178,11 @@
       "source": null,
       "requestIdReturned": null,
       "responsePaging": null,
-      "products": null
+      "products": null,
+      "requestReachedBff": false,
+      "evidenceG6ReceivedRequest": false
     },
     "attempts": 1,
-    "interpretation": "DNS resolution failed before an HTTP response; this does not establish that the G1 service is unavailable. No retry and no direct G6 request were made."
+    "interpretation": "Local DNS resolution failed before an HTTP connection; there is no evidence the request reached the BFF or that G6 received an upstream request. This does not establish that the G1 service is unavailable. No retry and no direct G6 request were made."
   }
 }
