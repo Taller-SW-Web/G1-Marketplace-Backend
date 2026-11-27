@@ -180,6 +180,25 @@ describe('entrega de correos comerciales con Brevo', () => {
       .toThrow('BREVO_SENDER_REQUIRED');
   });
 
+  it.each([order, { ...shipment, state: 'DESPACHADO' }] as const)(
+    'agota el tiempo de Brevo para $state con un solo intento',
+    async (snapshot) => {
+      const fetchImpl = mockFetch().mockImplementation((_url, options) =>
+        new Promise((_resolve, reject) => {
+          const signal = options?.signal;
+          if (!signal) {
+            reject(new Error('Expected an abort signal'));
+            return;
+          }
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        }));
+      const transport = createConfiguredCommercialMailTransport({ ...env, MAIL_TIMEOUT_MS: '100' }, fetchImpl);
+      await expect(deliverCommercialMail(snapshot, recipients[snapshot.state], config, transport))
+        .rejects.toThrow('BREVO_TIMEOUT');
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each([
     [() => Response.json({ message: 'respuesta privada del proveedor' }, { status: 403 }), 'BREVO_HTTP_403'],
     [() => Response.json({ messageId: 'invalid receipt' }, { status: 201 }), 'BREVO_INVALID_RESPONSE'],

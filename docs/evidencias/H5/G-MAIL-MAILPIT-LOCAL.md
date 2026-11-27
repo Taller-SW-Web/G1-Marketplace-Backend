@@ -122,6 +122,14 @@ Ensayo del 26 de noviembre de 2026 con el pedido sintético `PED-2026-90001`. Am
 
 [Registro del ensayo integrado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162#issuecomment-7204545580) · [Evidencia de Mailpit](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/323#issuecomment-7122203279)
 
+## Retest local del transporte Brevo
+
+Pasaron 24 pruebas de transporte y plantillas. Las dos nuevas esperaron el plazo de 100 ms del cliente Brevo con una respuesta HTTPS simulada. Los fixtures `PAGADO` y `DESPACHADO` devolvieron `BREVO_TIMEOUT` con un solo intento cada uno. También pasaron los casos de 403, recibo inválido y omisión de `ENTREGADO`. La recepción integrada de C-002 queda acreditada por el ensayo de Render de la sección anterior.
+
+```bash
+npm run test:unit -- --runTestsByPath src/notifications/commercial-mail-delivery.spec.ts src/notifications/email-template.spec.ts
+```
+
 ## Evidencia que falta del despliegue
 
 - Acordar la fuente autorizada del destinatario comercial.
