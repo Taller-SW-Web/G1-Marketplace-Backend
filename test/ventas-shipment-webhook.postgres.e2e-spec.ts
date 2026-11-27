@@ -130,7 +130,7 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
 
   it.each([
     { orderId: 'PED-2026-00092' },
-    { orderId: 'PED-2026-90001' },
+    { orderId: 'PED-2026-90001', c002Order: 'PED-2026-90001' },
     { orderId: syntheticOrder, expiry: '2000-01-01T00:00:00Z' },
     { orderId: syntheticOrder, c002Order: syntheticOrder },
   ])('does not consume QA configuration outside its scope: %j', async ({ orderId, expiry, c002Order }) => {
