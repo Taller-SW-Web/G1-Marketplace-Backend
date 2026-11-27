@@ -1,14 +1,14 @@
 <!--
-  PolÃ­tica Global / API para Azure API Management (Plan Consumption)
+  Política Global / API para Azure API Management (Plan Consumption)
   Tarea: TASK-H5-APIM-003 / TASK-H5-APIM-004 / TASK-H5-APIM-006 (Issues #309, #310, #311, #394)
   Controles:
   - Trazabilidad unificada: X-Correlation-Id (oficial) + alias sincronizado X-Request-Id
   - CORS hacia el frontend de Vercel (exponiendo X-Correlation-Id, X-Request-Id, Retry-After y X-Cache)
-  - Rate Limiting por suscripciÃ³n (60 peticiones/minuto -> HTTP 429 + Retry-After)
-  - CachÃ© externa (Redis) en rutas pÃºblicas estables (/v1/health y /v1/docs/specs) con TTL 60s y X-Cache: MISS/HIT
-  - ValidaciÃ³n de JWT RS256 contra OIDC/JWKS de G7 (-> HTTP 401 en rutas protegidas)
+  - Rate Limiting por suscripción (60 peticiones/minuto -> HTTP 429 + Retry-After)
+  - Caché externa (Redis) en rutas públicas estables (/v1/health y /v1/docs/specs) con TTL 60s y X-Cache: MISS/HIT
+  - Validación de JWT RS256 contra OIDC/JWKS de G7 (-> HTTP 401 en rutas protegidas)
   - Rewrite /v1/{ruta} -> /api/v1/{ruta} excluyendo /health y /docs (preservando query params)
-  - CachÃ© deshabilitada por defecto en catÃ¡logo y rutas privadas (Cache-Control: no-store)
+  - Caché deshabilitada por defecto en catálogo y rutas privadas (Cache-Control: no-store)
 -->
 <policies>
     <inbound>
@@ -48,10 +48,10 @@
             </expose-headers>
         </cors>
 
-        <!-- 3. Rate Limiting (60 req/min por suscripciÃ³n -> HTTP 429 + Retry-After) -->
+        <!-- 3. Rate Limiting (60 req/min por suscripción -> HTTP 429 + Retry-After) -->
         <rate-limit calls="60" renewal-period="60" retry-after-header-name="Retry-After" />
 
-        <!-- 4. CachÃ© externa (Redis) solo para rutas pÃºblicas estables (/v1/health y /v1/docs/specs) -->
+        <!-- 4. Caché externa (Redis) solo para rutas públicas estables (/v1/health y /v1/docs/specs) -->
         <set-variable name="isCacheableRoute" value='@(context.Request.Method == "GET" &amp;&amp; (context.Request.OriginalUrl.Path.ToLower() == "/v1/health" || context.Request.OriginalUrl.Path.ToLower() == "/v1/docs/specs"))' />
         <choose>
             <when condition='@((bool)context.Variables["isCacheableRoute"])'>
@@ -61,7 +61,7 @@
             </when>
         </choose>
 
-        <!-- 5. ValidaciÃ³n JWT (G7 Auth Service) en rutas protegidas -->
+        <!-- 5. Validación JWT (G7 Auth Service) en rutas protegidas -->
         <choose>
             <when condition='@(context.Request.OriginalUrl.Path.ToLower().Contains("/health") ||
                                context.Request.OriginalUrl.Path.ToLower().Contains("/docs") ||

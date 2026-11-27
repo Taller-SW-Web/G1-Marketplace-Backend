@@ -27,6 +27,8 @@ export const BLOCKED_ROUTES = [
   },
 ];
 
+const BLOCKED_OPERATION_KEYS = new Set(BLOCKED_ROUTES.map(({ operation }) => operation));
+
 export const OPENAPI_METHODS = new Set([
   'get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace',
 ]);
@@ -313,6 +315,33 @@ function methodsInJsonPathItem(pathItem) {
   return Object.keys(pathItem).filter((key) => OPENAPI_METHODS.has(key.toLowerCase())).map((key) => key.toLowerCase());
 }
 
+function allowedMethods(sourcePath, methods) {
+  return methods.filter((method) => !BLOCKED_OPERATION_KEYS.has(`${method.toUpperCase()} ${sourcePath}`));
+}
+
+function filterBlockedYamlMethods(block, sourcePath) {
+  const filtered = [block[0]];
+  let includeCurrentSection = true;
+  for (const line of block.slice(1)) {
+    const parsed = parseYamlKey(line, 4);
+    const key = parsed?.key.toLowerCase();
+    if (key && OPENAPI_METHODS.has(key)) {
+      includeCurrentSection = !BLOCKED_OPERATION_KEYS.has(`${key.toUpperCase()} ${sourcePath}`);
+    } else if (parsed) {
+      // Path-level fields (for example parameters) are not operations and remain in the artifact.
+      includeCurrentSection = true;
+    }
+    if (includeCurrentSection) filtered.push(line);
+  }
+  return filtered;
+}
+
+function filterBlockedJsonMethods(pathItem, methods) {
+  const allowed = new Set(methods);
+  return Object.fromEntries(Object.entries(pathItem).filter(([key]) =>
+    !OPENAPI_METHODS.has(key.toLowerCase()) || allowed.has(key.toLowerCase())));
+}
+
 function mapPathKeyLine(line, publicPath) {
   const colon = line.indexOf(':');
   if (colon < 0) throw new Error(`Clave de ruta YAML inesperada: ${line}`);
@@ -358,8 +387,10 @@ export function buildOpenApiArtifact() {
       }
       const inheritedSecurity = globalSecurityForYaml(source);
       for (const entry of source.document.pathEntries) {
-        const methods = methodsInYamlBlock(entry.lines);
-        let block = [...entry.lines];
+        const allMethods = methodsInYamlBlock(entry.lines);
+        const methods = allowedMethods(entry.key, allMethods);
+        if (methods.length === 0) continue;
+        let block = filterBlockedYamlMethods(entry.lines, entry.key);
         const sourcePath = entry.key;
         const publicPath = publicPathFor(sourcePath);
         if (sourcePath === '/health' && source.id === 'h3') {
@@ -397,7 +428,8 @@ export function buildOpenApiArtifact() {
     }
 
     for (const [sourcePath, originalPathItem] of Object.entries(source.document.paths)) {
-      const methods = methodsInJsonPathItem(originalPathItem);
+      const methods = allowedMethods(sourcePath, methodsInJsonPathItem(originalPathItem));
+      if (methods.length === 0) continue;
       if (sourcePath === '/health' && source.id === 'h3') {
         appendPath(source, sourcePath, methods, []);
         continue;
@@ -407,7 +439,7 @@ export function buildOpenApiArtifact() {
         appendPath(source, sourcePath, methods, []);
         continue;
       }
-      const pathItem = rewriteJsonReferences(originalPathItem, sourceRenames);
+      const pathItem = rewriteJsonReferences(filterBlockedJsonMethods(originalPathItem, methods), sourceRenames);
       if (source.document.security !== undefined && source.document.security.length > 0) {
         for (const method of methods) {
           if (pathItem[method].security === undefined) pathItem[method].security = source.document.security;

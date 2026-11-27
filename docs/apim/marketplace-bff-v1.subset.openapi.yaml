@@ -1179,7 +1179,7 @@ paths:
       "operationId": "addCartItem"
       "tags": ["Cart"]
       "summary": "F-016: Agregar ítem al carrito actual (alta o incremento)"
-      "description": "Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax."
+      "description": "Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. No implementa deduplicación por Idempotency-Key: repetir el POST puede incrementar de nuevo. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax."
       "security": [{"bearerAuth":[]},{}]
       "requestBody":
         "required": true
@@ -1283,7 +1283,7 @@ paths:
       "operationId": "updateCartItemQuantity"
       "tags": ["Cart"]
       "summary": "F-017: Cambiar la cantidad de un ítem en el carrito"
-      "description": "Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND."
+      "description": "Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND. No usa Idempotency-Key; repetir la misma cantidad no incrementa unidades adicionales, aunque avanza la versión si no se envía If-Match vigente."
       "security": [{"bearerAuth":[]},{}]
       "parameters": [{"name":"sku","in":"path","required":true,"schema":{"type":"string","minLength":1},"description":"Identificador SKU del ítem a modificar."},{"name":"If-Match","in":"header","required":false,"schema":{"type":"string"},"description":"Versión esperada del carrito para control de concurrencia optimista."}]
       "requestBody":
@@ -1651,7 +1651,7 @@ paths:
                     "message": "Servicio no disponible"
   "/v1/wishlist/items/{productId}":
     "delete":
-      "operationId": "readdWishlistItemToCart"
+      "operationId": "removeWishlistItem"
       "tags": ["Wishlist"]
       "summary": "F-038: eliminar favorito propio, sin consultar catálogo"
       "security": [{"bearerAuth":[]}]
@@ -2720,7 +2720,7 @@ components:
     "AddCartItemPayload":
       "type": "object"
       "additionalProperties": false
-      "required": ["sku"]
+      "anyOf": [{"required":["sku"]},{"required":["productId"]}]
       "properties":
         "sku":
           "type": "string"
@@ -2728,6 +2728,11 @@ components:
           "maxLength": 100
           "description": "Identificador único del SKU del producto."
           "example": "AERO-42-BLK"
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+          "description": "Sólo compatibilidad de fixtures en BFF_MODE=mock; producción requiere sku. Si se envían ambos campos, sku tiene precedencia. Los productos con variantes requieren el SKU elegido."
         "quantity":
           "type": "integer"
           "minimum": 1
@@ -2745,6 +2750,79 @@ components:
           "example": "ITEM_CREATED"
         "data":
           "$ref": "#/components/schemas/CartSnapshot"
+    "CartMergeResponse":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["status","data"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["OK"]
+        "data":
+          "$ref": "#/components/schemas/CartMergeResult"
+    "CartMergeResult":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["cartId","version","merged","adjustments"]
+      "properties":
+        "cartId":
+          "type": "string"
+          "description": "ID del carrito del titular; vacío si todavía no existe uno."
+        "version":
+          "type": "integer"
+          "minimum": 0
+        "merged":
+          "type": "boolean"
+        "adjustments":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/CartMergeAdjustment"
+    "CartMergeAdjustment":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["sku","requestedQuantity","confirmedQuantity","reason"]
+      "properties":
+        "sku":
+          "type": "string"
+          "minLength": 1
+        "requestedQuantity":
+          "type": "integer"
+          "minimum": 1
+        "confirmedQuantity":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 99
+        "reason":
+          "type": "string"
+          "enum": ["STOCK_LIMIT","COMMERCE_POLICY"]
+    "CartMoveToWishlistResponse":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["status","data"]
+      "properties":
+        "status":
+          "type": "string"
+          "enum": ["OK"]
+        "data":
+          "$ref": "#/components/schemas/CartMoveToWishlistResult"
+    "CartMoveToWishlistResult":
+      "type": "object"
+      "additionalProperties": false
+      "required": ["cartId","version","productId","wishlistCreated"]
+      "properties":
+        "cartId":
+          "type": "string"
+          "format": "uuid"
+        "version":
+          "type": "integer"
+          "minimum": 0
+        "productId":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 100
+        "wishlistCreated":
+          "type": "boolean"
+          "description": "False si el favorito ya existía; la línea del carrito se elimina en ambos casos."
     "CartSnapshot":
       "type": "object"
       "additionalProperties": false
@@ -2765,6 +2843,19 @@ components:
           "type": "array"
           "items":
             "$ref": "#/components/schemas/CartItemSnapshot"
+        "subtotal":
+          "type": "object"
+          "nullable": true
+          "additionalProperties": false
+          "required": ["amount","currency"]
+          "properties":
+            "amount":
+              "type": "number"
+              "minimum": 0
+            "currency":
+              "type": "string"
+              "pattern": "^[A-Z]{3}$"
+          "description": "Subtotal informativo; null si no hay líneas o faltan precios."
     "CartItemSnapshot":
       "type": "object"
       "additionalProperties": false
@@ -2773,11 +2864,31 @@ components:
         "sku":
           "type": "string"
           "example": "AERO-42-BLK"
+        "product":
+          "type": "object"
+          "additionalProperties": false
+          "required": ["slug","name"]
+          "properties":
+            "slug":
+              "type": "string"
+            "name":
+              "type": "string"
+            "imageUrl":
+              "type": "string"
+          "description": "Metadatos opcionales de presentación cuando los suministra la proyección del carrito."
         "quantity":
           "type": "integer"
           "minimum": 1
           "maximum": 99
           "example": 1
+        "availability":
+          "type": "string"
+          "enum": ["AVAILABLE","OUT_OF_STOCK","UNAVAILABLE"]
+          "description": "Campo opcional de disponibilidad informativa devuelto por el snapshot."
+        "attention":
+          "type": "string"
+          "nullable": true
+          "description": "Código de atención informativo; por ejemplo PRECIO_PENDIENTE."
         "unitPrice":
           "type": "object"
           "additionalProperties": false

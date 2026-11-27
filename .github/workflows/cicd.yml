@@ -1,8 +1,8 @@
 name: CI-CD
 
 # Pipeline Unificado H5 (TASK-H5-CICD-001 / Issue #282):
-# lint -> typecheck -> unitarias -> integraciÃ³n (PostgreSQL) -> build -> seguridad
-# -> imagen (Trivy + SBOM) -> release (SemVer) -> deploy staging -> smoke -> aprobaciÃ³n -> producciÃ³n.
+# lint -> typecheck -> unitarias -> integración (PostgreSQL) -> build -> seguridad
+# -> imagen (Trivy + SBOM) -> release (SemVer) -> deploy staging -> smoke -> aprobación -> producción.
 on:
   push:
     branches: [develop]
@@ -58,7 +58,7 @@ jobs:
         run: npm run validate:ci-review
 
   integration-postgres:
-    name: 2. IntegraciÃ³n (PostgreSQL 16)
+    name: 2. Integración (PostgreSQL 16)
     needs: lint-typecheck-unit
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -90,7 +90,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Generar cliente Prisma y aplicar esquema en PostgreSQL desechable
         run: npm run prisma:generate && npx prisma db push --skip-generate
-      - name: Ejecutar pruebas de integraciÃ³n y contratos (e2e + mock-auth + sondas)
+      - name: Ejecutar pruebas de integración y contratos (e2e + mock-auth + sondas)
         run: npm run test:e2e && npm run test:mock-auth && npm run test:g6:probe && npm run test:g7:kit
 
   build-and-security:
@@ -119,14 +119,14 @@ jobs:
             --exclude "*.spec.ts" \
             --sarif --output /src/semgrep.sarif \
             --error
-      - name: Secret Scan (Gitleaks cÃ³digo e historial)
+      - name: Secret Scan (Gitleaks código e historial)
         run: |
           docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/gitleaks/gitleaks:latest \
             detect --source=/repo \
             --report-format=sarif \
             --report-path=/repo/gitleaks.sarif \
             --redact
-      - name: SCA (npm audit producciÃ³n HIGH/CRITICAL) y Licencias
+      - name: SCA (npm audit producción HIGH/CRITICAL) y Licencias
         run: npm audit --omit=dev --audit-level=high && node scripts/check-licenses.mjs
       - name: Archivar reportes de seguridad
         if: always()
@@ -292,10 +292,10 @@ jobs:
             "trivy-image-v${{ needs.release.outputs.version }}.sarif" \
             --clobber
 
-  # VÃ­a Ãºnica de despliegue (acordada para H5):
+  # Vía única de despliegue (acordada para H5):
   # - Render autodespliega `main` de forma nativa una vez que los checks de CI pasan en verde
   #   (sin hooks duplicados ni jobs muertos en `develop`).
-  # - La verificaciÃ³n continua de disponibilidad (/health) corre en `.github/workflows/keep-alive.yml`
+  # - La verificación continua de disponibilidad (/health) corre en `.github/workflows/keep-alive.yml`
   #   y el smoke de rendimiento / DAST en `.github/workflows/perf-smoke.yml` y `.github/workflows/dast-zap.yml`.
 
   apim-qa-smoke:
