@@ -42,7 +42,7 @@ const document = {
   openapi: '3.0.3',
   info: {
     title: 'Marketplace — API BFF Carrito y Favoritos (Hito 3 / Hito 4)',
-    version: '0.3.0',
+    version: '0.4.0',
     description:
       'Especificación OpenAPI para las operaciones de Carrito de Compras (F-016 a F-021) y Favoritos (F-036 a F-039). Soporta autenticación dual: Bearer JWT (RS256) para clientes autenticados y cookie HttpOnly (cart_session) para invitados.',
   },
@@ -76,7 +76,7 @@ const document = {
         tags: ['Cart'],
         summary: 'F-016: Agregar ítem al carrito actual (alta o incremento)',
         description:
-          'Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax.',
+          'Agrega 1 o más unidades de un SKU al carrito actual. Si el SKU no existe, crea la línea (201 ITEM_CREATED); si ya existe, incrementa la cantidad (200 ITEM_INCREMENTED). Se ejecuta de forma transaccional incrementando Cart.version y aplicando un lock exclusivo de PostgreSQL por titular. No implementa deduplicación por Idempotency-Key: repetir el POST puede incrementar de nuevo. Ante usuario no autenticado, genera o renueva cookie Set-Cookie: cart_session=...; HttpOnly; SameSite=Lax.',
         security: [{ bearerAuth: [] }, {}],
         requestBody: {
           required: true,
@@ -184,7 +184,7 @@ const document = {
         tags: ['Cart'],
         summary: 'F-017: Cambiar la cantidad de un ítem en el carrito',
         description:
-          'Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND.',
+          'Actualiza la cantidad de un SKU en el carrito actual mediante reemplazo absoluto (entero entre 1 y 99). Soporta If-Match para control de concurrencia optimista contra Cart.version. Cantidad 0 es rechazada con 400 (no eliminación implícita). Si el SKU no existe, responde 404 CART_ITEM_NOT_FOUND. No usa Idempotency-Key; repetir la misma cantidad no incrementa unidades adicionales, aunque avanza la versión si no se envía If-Match vigente.',
         security: [{ bearerAuth: [] }, {}],
         parameters: [
           {
@@ -262,6 +262,133 @@ const document = {
               },
             },
           },
+          '500': error('Error interno del servidor.', 'INTERNAL_ERROR'),
+        },
+      },
+      delete: {
+        operationId: 'removeCartItem',
+        tags: ['Cart'],
+        summary: 'F-018: quitar un ítem del carrito de forma idempotente',
+        description:
+          'Elimina la línea del carrito activo del titular o invitado. Si la línea ya no existe, responde 204 sin mutación; no representa un error. If-Match es opcional y compara la versión del carrito; si se reenvía un valor obsoleto, responde 409. Sin If-Match, la operación puede repetirse de forma segura sin Idempotency-Key. Para invitados puede emitir la cookie cart_session.',
+        security: [{ bearerAuth: [] }, {}],
+        parameters: [
+          {
+            name: 'sku',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' },
+          },
+          {
+            name: 'If-Match',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Versión esperada del carrito; si no coincide responde 409 CART_CONFLICT.',
+          },
+        ],
+        responses: {
+          '204': {
+            description: 'Eliminado o ya ausente; sin cuerpo.',
+            headers: {
+              'X-Cart-Version': { description: 'Versión actual del carrito.', schema: { type: 'string', pattern: '^[0-9]+$', example: '4' } },
+              'Set-Cookie': { description: 'Cookie de sesión anónima HttpOnly, si aún no existía.', schema: { type: 'string', example: 'cart_session=uuid; Path=/; HttpOnly; SameSite=Lax' } },
+            },
+          },
+          '400': error('SKU inválido.', 'INVALID_SKU'),
+          '401': error('Token Bearer inválido o expirado.', 'UNAUTHENTICATED'),
+          '409': error('La versión indicada no coincide con la del carrito.', 'CART_CONFLICT'),
+          '500': error('Error interno del servidor.', 'INTERNAL_ERROR'),
+        },
+      },
+    },
+    '/api/v1/carts/current/merge-anonymous': {
+      post: {
+        operationId: 'mergeAnonymousCart',
+        tags: ['Cart'],
+        summary: 'F-020: fusionar el carrito anónimo al iniciar sesión',
+        description:
+          'Requiere titular autenticado. Fusiona las cantidades del carrito identificado por la cookie cart_session en el carrito del titular; limita cada SKU a 99 e informa ajustes. La cookie anónima se invalida sólo si la fusión se confirmó. Sin cookie o sin líneas, merged=false. No implementa Idempotency-Key; repetir tras la fusión confirmada no fusiona otra vez y responde merged=false.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'Cookie',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Cookie de sesión anónima; se usa cart_session si está presente.',
+          },
+        ],
+        responses: {
+          '201': {
+            description: 'Fusión evaluada; merged indica si se movieron líneas.',
+            headers: {
+              'X-Cart-Version': { description: 'Versión del carrito del titular cuando existe.', schema: { type: 'string', pattern: '^[0-9]+$', example: '4' } },
+              'Set-Cookie': { description: 'Borra cart_session después de una fusión exitosa.', schema: { type: 'string', example: 'cart_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' } },
+            },
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CartMergeResponse' },
+                example: {
+                  status: 'OK',
+                  data: {
+                    cartId: '11111111-1111-4111-8111-111111111111',
+                    version: 4,
+                    merged: true,
+                    adjustments: [{ sku: 'AERO-42-BLK', requestedQuantity: 105, confirmedQuantity: 99, reason: 'STOCK_LIMIT' }],
+                  },
+                },
+              },
+            },
+          },
+          '401': error('Inicia sesión para fusionar el carrito.', 'UNAUTHENTICATED'),
+          '500': error('Error interno del servidor.', 'INTERNAL_ERROR'),
+        },
+      },
+    },
+    '/api/v1/carts/current/items/{sku}/move-to-wishlist': {
+      post: {
+        operationId: 'moveCartItemToWishlist',
+        tags: ['Cart', 'Wishlist'],
+        summary: 'F-021: mover un ítem del carrito a favoritos',
+        description:
+          'Requiere titular autenticado. Guarda el producto en favoritos si aún no existe y elimina la línea del carrito dentro de una transacción. If-Match es opcional; la respuesta informa si se creó el favorito. No implementa Idempotency-Key; repetir después de un movimiento confirmado responde 404 porque la línea ya no existe.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'sku',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' },
+          },
+          {
+            name: 'If-Match',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Versión esperada del carrito; si no coincide responde 409 CART_CONFLICT.',
+          },
+        ],
+        responses: {
+          '201': {
+            description: 'El movimiento quedó confirmado.',
+            headers: {
+              'X-Cart-Version': { description: 'Nueva versión del carrito.', schema: { type: 'string', pattern: '^[0-9]+$', example: '5' } },
+            },
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CartMoveToWishlistResponse' },
+                example: {
+                  status: 'OK',
+                  data: { cartId: '11111111-1111-4111-8111-111111111111', version: 5, productId: 'PRD-1', wishlistCreated: true },
+                },
+              },
+            },
+          },
+          '400': error('SKU inválido.', 'INVALID_SKU'),
+          '401': error('Inicia sesión para mover productos a favoritos.', 'UNAUTHENTICATED'),
+          '404': error('El ítem no se encuentra en el carrito.', 'CART_ITEM_NOT_FOUND'),
+          '409': error('Conflicto de versión en carrito.', 'CART_CONFLICT'),
           '500': error('Error interno del servidor.', 'INTERNAL_ERROR'),
         },
       },
@@ -467,7 +594,7 @@ const document = {
     },
     '/api/v1/wishlist/items/{productId}': {
       delete: {
-        operationId: 'readdWishlistItemToCart',
+        operationId: 'removeWishlistItem',
         tags: ['Wishlist'],
         summary: 'F-038: eliminar favorito propio, sin consultar catálogo',
         security: [{ bearerAuth: [] }],
@@ -542,7 +669,7 @@ const document = {
       AddCartItemPayload: {
         type: 'object',
         additionalProperties: false,
-        required: ['sku'],
+        anyOf: [{ required: ['sku'] }, { required: ['productId'] }],
         properties: {
           sku: {
             type: 'string',
@@ -550,6 +677,12 @@ const document = {
             maxLength: 100,
             description: 'Identificador único del SKU del producto.',
             example: 'AERO-42-BLK',
+          },
+          productId: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 100,
+            description: 'Sólo compatibilidad de fixtures en BFF_MODE=mock; producción requiere sku. Si se envían ambos campos, sku tiene precedencia. Los productos con variantes requieren el SKU elegido.',
           },
           quantity: {
             type: 'integer',
@@ -571,6 +704,57 @@ const document = {
             example: 'ITEM_CREATED',
           },
           data: { $ref: '#/components/schemas/CartSnapshot' },
+        },
+      },
+      CartMergeResponse: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['status', 'data'],
+        properties: {
+          status: { type: 'string', enum: ['OK'] },
+          data: { $ref: '#/components/schemas/CartMergeResult' },
+        },
+      },
+      CartMergeResult: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['cartId', 'version', 'merged', 'adjustments'],
+        properties: {
+          cartId: { type: 'string', description: 'ID del carrito del titular; vacío si todavía no existe uno.' },
+          version: { type: 'integer', minimum: 0 },
+          merged: { type: 'boolean' },
+          adjustments: { type: 'array', items: { $ref: '#/components/schemas/CartMergeAdjustment' } },
+        },
+      },
+      CartMergeAdjustment: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['sku', 'requestedQuantity', 'confirmedQuantity', 'reason'],
+        properties: {
+          sku: { type: 'string', minLength: 1 },
+          requestedQuantity: { type: 'integer', minimum: 1 },
+          confirmedQuantity: { type: 'integer', minimum: 1, maximum: 99 },
+          reason: { type: 'string', enum: ['STOCK_LIMIT', 'COMMERCE_POLICY'] },
+        },
+      },
+      CartMoveToWishlistResponse: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['status', 'data'],
+        properties: {
+          status: { type: 'string', enum: ['OK'] },
+          data: { $ref: '#/components/schemas/CartMoveToWishlistResult' },
+        },
+      },
+      CartMoveToWishlistResult: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['cartId', 'version', 'productId', 'wishlistCreated'],
+        properties: {
+          cartId: { type: 'string', format: 'uuid' },
+          version: { type: 'integer', minimum: 0 },
+          productId: { type: 'string', minLength: 1, maxLength: 100 },
+          wishlistCreated: { type: 'boolean', description: 'False si el favorito ya existía; la línea del carrito se elimina en ambos casos.' },
         },
       },
       CartSnapshot: {
@@ -595,6 +779,17 @@ const document = {
             type: 'array',
             items: { $ref: '#/components/schemas/CartItemSnapshot' },
           },
+          subtotal: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: false,
+            required: ['amount', 'currency'],
+            properties: {
+              amount: { type: 'number', minimum: 0 },
+              currency: { type: 'string', pattern: '^[A-Z]{3}$' },
+            },
+            description: 'Subtotal informativo; null si no hay líneas o faltan precios.',
+          },
         },
       },
       CartItemSnapshot: {
@@ -603,7 +798,20 @@ const document = {
         required: ['sku', 'quantity'],
         properties: {
           sku: { type: 'string', example: 'AERO-42-BLK' },
+          product: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['slug', 'name'],
+            properties: {
+              slug: { type: 'string' },
+              name: { type: 'string' },
+              imageUrl: { type: 'string' },
+            },
+            description: 'Metadatos opcionales de presentación cuando los suministra la proyección del carrito.',
+          },
           quantity: { type: 'integer', minimum: 1, maximum: 99, example: 1 },
+          availability: { type: 'string', enum: ['AVAILABLE', 'OUT_OF_STOCK', 'UNAVAILABLE'], description: 'Campo opcional de disponibilidad informativa devuelto por el snapshot.' },
+          attention: { type: 'string', nullable: true, description: 'Código de atención informativo; por ejemplo PRECIO_PENDIENTE.' },
           unitPrice: {
             type: 'object',
             additionalProperties: false,
