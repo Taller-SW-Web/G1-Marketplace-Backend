@@ -26,7 +26,7 @@
     "validate:ci-review": "node scripts/validate-ci-review.mjs",
     "test:smoke": "ts-node scripts/smoke-h3.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "test:contract": "jest --config ./test/jest-e2e.json --runInBand test/openapi-contract.e2e-spec.ts",
+    "test:contract": "jest --config ./test/jest-e2e.json --runInBand test/openapi-contract.e2e-spec.ts test/cart-openapi-coverage.e2e-spec.ts",
     "test:cart-checkout:e2e": "jest --config ./test/jest-e2e.json --runInBand test/cart-checkout-integration.e2e-spec.ts",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage --runInBand",
