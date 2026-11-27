@@ -8,13 +8,15 @@ import { CatalogModule } from '../src/catalog/catalog.module';
 import { ProductDetailModule } from '../src/catalog/product-detail.module';
 import { CONTRACT_SHA, CONTRACT_VERSION } from '../src/catalog/provider';
 import { requestIdMiddleware } from '../src/http/request-id.middleware';
+import { catalogTestJwt } from './fixtures/g7-catalog-jwt';
 
 // Two distinct HTTP origins: token issuer and catalog. No external service or credential is used.
 describe.each(['public-read-only', 'service-token', 'client-credentials'])('catalog/F011 HTTP compatibility: %s', authMode => {
   const originalEnv = { ...process.env };
   let app: INestApplication;
   let issuer: Server, upstream: Server, issuerUrl: string, catalogUrl: string;
-  let rejectIssuer = false, rejectCatalog = false;
+  let rejectIssuer = false, rejectCatalog = false, wrongAudience = false;
+  const issuedToken = catalogTestJwt();
   let tokens: Array<{ method?: string; form: URLSearchParams; auth?: string; cookie?: string }>;
   let reads: Array<{ method?: string; path?: string; auth?: string; cookie?: string }>;
   const product = { product_id: 'a0000000-0000-4000-8000-000000000001', name: 'Polo real', slug: 'polo-real',
@@ -30,11 +32,14 @@ describe.each(['public-read-only', 'service-token', 'client-credentials'])('cata
       const chunks: Buffer[] = [];
       req.on('data', (b: Buffer) => chunks.push(b));
       req.on('end', () => {
-        tokens.push({ method: req.method, form: new URLSearchParams(Buffer.concat(chunks).toString()),
+        const form = new URLSearchParams(Buffer.concat(chunks).toString());
+        tokens.push({ method: req.method, form,
           auth: req.headers.authorization, cookie: req.headers.cookie });
-        res.writeHead(rejectIssuer ? 401 : 200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(rejectIssuer ? { detail: 'synthetic-private-issuer-error' }
-          : { accessToken: 'synthetic-issued-http-token', tokenType: 'Bearer', expiresIn: 3600, scopes: ['catalogo:leer'] }));
+        const status = rejectIssuer ? 401 : form.has('scope') || form.has('aud') || form.has('audience') ? 400 : 200;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(status !== 200 ? { detail: 'synthetic-private-issuer-error' }
+          : { accessToken: wrongAudience ? catalogTestJwt({ aud: 'api-ventas' }) : issuedToken,
+            tokenType: 'Bearer', expiresIn: 3600, scopes: ['catalogo:leer'] }));
       });
     });
     upstream = createServer((req, res) => {
@@ -51,7 +56,7 @@ describe.each(['public-read-only', 'service-token', 'client-credentials'])('cata
     issuerUrl = await start(issuer); catalogUrl = await start(upstream);
   });
   beforeEach(async () => {
-    tokens = []; reads = []; rejectIssuer = false; rejectCatalog = false;
+    tokens = []; reads = []; rejectIssuer = false; rejectCatalog = false; wrongAudience = false;
     const env = { NODE_ENV: 'test', CATALOG_SOURCE: 'real', BFF_MODE: 'real', CATALOG_INTEGRATION_APPROVED: 'true',
       PRODUCTOS_AUTH_MODE: authMode, PRODUCTOS_BASE_URL: catalogUrl,
       G7_TOKEN_URL: issuerUrl + '/api/v1/auth/token', PRODUCTOS_CLIENT_SECRET: 'synthetic-http-client-secret',
@@ -75,6 +80,7 @@ describe.each(['public-read-only', 'service-token', 'client-credentials'])('cata
         .set('Authorization', 'Bearer synthetic-visitor-token').set('Cookie', 'visitor=synthetic-private-cookie').expect(200);
       expect(response.headers['x-catalog-source']).toBe('REAL');
       expect(JSON.stringify(response.body)).not.toContain('synthetic-');
+      expect(JSON.stringify(response.body)).not.toContain(issuedToken);
     }
     const emissions = tokens.length;
     await Promise.all([request(app.getHttpServer()).get('/api/v1/catalog/products/polo-real').expect(200),
@@ -84,13 +90,13 @@ describe.each(['public-read-only', 'service-token', 'client-credentials'])('cata
     for (const read of reads) {
       expect(read.method).toBe('GET'); expect(read.cookie).toBeUndefined();
       expect(read.auth).toBe(authMode === 'public-read-only' ? undefined
-        : authMode === 'service-token' ? 'Bearer synthetic-static-http-token' : 'Bearer synthetic-issued-http-token');
+        : authMode === 'service-token' ? 'Bearer synthetic-static-http-token' : `Bearer ${issuedToken}`);
       if (read.path?.startsWith('/api/v1/productos')) expect(new URL(read.path, catalogUrl).searchParams.get('canal')).toBe('MARKETPLACE');
     }
     for (const token of tokens) {
       expect(token.method).toBe('POST'); expect(token.auth).toBeUndefined(); expect(token.cookie).toBeUndefined();
       expect(Object.fromEntries(token.form)).toEqual({ grant_type: 'client_credentials', client_id: 'modulo-marketplace',
-        client_secret: 'synthetic-http-client-secret', scope: 'catalogo:leer' });
+        client_secret: 'synthetic-http-client-secret' });
     }
   });
   it('returns a safe correlated detail failure without retrying another authentication mode', async () => {
@@ -101,6 +107,13 @@ describe.each(['public-read-only', 'service-token', 'client-credentials'])('cata
     expect(reads).toHaveLength(1); expect(tokens).toHaveLength(authMode === 'client-credentials' ? 1 : 0);
   });
   if (authMode === 'client-credentials') {
+    it('does not forward an issued token for another audience to G6', async () => {
+      wrongAudience = true;
+      await request(app.getHttpServer()).get('/api/v1/catalog/products').expect(503);
+      await request(app.getHttpServer()).get('/api/v1/catalog/products/polo-real').expect(503);
+      expect(tokens).toHaveLength(2);
+      expect(reads).toHaveLength(0);
+    });
     it('fails before reaching G6 when G7 rejects issuance, despite a residual static token', async () => {
       rejectIssuer = true;
       const response = await request(app.getHttpServer()).get('/api/v1/catalog/products/polo-real').expect(503);
