@@ -1,7 +1,7 @@
 # Hito 5 · Insumos del PO para el informe go/no-go (#392)
 
 **Fecha:** viernes 27/11/2026, ~16:45 Lima · **Responsable:** Jim Segovia (PO, G1 Marketplace) · **Para:** Diego (autor del informe)
-**BFF desplegado:** `main` a204c98 en Render · **Frontend:** Vercel.
+**BFF (Render, despliega `main`):** **`bcac2f6` en ejecución (Live), confirmado por Andrés en el panel de Render**: Deploy #30, 13:52–13:54 Lima (18:52–18:54 UTC), trigger «Environment updated». Es también el último merge a `main` (PR #360, 11:45 Lima). · **Frontend (Vercel):** `main` en GitHub = `ce72b5d` (27/11 09:42 Lima, v1.9.0), **pero el sitio publicado muestra un build antiguo** (27/11 ~17:50 Lima: `/registro` sirve la pantalla «planificada para H4», previa al 21/10). Causa y commit desplegado **por confirmar en el panel de Vercel**.
 
 Etiquetas: **REAL** (contra sistemas reales) · **MOCK** (fixtures o datos simulados) · **LAB** (entorno controlado) · **PEND** (no ejecutado). Este documento no contiene secretos, contraseñas, tokens ni correos personales. Ninguna issue se da por cerrada sin evidencia.
 
@@ -34,7 +34,7 @@ Etiquetas: **REAL** (contra sistemas reales) · **MOCK** (fixtures o datos simul
 ## 3. Evidencia clave
 
 ### 3.1 Lectura de solo lectura del BFF, 27/11 15:15 Lima: 10 de 10 con 200
-Salud (`3c301687`), catálogo inicio (`f521d0ef`), filtros (`79532334`), listado (`082e23f0`), login de la cuenta A (`492800d3`), carrito (`6d651f4a`), Mis pedidos (`b7635db2`), detalle de pedido (`4cc473e`), direcciones por G7 (`f7cf95e3`), logout. Request IDs abreviados (8 caracteres).
+Salud (`3c301687`), catálogo inicio (`f521d0ef`), filtros (`79532334`), listado (`082e23f0`), login de la cuenta A (`492800d3`), carrito (`6d651f4a`), Mis pedidos (`b7635db2`), detalle de pedido (`4cc4473e`), direcciones por G7 (`f7cf95e3`), logout. Request IDs abreviados (8 caracteres).
 
 ### 3.2 Reintento idempotente del webhook de Ventas
 **PED-2026-90013 (REAL, controlada).** 503 armado por QA en el BFF de Render (armado: Diego, 13:06:47 Lima, deploy `dep-dc4sctl6e07s738fl4ag`, válido hasta 20:00Z).
@@ -66,8 +66,8 @@ Etiqueta: **REAL contra Ventas, con el prompt sembrado manualmente** (ningún c�
 | Hora (UTC) | Hecho |
 |---|---|
 | 19:09:32 y 19:09:59 | 503 `SALES_UNAVAILABLE` (reqs `dfb2055f-1264-4cc6-a3cd-ff80412ba794`, `495b7b9f-4b78-4acf-9e4d-1857b598e5a7`). Ventas: el POST recibió 429 de Render; su Postventa estaba dormido (plan gratuito) |
-| 21:10:02 | 503 (req `592b2f10-74d0-4ac0-ad77-c21cf146fc58`). Ventas: el POST recibió 429 por la misma causa |
-| 21:16:59 | **POST registrado en Ventas** en 4.97 s (Postventa despertando): puntaje 5, canal MARKETPLACE. El BFF cortó a los 5 s (`HTTP_TIMEOUT_MS=5000`) y respondió 503 (req `a837d22a-77ee-42e7-9c67-b55ae49634cf`): la respuesta se perdió, la CSAT no |
+| 21:10:03 | 503 en **959 ms** (req `592b2f10-74d0-4ac0-ad77-c21cf146fc58`): no fue timeout, sino rechazo rápido. Ventas: el POST recibió 429 de Render por la misma causa. Logs del BFF: Andrés |
+| 21:16:59 | **POST registrado en Ventas** en 4.97 s (Postventa despertando): puntaje 5, canal MARKETPLACE. El BFF cortó a los 5 s (`HTTP_TIMEOUT_MS=5000`) y respondió 503 tras **5669 ms** (req `a837d22a-77ee-42e7-9c67-b55ae49634cf`, confirmado en los logs de Render): la respuesta se perdió, la CSAT no |
 | 21:21:06 | Segunda llamada por el BFF → **409 `CSAT_ALREADY_SUBMITTED`**, 1.7 s (req `a0b8e514-5a32-481d-9430-2dce6613d862`) |
 
 Ventas lo dejó registrado en su acta (21:16:59Z éxito, 21:21:06Z duplicado 409). El éxito del primer POST se acredita con los logs y la base de Ventas, no con la respuesta de nuestro BFF.
@@ -92,7 +92,7 @@ Un `ORDERS_SOURCE` mal configurado devolvía 503 `ORDERS_INTEGRATION_UNAVAILABLE
 ## 4. Hallazgos
 1. **Nada en el repo crea `post_delivery_prompts` en estado SHOWN.** Sin la siembra manual, la CSAT de un pedido ya entregado no es elegible. Necesita un disparador (p. ej. al pasar a ENTREGADO).
 2. **Timeout de 5 s del BFF frente al arranque en frío de Postventa:** el cliente vería error aunque la CSAT se guarde. Opciones: subir `HTTP_TIMEOUT_MS` (guardado en Render, reinicia el BFF; después de la presentación) o tratar el timeout como resultado incierto.
-3. **Catálogo con 503 entre ~13:10 y ~13:40 Lima:** recuperado; **causa sin determinar** (hipótesis sin confirmar: arranque en frío de G7). Pendiente: código de motivo en los logs de Render (Andrés).
+3. **Catálogo con 503 entre 13:09:36 y 13:15:53 Lima (18:09–18:16 UTC), recuperado a las 13:18:15 (primer 200 REAL).** Código de motivo en los logs de Render (Andrés): `PROVIDER_INVALID_RESPONSE`, status 503, con duraciones de ~10.1–10.5 s por petición (primer error `aafb2c23-33a3-4b13-bc35-3e31cfeb5f1d`, último de la racha `2fe9c7f7-bd75-46fb-82b5-4ee040b7e68f`, primer 200 `a34721f3-c77e-43e2-941c-94a9a32ee6b7`). La duración apunta a una espera larga del proveedor, pero **la causa aguas arriba no está determinada** (hipótesis sin confirmar: arranque en frío de G7 o G6).
 4. **Secretos expuestos en el chat** (volcado de variables de entorno). Rotación **después de la presentación**: Brevo, base de datos, clave de sesión, secreto de G7, token del webhook de Ventas, secreto de mocks. Sin valores en este documento. Seguridad (G7) coordina la rotación con Andrés.
 5. **`semantic-release` en `develop` falla con GH013** (solo el paso de release; los jobs de código pasan). Dueño: Andrés.
 
@@ -104,7 +104,7 @@ Un `ORDERS_SOURCE` mal configurado devolvía 503 `ORDERS_INTEGRATION_UNAVAILABLE
 - **Ensayo de timeout de direcciones (BE #115, #116):** autorizado por G7 (una consulta, plazo corto, sin reintentos); exige bajar `HTTP_TIMEOUT_MS`, que afecta todas las llamadas a G7. Después de la presentación.
 - **Límite de intentos de login:** se probará en el entorno aislado de G7 con una cuenta dedicada (BE #30).
 - **Retorno desde el correo de verificación (BE #26):** pendiente de comprobar si el enlace trae `canal=MARKETPLACE` y adónde apunta el botón (PO + Seguridad).
-- **«Sin email/token/secretos en logs» (BE #38, #41, #42, #115, #116):** **REVISIÓN PARCIAL** — revisión parcial de logs, sin datos sensibles visibles en la muestra revisada (Brenis revisó trazas del 26/11 a las 20:20 y 21:05 Lima: inicios/cierres de sesión, login con MFA y conteos de correos; no se ven contraseñas, OTP, tokens ni correos completos, pero no pudo vincular `X-Request-Id` del BFF porque esa versión de G7 no lo registraba, por lo que **no se declara verificado**).
+- **«Sin email/token/secretos en logs» (BE #38, #41, #42, #115, #116): revisión PARCIAL.** Seguridad (G7) amplió los rangos y encontró trazas de Render del 26/11 (20:20 y 21:05 Lima): inicios y cierres de sesión (incluido un login con MFA) y conteos de correos enviados; en esa muestra no se ven contraseñas, OTP, tokens ni correos completos. Los request IDs del BFF no aparecen en esas líneas (la versión de G7 de entonces no registraba `X-Request-Id`), por lo que **no se pudo vincular cada solicitud** de recuperación ni de tokens inválidos. No se declara verificado. Para vincular por ID se repetirá, después de la presentación, una ronda corta autorizada con IDs nuevos.
 - **C-001 sobre el PED-2026-90014 (BE #162, FE #82):** después de la presentación y de la fusión de BE #395; no verificadas.
 - **Correos reales (Gmail/Outlook) e integración desplegada de #323:** no acreditados.
 - **BE #395, BE #413 (PR de documentación), FE #172 y #163:** después del congelamiento; sin fusión antes del sábado.
@@ -112,7 +112,7 @@ Un `ORDERS_SOURCE` mal configurado devolvía 503 `ORDERS_INTEGRATION_UNAVAILABLE
 ---
 
 ## 6. Estado de las issues del PO
-Se mantienen **abiertas** con estado final publicado el 27/11: BE #26, #30, #38, #41, #42, #115, #116 y FE #60. **#326** (ensayo y datos de prueba) se cierra al terminar el ensayo de hoy; **#327** (congelamiento y checklist) con la PR #337 fusionada y las firmas.
+Se mantienen **abiertas** con estado final publicado el 27/11: BE #26, #30, #38, #41, #42, #115, #116 y FE #60. **#326** (ensayo y datos de prueba) se cierra al terminar el ensayo de hoy; **#327** (congelamiento y checklist) cuando el checklist de `develop` (PR #337, ya fusionada) se actualice con el estado real del 27/11, se registre el candidato final y firmen el PO y Andrés (rollback, BE #289).
 
 ---
 
