@@ -200,7 +200,7 @@ describe('CheckoutController (e2e)', () => {
     expect(checkout.prepare).not.toHaveBeenCalled();
   });
 
-  it('keeps the F-026 POST response flat and forwards its idempotency key', async () => {
+  it('keeps the F-026 POST response flat and forwards the idempotency key and buyer token', async () => {
     checkout.createOrder.mockResolvedValue({
       status: 202,
       data: {
@@ -243,6 +243,7 @@ describe('CheckoutController (e2e)', () => {
       input,
       orderKey,
       'checkout-session-hash-123456',
+      'e2e-token',
     );
   });
 

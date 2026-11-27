@@ -38,11 +38,18 @@ export class SessionStore {
     return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8')) as SessionData;
   }
 
-  async create(data: SessionData, expiresAt: Date): Promise<string> {
+  async create(data: SessionData, expiresAt: Date, customerId?: string): Promise<string> {
     const opaque = randomBytes(32).toString('base64url');
     const id = sessionHash(opaque);
-    await this.prisma.authSession.create({ data: { id, encrypted: this.encrypt(id, data), expiresAt } });
+    await this.prisma.authSession.create({
+      data: { id, customerId: customerId ?? null, encrypted: this.encrypt(id, data), expiresAt },
+    });
     return opaque;
+  }
+
+  async removeByCustomerId(customerId: string): Promise<number> {
+    const result = await this.prisma.authSession.deleteMany({ where: { customerId } });
+    return result.count;
   }
 
   async remove(opaque: string | undefined): Promise<void> {
@@ -62,6 +69,24 @@ export class SessionStore {
       if (row && row.expiresAt.getTime() > Date.now()) {
         try { session = { id, expiresAt: row.expiresAt, data: this.decrypt(id, row.encrypted) }; }
         catch { /* A tampered row or changed key never grants a session. */ }
+      }
+      const securityEventsEnabled = this.config.get<unknown>('SECURITY_EVENTS_ENABLED');
+      if ((securityEventsEnabled === true || securityEventsEnabled === 'true') && row && session?.data.kind === 'session') {
+        const userId = session.data.tokens.usuario.id;
+        const userState = await tx.securityUserState?.findUnique({
+          where: { userId },
+          select: { status: true, invalidatedAt: true },
+        });
+        const restricted = userState && (
+          userState.status === 'BLOCKED'
+          || userState.status === 'DEACTIVATED'
+          || (userState.invalidatedAt !== null && row.createdAt.getTime() < userState.invalidatedAt.getTime())
+        );
+        if (restricted) {
+          // Invalidates both customer_id-linked sessions and legacy customer_id=NULL sessions on read.
+          await tx.authSession.delete({ where: { id } });
+          return (await operation(null, Boolean(row))).result;
+        }
       }
       // rowExisted lets callers tell an absent session from one that exists but cannot be read (expired, tampered, key changed).
       const change = await operation(session, Boolean(row));
