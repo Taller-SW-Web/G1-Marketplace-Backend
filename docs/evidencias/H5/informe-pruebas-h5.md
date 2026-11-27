@@ -1,6 +1,6 @@
 # Informe de pruebas H5 — consolidación de evidencia
 
-**Estado:** borrador parcial para #324 y #392; no cumple todavía el criterio de cierre de #392. Hay evidencia REAL publicada de compra y BFF, además de evidencia de RabbitMQ G7, webhook, laboratorio, performance y cobertura.
+**Estado:** borrador consolidado para #324/#392; incluye la selección trazable de 15 casos. La decisión go/no-go y la aprobación del PO continúan pendientes. Hay evidencia REAL publicada de compra y BFF, además de evidencia de RabbitMQ G7, webhook, laboratorio, performance y cobertura.
 **Corte de evidencia congelada:** viernes 27 de noviembre de 2026, 15:00 (America/Lima).
 **Compra de referencia:** `PED-2026-00092`.
 
@@ -8,7 +8,7 @@
 
 El informe consolida evidencia H5 disponible para el corte y enlaza los reportes por tema. Se verificó en `develop` la compra REAL con Ventas (`PED-2026-00092`) y la ronda autorizada por el BFF (19/19 casos, sin fallos ni 429). El índice publicado distingue esas corridas de pruebas MOCK y LAB LOCAL.
 
-El informe sigue **parcial**: no contiene aún el inventario aceptado de 5 casos funcionales, 5 de integración y 5 de performance exigido por BE #392, ni una decisión go/no-go validada por el PO. Cuenta B (403), CSAT y `DESPACHADO`/`ENTREGADO` reales del pedido 00092 siguen pendientes.
+El informe contiene una selección de 5 casos funcionales MOCK/LOCAL, 5 de integración REAL reportados y 5 de performance LAB LOCAL en [la tabla de #392](392-casos-15.md). La recomendación final aún requiere revisión del PO. Cuenta B (403), CSAT y `DESPACHADO`/`ENTREGADO` reales del pedido 00092 siguen pendientes.
 
 ## 2. Entorno y versiones probadas
 
@@ -29,10 +29,10 @@ El informe sigue **parcial**: no contiene aún el inventario aceptado de 5 casos
 | Integración asíncrona | G7 publicó `usuario.creado` v1; tres mensajes originales de DLQ se recuperaron manualmente y se persistieron con una fila por ID | REAL controlado; no demuestra consumo automático de una nueva publicación ni retry/backoff automático |
 | Webhook de despacho | Siete eventos persistidos y token inválido rechazado con 401 | REAL reportado; esos eventos no están asociados al pedido 00092 |
 | Frontend E2E (#138) | Dos casos Playwright locales: éxito y error con fixtures; el intento REAL se detuvo en autenticación | MOCK para los dos casos Playwright; #138 quedó cerrada con evidencia parcial; no equivale a compra REAL |
-| Performance (#396) | Cinco casos `CP-PERF-01` a `CP-PERF-05` tienen precondiciones, pasos, resultados y evidencia en el reporte | LAB LOCAL / terceros simulados; los cinco casos existen y deben enlazarse al inventario de #392 |
+| Performance (#396) | Cinco casos `CP-PERF-01` a `CP-PERF-05` están enlazados individualmente en la [tabla de #392](392-casos-15.md) y en el reporte | LAB LOCAL / terceros simulados; no son integración real |
 | Contract tests y proveedor | Snapshots offline y pruebas con servidor/datos sintéticos | MOCK / local; no usar como integración REAL |
 
-El índice más abajo contiene los enlaces por evidencia, el estado y las limitaciones. Los resultados se deben mapear a los 15 casos de #392 antes de contarlos como cubiertos.
+El índice más abajo contiene los enlaces por evidencia, estado y limitaciones. El conjunto seleccionado y sus resultados aparecen en la [tabla de 15 casos](392-casos-15.md); no sustituye el estado individual de las 40 F de la matriz #291/#299.
 
 ## 4. Defectos e incidencias observadas
 
@@ -48,15 +48,14 @@ Los escenarios pendientes de cuenta B (esperado 403), CSAT y estados de despacho
 
 ## 6. Riesgos residuales
 
-- Integrar al inventario los cinco casos de performance ya documentados en #396; consolidar además cinco funcionales y cinco de integración con ID, precondición, pasos, resultado esperado y estado.
-- Obtener logs con `correlation-id` visible y completar la trazabilidad de las 40 F; `requestId`/`eventId` no bastan por sí solos.
+- Obtener logs con `correlation-id` visible en una corrida REAL y completar los runs de las 40 F; `requestId`/`eventId` no bastan por sí solos.
 - Adjuntar evidencia de cuenta B 403, CSAT y `DESPACHADO`/`ENTREGADO` reales del pedido `PED-2026-00092`.
-- Completar contract tests de Productos/Ofertas y enlazar el C4 y los contratos de eventos aprobados desde SPECS.
+- Integrar al branch objetivo las PR #354/#358 (matriz y contratos G6) y enlazar el C4 y contratos de eventos aprobados desde SPECS.
 - Extraer métricas FE, completar DAST y consolidar defectos y bloqueos con fuente primaria.
 
 ## 7. Recomendación go/no-go
 
-**Pendiente de decisión.** No se recomienda declarar GO ni NO-GO hasta completar la matriz de 15 casos, enlazar los runs y reportes, revisar riesgos residuales y obtener validación del PO. BE #392 sigue abierto.
+**Pendiente de decisión.** Los 15 casos están compilados y enlazados; falta que el PO revise la evidencia, acepte los límites MOCK/LAB LOCAL y decida cómo tratar los riesgos residuales. No se declara GO ni NO-GO mientras falte esa validación. BE #392 sigue abierto.
 
 Este índice organiza la evidencia de extremo a extremo para la exposición. Cada responsable debe reemplazar `Pendiente` con enlaces permanentes a los runs, reportes y tablas originales. Conservar fecha/hora, ambiente, commit o versión, resultado y responsable; no copiar secretos ni datos personales. Si una prueba no aplica o falla, registrarlo explícitamente con su causa y enlace.
 
@@ -65,10 +64,10 @@ Este índice organiza la evidencia de extremo a extremo para la exposición. Cad
 | Prioridad | Punto | Documento | Estado |
 |---|---|---|---|
 | 1 | [#324 — Paquete de evidencia H5](#1-324-paquete-de-evidencia-h5) | Este índice | Parcial; enlaces primarios pendientes |
-| 2 | [#299 — Trazabilidad F → prueba → run](299-trazabilidad.md) | [Trazabilidad](299-trazabilidad.md) | Parcial; falta `correlation-id` visible |
-| 3 | [#325 — Arquitectura C4](325-arquitectura-c4.md) | [C4](325-arquitectura-c4.md) | Diagrama base; adjuntar evidencia |
-| 4 | [#321 — Contrato de eventos](321-contrato-eventos.md) | [Contrato y diagrama](321-contrato-eventos.md) | Parcial; falta adjuntar schemas, versiones y payloads aprobados |
-| 5 | [#293 — Contract tests de Productos](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | Pendiente; Productos y Ofertas |
+| 2 | [#299 — Trazabilidad F → prueba → run](299-trazabilidad.md) | [Trazabilidad](299-trazabilidad.md) | PR #354 (HTTP/F matrix) y #390 (consumer correlation) tienen CI; falta merge, runs por F y correlationId REAL |
+| 3 | [#325 — Arquitectura C4](325-arquitectura-c4.md) | [C4](325-arquitectura-c4.md) | Tres vistas de trabajo agregadas; requiere revisión de Arquitectura y datos de despliegue/APIM |
+| 4 | [#321 — Contrato de eventos](321-contrato-eventos.md) | [Contrato y diagramas A/B](321-contrato-eventos.md) | Acuerdos #20/#22 y esquemas enlazados; falta correlación REAL y enlace de runs post-fix |
+| 5 | [#293 — Contract tests de Productos](293-contract-tests-productos.md) | [OpenAPI y contract tests](293-contract-tests-productos.md) | PR #354/#358 aprobadas y CI verde en `main`; integrar al branch objetivo; sin runtime REAL |
 
 ### Matriz, cobertura y decisión go/no-go
 
@@ -96,12 +95,12 @@ La secuencia de negocio de referencia es la compra real `PED-2026-00092`, report
 | Reintento de correo C-002 | BE #162 ([issue](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/162)); permalink de run: Pendiente | Reporte primario: Pendiente | `PED-2026-90001`, evento `c53403f0-a940-44d6-a3f1-4652d301e99a`; envío 17:07:59 y reintento 17:09:12 marcado `duplicate:true`; llegó un solo correo | REAL reportado; evidencia complementaria, no el pedido `00092` |
 | Contract tests de Ventas | [PR #344](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/344), merge `dc66208`; enlace directo a CI: Pendiente | [Detalle #295](295-contract-tests-ventas.md) | Snapshots OpenAPI offline 6/6; provider local con datos/token sintéticos | Aporta contexto; no equivale a Productos/Ofertas ni a Ventas REAL |
 | Consumidor — pruebas de laboratorio | `H5-evidencia-consumidor-Leonidas.md`; URL del archivo/run: Pendiente | La evidencia documenta RabbitMQ 4.1 y PostgreSQL 16 desechables | Eventos sintéticos; duplicado y recuperación de conexión; ensayo separado con reintentos/DLQ | LAB LOCAL; no presentarlo como integración REAL |
-| k6 — cinco casos de performance | [BE #396, fusionado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/396) | [CP-PERF-01..05: reporte, pasos y resultados](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/reporte-final.md#casos-de-performance-para-be-392); [datos JSON](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/datos-finales.json) | Cinco casos con precondiciones, pasos, resultados y evidencia | Docker local; G5/G6/G7 simulados; integrar esos IDs a la matriz consolidada #392 |
+| k6 — cinco casos de performance | [BE #396, fusionado](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/396) | [CP-PERF-01..05: reporte, pasos y resultados](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/reporte-final.md#casos-de-performance-para-be-392); [datos JSON](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/154ecf03eed9cc0d50c5b81b10294c37dc2c1e02/docs/evidencias/H5/performance/be-391/datos-finales.json) | Cinco casos con precondiciones, pasos, resultados y evidencia; IDs incluidos en [la tabla de #392](392-casos-15.md) | Docker local; G5/G6/G7 simulados; no es integración REAL |
 | E2E FE #138 carrito/checkout | [FE #138, cerrada parcial](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/138); [run Playwright CI](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45902315375/job/140190792229) | Reporte HTML/trazas locales descritos en #138 | Dos casos Playwright MOCK (éxito y error); intento REAL se detuvo con `401 CREDENCIALES_INVALIDAS`, sin crear pedido | Evidencia parcial; no cumple el E2E multi-módulo completo |
-| Matriz de integración BE #291 | [Matriz publicada por Diego](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/eb39191e0aef7485fdad4a21b09a8f32b93f3cb0/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md) | [Evidencias adicionales y límites](291-292-137-cobertura.md) | Módulos G6, G7, G5 y G2; matriz por módulo × operación × caso, con etiquetas MOCK/REAL | Cruzar cada evidencia nueva al ID de caso y run en la matriz consolidada; no duplicar ni reclasificar |
+| Matriz de integración BE #291 | [Matriz F-001..F-040 de PR #354](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/aeac35ff99d8bf5a685c6ce43cb5fd2fec8add5e/docs/evidencias/H5/MATRICES-TASK-H5-291-299.md) | [Evidencias adicionales y límites](291-292-137-cobertura.md) | Módulos G6, G7, G5 y G2; conserva `LOCAL`, `PIN`, `BLOCKED`, `NOT-COVERED` | Incorporar evidencia adicional al ID de caso y run cuando la matriz se integre al branch objetivo |
 | Cobertura backend BE #292 | [Run de develop #45772947134](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45772947134) | [Auditoría de cobertura](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/blob/b67261f6a19c29a87d368e63e4fc6c32612545f8/docs/evidencias/H5/diego/TASK-H5-TEST-002-COBERTURA-BE.md) | Artefacto `backend-coverage-report`; auditoría de rama reporta 75.04% líneas y 68.51% ramas tras ajustes de favoritos y CSAT | Mantener distinto el artefacto de develop y los porcentajes documentados en la rama |
 | Cobertura frontend FE #137 | [Run CI #45843117746](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/actions/runs/45843117746) | Artefacto `frontend-coverage-report` | Run de rama `ci/h5-137-vitest-coverage` reportado como exitoso; Vitest cubre componentes y servidor | Recuperar/enlazar el artefacto y sus métricas antes del corte |
-| Go/no-go BE #392 | [Issue BE #392](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/392) | [Matriz de casos y pendientes](392-go-no-go.md) | Issue abierto; falta informe consolidado con 15 casos trazables y recomendación | Pendiente; requiere revisión y validación del PO |
+| Go/no-go BE #392 | [Issue BE #392](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/392) | [Informe](392-go-no-go.md) · [tabla 15 casos](392-casos-15.md) | 15 casos seleccionados con pasos, expectativa, resultado y etiquetas | Decisión pendiente de revisión del PO y tratamiento de riesgos de salida |
 | Cuenta B, denegación de pedido ajeno | Run/log: Pendiente | Pendiente | Se espera 403; evidencia aún no recibida | Pendiente |
 | CSAT | Run/reporte: Pendiente | Pendiente | Escenario pendiente de evidencia | Pendiente |
 | `DESPACHADO` y `ENTREGADO` REAL de `PED-2026-00092` | Run/log de Ventas/webhook: Pendiente | Pendiente | README fusionado indica que ambos estados del pedido están pendientes | Pendiente |

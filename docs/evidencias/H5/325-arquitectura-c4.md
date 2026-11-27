@@ -1,6 +1,6 @@
 # #325 — Arquitectura C4 de la compra
 
-Vistas de contexto, contenedores y componentes para los sistemas confirmados: APIM, Marketplace BFF, RabbitMQ, consumidor de usuarios y webhook de Ventas. Las relaciones marcadas con evidencia enlazan a corridas o reportes; las conexiones de contexto no implican que todos los saltos se hayan medido en una sola traza distribuida.
+Vistas de contexto, contenedores y componentes para la arquitectura comunicada: APIM, Marketplace BFF, Productos/Ofertas, RabbitMQ, consumidor de usuarios y webhook de Ventas. Las relaciones marcadas con evidencia enlazan a corridas o reportes; las conexiones de contexto no implican que todos los saltos se hayan medido en una sola traza distribuida.
 
 ## Contexto — sistemas y actores
 
@@ -9,6 +9,7 @@ flowchart LR
     Customer[Persona compradora]
     APIM[APIM — gateway]
     Marketplace[Marketplace]
+    G6[Productos y Ofertas]
     G7[G7 Seguridad]
     Rabbit[(RabbitMQ)]
     Sales[Ventas]
@@ -16,6 +17,8 @@ flowchart LR
     Customer -->|API de compra / lectura| APIM
     APIM --> Marketplace
     Marketplace -->|checkout y consultas de pedidos| Sales
+    Marketplace -->|catálogo de productos| G6
+    Marketplace -.->|precio, promociones y disponibilidad: homologación pendiente| G6
     G7 -->|usuario.creado v1| Rabbit
     Rabbit -->|marketplace.usuarios| Marketplace
     Sales -->|ShipmentStatusUpdated| Marketplace
@@ -27,6 +30,7 @@ flowchart LR
 flowchart LR
     APIM[APIM — gateway]
     BFF[Marketplace BFF]
+    G6[Productos y Ofertas API]
     G7[G7 — productor de usuarios]
     Rabbit[(RabbitMQ — exchange / cola marketplace.usuarios)]
     Consumer[Marketplace — consumidor / inbox]
@@ -37,6 +41,8 @@ flowchart LR
 
     APIM -->|HTTP| BFF
     BFF -->|POST checkout / GET orders| SalesAPI
+    BFF -->|lectura de catálogo| G6
+    BFF -.->|precio, promociones y disponibilidad bajo gate| G6
     G7 -->|usuario.creado v1; routing usuario.*| Rabbit
     Rabbit -->|entrega a marketplace.usuarios| Consumer
     SalesWebhook -->|ShipmentStatusUpdated| Webhook
@@ -50,16 +56,22 @@ flowchart LR
     APIM[APIM]
     subgraph Marketplace[Marketplace]
         Routes[Controladores BFF / rutas]
+        CatalogProvider[Proveedor de catálogo G6]
+        CommerceGate[Precio / disponibilidad bajo gate I-01]
         SalesAdapter[Adaptador de Ventas]
         RabbitConsumer[Consumidor RabbitMQ]
         Inbox[Inbox / deduplicación]
         HookHandler[Handler del webhook]
         EventStore[Persistencia de eventos]
     end
+    G6[Productos y Ofertas]
     Sales[Ventas]
     Broker[(RabbitMQ)]
 
     APIM --> Routes
+    Routes --> CatalogProvider
+    CatalogProvider --> G6
+    Routes -.-> CommerceGate
     Routes --> SalesAdapter
     SalesAdapter --> Sales
     Broker --> RabbitConsumer
@@ -95,7 +107,7 @@ flowchart LR
     Webhook -->|7 eventos persistidos| Despacho
 ```
 
-> Confirmado: las pruebas informadas ejercitaron BFF→Ventas, G7→RabbitMQ (`marketplace.usuarios`) y Ventas→webhook de despacho. No se afirma que estos flujos correspondan a una misma traza distribuida. Confirmar el rol de Productos en el flujo de compra, el nombre del consumidor/webhook y los límites de confianza antes de congelar. El laboratorio RabbitMQ/PostgreSQL de Leonidas permanece separado y marcado LAB LOCAL.
+> Confirmado: se han observado BFF→Ventas, G7→RabbitMQ (`marketplace.usuarios`) y Ventas→webhook de despacho. El adaptador de catálogo G6 tiene pruebas HTTP locales; precio/disponibilidad siguen bajo el gate I-01. Estos flujos no corresponden a una sola traza distribuida. Faltan revisión de Arquitectura, identificadores de despliegue/APIM y nombres oficiales de componentes internos. El laboratorio RabbitMQ/PostgreSQL de Leonidas permanece separado y marcado LAB LOCAL.
 
 ## Enlaces de evidencia
 
@@ -113,8 +125,8 @@ flowchart LR
 
 | Nivel | Artefacto | Enlace |
 |---|---|---|
-| Contexto | Actores y sistemas externos | Pendiente |
-| Contenedores | APIM, BFF, servicios, RabbitMQ, consumidor y Ventas | Pendiente |
-| Componentes | Configuración interna relevante para el flujo | Pendiente |
+| Contexto | Persona, APIM, Marketplace, G6, G7, RabbitMQ y Ventas | Incluido en esta página; revisión de Arquitectura pendiente |
+| Contenedores | APIM, BFF, API G6, productor G7, RabbitMQ, consumidor/inbox, API Ventas y webhook | Incluido; completar identificadores/URLs desplegados |
+| Componentes | Rutas BFF, catálogo, adaptador de Ventas, consumidor, inbox, handler webhook y persistencia | Incluido; cotejar nombres internos contra el código |
 
-El diagrama y las filas anteriores avanzan el inventario de componentes; la evidencia todavía no contiene identificadores de despliegue/APIM, configuración desplegada, C4 validado por arquitectura ni una traza única que conecte los saltos.
+Las tres vistas C4 ya están en el paquete. Para cerrar #325 falta la revisión de Arquitectura y completar identificadores del despliegue/APIM; no se afirma una traza única que conecte todos los saltos.
