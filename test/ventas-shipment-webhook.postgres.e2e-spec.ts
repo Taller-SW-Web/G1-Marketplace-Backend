@@ -28,6 +28,8 @@ const eventIds = [
   '77777777-7777-4777-8777-777777777777',
 ];
 const syntheticOrder = 'PED-2099-00320';
+// Pedido de prueba que crea Ventas para el ensayo (rango 9xxxx de pedidos de prueba, distinto del de C-002 y del pedido real).
+const ventasTestOrder = 'PED-2026-90009';
 
 function createEvent(eventId: string, overrides: Partial<ShipmentStatusUpdatedEvent['data']> = {}): ShipmentStatusUpdatedEvent {
   return {
@@ -92,6 +94,7 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
     jest.restoreAllMocks();
     for (const key of Object.keys(qaConfig)) delete qaConfig[key];
     await prisma.$executeRaw`DELETE FROM shipment_webhook_qa_failure WHERE order_id = ${syntheticOrder}`;
+    await prisma.$executeRaw`DELETE FROM shipment_webhook_qa_failure WHERE order_id = ${ventasTestOrder}`;
     await prisma.shipmentMailNotice.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.shipmentEventInbox.deleteMany({ where: { eventId: { in: eventIds } } });
   });
@@ -127,7 +130,7 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
 
   it.each([
     { orderId: 'PED-2026-00092' },
-    { orderId: 'PED-2026-90001' },
+    { orderId: 'PED-2026-90001', c002Order: 'PED-2026-90001' },
     { orderId: syntheticOrder, expiry: '2000-01-01T00:00:00Z' },
     { orderId: syntheticOrder, c002Order: syntheticOrder },
   ])('does not consume QA configuration outside its scope: %j', async ({ orderId, expiry, c002Order }) => {
@@ -161,6 +164,23 @@ postgresSuite('Ventas H-05 webhook — disposable PostgreSQL persistence', () =>
       event: 'shipment_webhook_processed', correlationId, eventId: event.eventId, orderId: syntheticOrder, outcome: 'accepted',
     }));
     await postEvent(createEvent(eventIds[1], { orderId: syntheticOrder }))
+      .expect(200, { data: { accepted: true, duplicate: false } });
+  });
+
+  it('arms for the Ventas test order in the 9xxxx range, answers 503 once and accepts the retry with the same eventId and body', async () => {
+    armQa(ventasTestOrder);
+    const event = createEvent(eventIds[0], { orderId: ventasTestOrder });
+
+    await postEvent(event).expect(503, { error: { code: 'SHIPMENT_EVENT_PERSISTENCE_UNAVAILABLE' } });
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(0);
+    const markers = await prisma.$queryRaw<{ event_id: string }[]>`
+      SELECT event_id FROM shipment_webhook_qa_failure WHERE order_id = ${ventasTestOrder}
+    `;
+    expect(markers).toEqual([{ event_id: event.eventId }]);
+
+    await postEvent(event).expect(200, { data: { accepted: true, duplicate: false } });
+    expect(await prisma.shipmentEventInbox.count({ where: { eventId: event.eventId } })).toBe(1);
+    await postEvent(createEvent(eventIds[1], { orderId: ventasTestOrder }))
       .expect(200, { data: { accepted: true, duplicate: false } });
   });
 

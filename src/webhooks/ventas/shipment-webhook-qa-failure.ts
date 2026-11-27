@@ -14,7 +14,7 @@ export class ShipmentWebhookQaFailure {
     if (this.config.get('VENTAS_WEBHOOK_QA_503_ENABLED') !== 'true') return false;
 
     const orderId = this.config.get<string>('VENTAS_WEBHOOK_QA_503_ORDER_ID') ?? '';
-    if (!/^PED-2099-\d{5}$/u.test(orderId) || event.data.orderId !== orderId
+    if (!/^PED-(?:2099-\d{5}|\d{4}-9\d{4})$/u.test(orderId) || event.data.orderId !== orderId
         || orderId === this.config.get<string>('C002_QA_ORDER_ID')) return false;
 
     const expiry = this.config.get<string>('VENTAS_WEBHOOK_QA_503_EXPIRES_AT') ?? '';
