@@ -1056,6 +1056,50 @@ describe('CheckoutService', () => {
     expect(gateway.createOrder).not.toHaveBeenCalled();
   });
 
+  it('limits the G5 status wait with G5_ORDER_POLL_MAX_MS and answers before the frontend proxy deadline', async () => {
+    jest.useFakeTimers();
+    process.env.G5_ORDER_POLL_MAX_MS = '5000';
+    try {
+      const operation = { ...baseOperation(), state: CheckoutOperationState.SUBMITTED, externalOrderId: 'PED-2026-00003' };
+      prisma.checkoutOperation.findFirst.mockResolvedValue(operation);
+      prisma.checkoutOperation.update.mockImplementation(async ({ data }) => {
+        Object.assign(operation, data);
+        return operation;
+      });
+      gateway.usesG5Sales.mockReturnValue(true);
+      gateway.getOrder.mockResolvedValue({ pedidoId: 'PED-2026-00003', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00.000Z' });
+
+      const pending = service.getOperation(customerId, operationId, undefined, 'synthetic-customer-jwt');
+      await jest.advanceTimersByTimeAsync(6000);
+      const result = await pending;
+
+      expect(result.status).not.toBe(500);
+      expect(gateway.getOrder).toHaveBeenCalledTimes(2);
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(1, 'PED-2026-00003', 'synthetic-customer-jwt', 5_000);
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(2, 'PED-2026-00003', 'synthetic-customer-jwt', 2_500);
+    } finally {
+      delete process.env.G5_ORDER_POLL_MAX_MS;
+      jest.useRealTimers();
+    }
+  });
+
+  it('bounds the status wait of an order creation by the remaining total budget', async () => {
+    jest.useFakeTimers();
+    try {
+      gateway.getOrder.mockResolvedValue({ pedidoId: 'PED-2026-00004', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: '2026-11-24T10:00:00.000Z' });
+      const budgetDeadline = Date.now() + 3_000;
+      const pending = (service as unknown as {
+        pollG5Order(orderId: string, accessToken: string, budgetDeadline: number): Promise<{ estado: string }>;
+      }).pollG5Order('PED-2026-00004', 'synthetic-customer-jwt', budgetDeadline);
+      await jest.advanceTimersByTimeAsync(4_000);
+      await expect(pending).resolves.toMatchObject({ estado: 'CREADO' });
+      expect(gateway.getOrder).toHaveBeenNthCalledWith(1, 'PED-2026-00004', 'synthetic-customer-jwt', 3_000);
+      expect(gateway.getOrder).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('polls G5 detail with the customer JWT every 2.5 seconds until PAGADO', async () => {
     jest.useFakeTimers();
     try {
