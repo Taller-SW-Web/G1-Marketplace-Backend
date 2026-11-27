@@ -90,6 +90,29 @@ describe('G7SalesTokenProvider - offline client_credentials contract', () => {
     expect(calls[0].form?.has('aud')).toBe(false);
   });
 
+  it('does not wait longer than the remaining order budget, without cancelling the shared token request', async () => {
+    holdResponse = (response) => {
+      setTimeout(() => {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify(tokenResponse));
+      }, 250);
+    };
+    const client = provider();
+    const startedAt = Date.now();
+    await expect(client.getAccessToken(60)).rejects.toMatchObject({ status: 504 });
+    expect(Date.now() - startedAt).toBeLessThan(200);
+    // la solicitud compartida a G7 terminó por su cuenta: el siguiente llamador la recibe del caché aunque tenga poco tiempo
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await expect(client.getAccessToken(10)).resolves.toBe(token());
+    expect(calls).toHaveLength(1);
+  });
+
+  it('rejects immediately when the order budget is already spent', async () => {
+    const client = provider();
+    await expect(client.getAccessToken(0)).rejects.toMatchObject({ status: 504 });
+    expect(calls).toHaveLength(0);
+  });
+
   it('coalesces concurrent token requests', async () => {
     let release!: (response: import('node:http').ServerResponse) => void;
     holdResponse = (response) => { release = (res) => {

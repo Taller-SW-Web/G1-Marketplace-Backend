@@ -121,6 +121,62 @@ describe('G5 M1 1.10.0 provider — offline loopback contract', () => {
     } as never);
   }
 
+  describe('total order budget (deadlineAt)', () => {
+    const slowToken = (ms: number) => jest.fn(() => new Promise<string>((resolve) => setTimeout(() => resolve(syntheticToken), ms)));
+    function budgetProvider(getAccessToken: jest.Mock, overrides: Record<string, unknown> = {}) {
+      const values: Record<string, unknown> = {
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', HTTP_TIMEOUT_MS: 1000, ...overrides,
+      };
+      const config = { get: (key: string, fallback?: unknown) => values[key] ?? fallback };
+      return new G5SalesProvider(new HttpService(axios.create()), config as ConfigService, { getAccessToken } as never);
+    }
+
+    it('does not start anything when the budget is already spent', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      await expect(budgetProvider(getAccessToken).createOrder(payload, idempotencyKey, Date.now() - 1))
+        .rejects.toMatchObject({ status: 504, message: expect.stringContaining('SALES_TIMEOUT') });
+      expect(getAccessToken).not.toHaveBeenCalled();
+      expect(lastRequest).toEqual({});
+    });
+
+    it('gives the technical token only the remaining time and never sends the POST when a slow token spends the budget', async () => {
+      const getAccessToken = slowToken(300);
+      // el doble recibe el tiempo restante y lo respeta como lo hace el proveedor real
+      const racing = jest.fn((remainingMs?: number) => Promise.race([
+        getAccessToken(), new Promise<string>((_r, reject) => setTimeout(() => reject({ status: 504 }), remainingMs)),
+      ]));
+      await expect(budgetProvider(racing as unknown as jest.Mock).createOrder(payload, idempotencyKey, Date.now() + 80))
+        .rejects.toBeDefined();
+      expect(racing).toHaveBeenCalledTimes(1);
+      expect(racing.mock.calls[0][0]).toBeLessThanOrEqual(80);
+      expect(racing.mock.calls[0][0]).toBeGreaterThan(0);
+      expect(lastRequest).toEqual({});
+    });
+
+    it('does not send the POST when the token returns after the budget has expired', async () => {
+      const lateToken = jest.fn(() => new Promise<string>((resolve) => setTimeout(() => resolve(syntheticToken), 120)));
+      await expect(budgetProvider(lateToken as unknown as jest.Mock).createOrder(payload, idempotencyKey, Date.now() + 60))
+        .rejects.toMatchObject({ status: 504 });
+      expect(lastRequest).toEqual({});
+    });
+
+    it('limits the POST to the remaining budget instead of the configured 30 s', async () => {
+      const getAccessToken = jest.fn().mockResolvedValue(syntheticToken);
+      const http = { post: jest.fn().mockReturnValue(new Promise(() => undefined)) };
+      const config = { get: (key: string, fallback?: unknown) => ({
+        VENTAS_BASE_URL: baseUrl, G5_SALES_INTEGRATION_APPROVED: 'true', CHECKOUT_SALES_SOURCE: 'g5',
+        AUTH_ENABLED: 'true', USE_MOCKS: false, NODE_ENV: 'test', G5_SALES_TIMEOUT_MS: 30_000,
+      } as Record<string, unknown>)[key] ?? fallback };
+      const client = new G5SalesProvider(http as unknown as HttpService, config as ConfigService, { getAccessToken } as never);
+      void client.createOrder(payload, idempotencyKey, Date.now() + 5_000).catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const options = http.post.mock.calls[0][2] as { timeout: number };
+      expect(options.timeout).toBeLessThanOrEqual(5_000);
+      expect(options.timeout).toBeGreaterThan(4_000);
+    });
+  });
+
   it('posts the pinned M1 request verbatim with the same Idempotency-Key and maps 201/200 responses', async () => {
     const client = provider();
     const first = await client.createOrder(payload, idempotencyKey);

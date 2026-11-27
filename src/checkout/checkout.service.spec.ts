@@ -723,6 +723,41 @@ describe('CheckoutService', () => {
     expect(JSON.stringify(persistedOrderRequest)).not.toContain('ana@example.test');
   });
 
+  it('passes the remaining total budget to Sales creation and keeps the old call shape when no budget is set', async () => {
+    const run = async () => {
+      const operation = baseOperation();
+      prisma.checkoutOperation.findFirst.mockImplementation(async ({ where }) => (where.id ? operation : null));
+      prisma.checkoutOperation.updateMany.mockImplementation(async ({ where, data }) => {
+        if (!where.id) return { count: 0 };
+        Object.assign(operation, data);
+        return { count: 1 };
+      });
+      prisma.checkoutOperation.update.mockImplementation(async ({ data }) => { Object.assign(operation, data); return operation; });
+      const order = { pedidoId: 'PED-2026-00005', estado: 'CREADO', total: { amount: 355, currency: 'PEN' }, createdAt: new Date().toISOString() };
+      gateway.createOrder.mockResolvedValue(order);
+      gateway.getOrder.mockResolvedValue(order);
+      await service.createOrder(customerId, {
+        checkoutOperationId: operationId,
+        contact: { fullName: 'Ana Perez', documentType: 'DNI', documentNumber: '12345678', phone: '999999999', email: 'ana@example.test' },
+      }, '66666666-6666-4666-8666-666666666666');
+    };
+
+    await run();
+    expect(gateway.createOrder.mock.calls[0][0]).not.toHaveProperty('deadlineAt');
+
+    jest.clearAllMocks();
+    process.env.G5_ORDER_TOTAL_BUDGET_MS = '50000';
+    try {
+      const before = Date.now();
+      await run();
+      const { deadlineAt } = gateway.createOrder.mock.calls[0][0] as { deadlineAt: number };
+      expect(deadlineAt).toBeGreaterThanOrEqual(before + 50_000);
+      expect(deadlineAt).toBeLessThanOrEqual(Date.now() + 50_000);
+    } finally {
+      delete process.env.G5_ORDER_TOTAL_BUDGET_MS;
+    }
+  });
+
   it('returns a conflict when the mock Sales idempotency scope rejects a changed payload', async () => {
     const operation = baseOperation();
     prisma.checkoutOperation.findFirst.mockResolvedValue(operation);

@@ -507,6 +507,7 @@ export class CheckoutService {
           paymentMethod,
           deliveryRecipient: input.deliveryRecipient,
           customerAccessToken: accessToken,
+          ...(budgetDeadline === undefined ? {} : { deadlineAt: budgetDeadline }),
         });
       } catch (error) {
         this.throwProviderError(error, 'ORDER_CREATION_PENDING');

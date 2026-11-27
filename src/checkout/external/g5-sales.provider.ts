@@ -69,13 +69,19 @@ export class G5SalesProvider {
     @Optional() private readonly serviceTokens?: G7SalesTokenProvider,
   ) {}
 
-  async createOrder(input: G5CreateOrderRequest, idempotencyKey: string): Promise<G5SalesOrder> {
+  /** `deadlineAt` (ms epoch) es el límite del presupuesto total: el token y el alta reciben el tiempo restante y el POST no empieza si ya venció. */
+  async createOrder(input: G5CreateOrderRequest, idempotencyKey: string, deadlineAt?: number): Promise<G5SalesOrder> {
     if (!UUID_V4.test(idempotencyKey)) throw new ProviderError(400, 'IDEMPOTENCY_KEY_INVALID');
     if (!isCreateOrderRequest(input)) throw new ProviderError(400, 'SALES_REQUEST_INVALID');
     this.assertIntegrationReady();
     if (!this.serviceTokens) throw new ProviderError(503, 'SALES_AUTH_UNAVAILABLE');
-    const token = await this.serviceTokens.getAccessToken();
-    const response = await this.request('post', '/api/v1/pedidos', token, input, { 'Idempotency-Key': idempotencyKey });
+    const remaining = () => (deadlineAt === undefined ? undefined : deadlineAt - Date.now());
+    const beforeToken = remaining();
+    if (beforeToken !== undefined && beforeToken <= 0) throw new ProviderError(504, 'SALES_TIMEOUT');
+    const token = await this.serviceTokens.getAccessToken(beforeToken);
+    const beforePost = remaining();
+    if (beforePost !== undefined && beforePost <= 0) throw new ProviderError(504, 'SALES_TIMEOUT');
+    const response = await this.request('post', '/api/v1/pedidos', token, input, { 'Idempotency-Key': idempotencyKey }, beforePost);
     return mapCreateOrder(response);
   }
 

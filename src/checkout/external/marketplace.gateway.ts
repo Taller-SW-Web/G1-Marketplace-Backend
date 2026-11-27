@@ -213,6 +213,8 @@ export class MarketplaceGateway {
       paymentMethod?: string;
       deliveryRecipient?: string;
       customerAccessToken?: string;
+      /** Límite (ms epoch) del presupuesto total de la creación; solo lo usa Ventas (G5). */
+      deadlineAt?: number;
   }): Promise<SalesOrder> {
     if (this.usesG5Sales()) return this.createG5Order(input);
     const { customerId, checkoutOperationId, idempotencyKey, contact, total } = input;
@@ -328,7 +330,9 @@ export class MarketplaceGateway {
         Math.round(request.pago.total * 100) !== Math.round((snapshot.subtotal.amount - discountAmount + snapshot.shipping.amount) * 100)) {
       throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
     }
-    return this.g5Sales.createOrder(request, input.idempotencyKey);
+    return input.deadlineAt === undefined
+      ? this.g5Sales.createOrder(request, input.idempotencyKey)
+      : this.g5Sales.createOrder(request, input.idempotencyKey, input.deadlineAt);
   }
 
   private g5Items(lines: QuoteLine[], quoteSubtotal: number): G5CreateOrderRequest['items'] {
