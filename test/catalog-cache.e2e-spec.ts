@@ -49,23 +49,28 @@ describe('Public catalog cache and compression (local MOCK)', () => {
 
   afterAll(async () => app?.close());
 
-  it('keeps successful public reads no-store while local process caching is configured', async () => {
-    const first = await request(app.getHttpServer()).get('/api/v1/catalog/home').expect(200);
-    const second = await request(app.getHttpServer()).get('/api/v1/catalog/home')
+  it.each([
+    ['/api/v1/catalog/home', 'home'],
+    ['/api/v1/catalog/filters', 'filters'],
+    ['/api/v1/catalog/products?q=cache-check', 'search'],
+  ] as const)('keeps %s no-store on a load and a local cache hit', async (path, load) => {
+    const first = await request(app.getHttpServer()).get(path).expect(200);
+    const second = await request(app.getHttpServer()).get(path)
       .set('X-Request-Id', 'catalog-cache-hit').expect(200);
 
     expect(first.headers['cache-control']).toBe('no-store');
     expect(second.headers['cache-control']).toBe('no-store');
     expect(second.headers['x-request-id']).toBe('catalog-cache-hit');
     expect(second.body).toEqual(first.body);
-    expect(provider.home).toHaveBeenCalledTimes(1);
+    expect(provider[load]).toHaveBeenCalledTimes(1);
   });
 
   it('keeps provider failures non-cacheable and retries the provider next time', async () => {
     provider.search.mockRejectedValueOnce(new Error('temporary provider failure'));
     await request(app.getHttpServer()).get('/api/v1/catalog/products?q=retry').expect(503)
       .then((result) => expect(result.headers['cache-control']).toBe('no-store'));
-    await request(app.getHttpServer()).get('/api/v1/catalog/products?q=retry').expect(200);
+    await request(app.getHttpServer()).get('/api/v1/catalog/products?q=retry').expect(200)
+      .expect('Cache-Control', 'no-store');
     expect(provider.search).toHaveBeenCalledTimes(2);
   });
 
@@ -84,13 +89,13 @@ describe('Public catalog cache and compression (local MOCK)', () => {
     });
 
     const compressed = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=running&pageSize=48')
-      .set('Accept-Encoding', 'gzip').expect(200);
+      .set('Accept-Encoding', 'gzip').expect(200).expect('Cache-Control', 'no-store');
     expect(compressed.headers['content-encoding']).toBe('gzip');
     expect(compressed.headers.vary).toContain('Accept-Encoding');
     expect(compressed.body.data).toHaveLength(48);
 
     const uncompressed = await request(app.getHttpServer()).get('/api/v1/catalog/products?q=other&pageSize=48')
-      .set('Accept-Encoding', 'identity').expect(200);
+      .set('Accept-Encoding', 'identity').expect(200).expect('Cache-Control', 'no-store');
     expect(uncompressed.headers['content-encoding']).toBeUndefined();
   });
 });

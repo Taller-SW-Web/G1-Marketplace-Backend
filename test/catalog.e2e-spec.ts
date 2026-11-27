@@ -106,6 +106,16 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(provider.home).toHaveBeenCalledWith(result.headers['x-request-id']);
   });
 
+  it.each([
+    ['/api/v1/catalog/home', 'home'],
+    ['/api/v1/catalog/filters', 'filters'],
+    ['/api/v1/catalog/products?q=running', 'search'],
+  ] as const)('keeps %s no-store and calls the provider on every read at TTL zero', async (path, load) => {
+    await request(app.getHttpServer()).get(path).expect(200).expect('Cache-Control', 'no-store');
+    await request(app.getHttpServer()).get(path).expect(200).expect('Cache-Control', 'no-store');
+    expect(provider[load]).toHaveBeenCalledTimes(2);
+  });
+
   it('serves active filter masters publicly with no-store and shared correlation', async () => {
     const result = await request(app.getHttpServer()).get('/api/v1/catalog/filters')
       .set('X-Request-Id', 'h4-masters-01').expect(200);
