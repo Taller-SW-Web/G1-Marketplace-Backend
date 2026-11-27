@@ -25,8 +25,8 @@ assert.equal(
 
 const expectedOperations = expectedOperationKeys(result);
 const parsedRoutes = outputPathOperations(artifact);
-assert.equal(result.contractedOperations.length, 34, 'Deben existir exactamente 34 operaciones contratadas');
-assert.equal(parsedRoutes.operations.length, 34, 'El OpenAPI debe contener exactamente 34 operaciones');
+assert.equal(result.contractedOperations.length, 38, 'Deben existir exactamente 38 operaciones contratadas');
+assert.equal(parsedRoutes.operations.length, 38, 'El OpenAPI debe contener exactamente 38 operaciones');
 assert.deepEqual(parsedRoutes.operations, expectedOperations, 'Las rutas/metodos consolidados deben coincidir con las fuentes');
 assert.equal(new Set(parsedRoutes.paths).size, parsedRoutes.paths.length, 'No debe haber paths duplicados');
 assert.ok(parsedRoutes.paths.every((path) => path.startsWith('/v1/')), 'Todos los paths deben comenzar en /v1');
@@ -80,8 +80,15 @@ for (const reference of findComponentReferences(artifact)) {
 for (const { file, id } of SOURCE_CONTRACTS) {
   if (id !== 'checkout') continue;
   const checkoutOperations = result.contractedOperations.filter((operation) => operation.file === file);
-  assert.equal(checkoutOperations.length, 7, 'Checkout debe mantener sus siete operaciones documentadas');
+  assert.equal(checkoutOperations.length, 11, 'Checkout debe mantener sus once operaciones documentadas');
   for (const operation of checkoutOperations) {
+    if (operation.sourcePath === '/api/v1/webhooks/ventas/envios') {
+      const pathItem = parsedRoutes.pathEntries.find(({ key }) => key === operation.publicPath);
+      const block = outputOperationBlock(pathItem, operation.method.toLowerCase());
+      assert.ok(block?.some((line) => /^ {8}- salesWebhookToken:\s*\[\]$/.test(line)),
+        'Webhook de Ventas debe conservar su autenticación por token de webhook');
+      continue;
+    }
     const pathItem = parsedRoutes.pathEntries.find(({ key }) => key === operation.publicPath);
     const block = outputOperationBlock(pathItem, operation.method.toLowerCase());
     assert.ok(block?.some((line) => /^ {6}security\s*:/.test(line)),
