@@ -1,0 +1,14 @@
+# Reglas de clasificación OWASP ZAP Baseline para API BFF (TASK-H5-CICD-006 / Issue #286)
+# Formato: <rule_id>\t<IGNORE|WARN|FAIL>\t<justificación>
+# Las reglas de riesgo alto (inyecciones, XSS reflejado, divulgación de claves/stack traces, etc.)
+# se mantienen en FAIL/WARN por defecto; solo se clasifican como WARN las alertas estrictamente
+# informativas o propias de páginas HTML en una API JSON.
+10021	WARN	(X-Content-Type-Options Header Missing - monitoreado en API JSON)
+10035	WARN	(Strict-Transport-Security Header - gestionado por Cloudflare/Render edge)
+10038	WARN	(Content Security Policy Header Not Set - endpoint JSON sin HTML)
+10049	WARN	(Storable and Cacheable Content - respuestas públicas /health y catálogo)
+10055	WARN	(CSP - aplica a vistas HTML, no a API JSON)
+10096	WARN	(Timestamp Disclosure - campo timestamp intencional en /health)
+10098	WARN	(Cross-Domain Misconfiguration - CORS controlado por CORS_ORIGIN en BFF)
+10109	WARN	(Modern Web Application - informativo)
+90004	WARN	(Insufficient Site Isolation Against Spectre Vulnerability - informativo en API JSON)

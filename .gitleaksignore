@@ -2,4 +2,6 @@
 # Referencia: TASK-H5-CICD-003 (Issue #283) / TASK-H5-CICD-010 (Issue #290)
 727309be8260171e13684eb1bed09cbe7b8e093e:src/checkout/checkout.service.spec.ts:generic-api-key:939
 727309be8260171e13684eb1bed09cbe7b8e093e:src/notifications/notification-worker.service.spec.ts:generic-api-key:6
+# Falso positivo auditado: idempotencyKey sintético en prueba unitaria (commit 62bea9f4 de LeonidasGarcia)
+# Clave de idempotencia determinista usada solo por el test histórico del proveedor G5.
 62bea9f4d51b780ee10a1eeeaeec61fabf894a75:src/checkout/external/g5-sales.provider.spec.ts:generic-api-key:9

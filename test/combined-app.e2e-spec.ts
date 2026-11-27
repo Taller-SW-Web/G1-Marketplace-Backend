@@ -31,7 +31,7 @@ describe('Combined application HTTP contracts', () => {
     H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: secret,
     CORS_ORIGINS: 'http://localhost:3000', CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
     AUTH_ISSUER: issuer, AUTH_JWKS_URL: `${issuer}/jwks`,
-    ORDERS_SOURCE: 'mock', ORDERS_MOCK_CUSTOMER_ID: 'customer-demo-001',
+    ORDERS_SOURCE: 'mock',
     H3_AUTH_MOCK: 'true',
   };
   const previous = Object.fromEntries(Object.keys(environment).map((key) => [key, process.env[key]]));
@@ -179,12 +179,14 @@ describe('Combined application HTTP contracts', () => {
     expect(response.headers['access-control-allow-headers']).toContain('Idempotency-Key');
     expect(response.headers['access-control-allow-methods']).toContain('DELETE');
   });
-  it('registers the orders history module alongside checkout, cart and wishlist', async () => {
-    await request(app.getHttpServer()).get('/api/v1/orders/me').expect(200)
-      .expect(({ body, headers }) => {
+  it('protects order history and derives identity from an authenticated token', async () => {
+    await request(app.getHttpServer()).get('/api/v1/orders/me').expect(401)
+      .expect({ error: { code: 'UNAUTHENTICATED' } });
+    await request(app.getHttpServer()).get('/api/v1/orders/me')
+      .auth(validCartToken(), { type: 'bearer' }).expect(503)
+      .expect(({ headers, body }) => {
         expect(headers['x-orders-source']).toBe('MOCK');
-        expect(body.data).toEqual(expect.any(Array));
-        expect(body.data.length).toBeGreaterThan(0);
+        expect(body).toEqual({ error: { code: 'MOCK_CUSTOMER_NOT_CONFIGURED' } });
       });
   });
   it('registers the inherited mock login without turning it into a real authenticated session', async () => {

@@ -1,0 +1,47 @@
+{
+  "transport": "Mailpit HTTP API",
+  "version": "1.34.0",
+  "scope": "LOCAL_FIXTURE",
+  "verifiedAt": "2026-11-25T04:37:12.668257+00:00",
+  "messages": [
+    {
+      "environment": "LOCAL_FIXTURE",
+      "state": "PAGADO",
+      "status": "accepted",
+      "messageId": "4FPnxb7akCxXheRmZfmi8k",
+      "payloadVersion": "v1",
+      "subject": "Tu pedido PED-2026-90001 fue confirmado",
+      "mime": [
+        "text/plain",
+        "text/html"
+      ],
+      "mailboxVerified": true
+    },
+    {
+      "environment": "LOCAL_FIXTURE",
+      "state": "DESPACHADO",
+      "status": "accepted",
+      "messageId": "50pZQKDwD2qBrQxkR6tCo3",
+      "payloadVersion": "v1",
+      "subject": "Actualización de tu pedido PED-2026-90001: Despachado",
+      "mime": [
+        "text/plain",
+        "text/html"
+      ],
+      "mailboxVerified": true
+    },
+    {
+      "environment": "LOCAL_FIXTURE",
+      "state": "ENTREGADO",
+      "status": "accepted",
+      "messageId": "0lqD7Ean2BRV63qlyzRQwQ",
+      "payloadVersion": "v1",
+      "subject": "Actualización de tu pedido PED-2026-90001: Entregado",
+      "mime": [
+        "text/plain",
+        "text/html"
+      ],
+      "mailboxVerified": true
+    }
+  ]
+}
