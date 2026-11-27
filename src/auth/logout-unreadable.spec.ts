@@ -10,10 +10,13 @@ const tokens = { accessToken: 'a', refreshToken: 'refresh-fixture', tokenType: '
   usuario: { id: '11111111-1111-4111-8111-111111111111', nombreCompleto: 'Fixture', roles: ['CLIENTE'] } };
 const session: SessionData = { kind: 'session', tokens, accessExpiresAt: Date.now() + 600000, scope: 'scope' };
 
-function setup() {
+function setup(securityEventsEnabled?: boolean | string) {
   const rows = new Map<string, Row>();
   const tx = {
     $queryRaw: jest.fn(async () => []),
+    securityUserState: {
+      findUnique: jest.fn(async () => ({ status: 'BLOCKED', invalidatedAt: null })),
+    },
     authSession: {
       findUnique: jest.fn(async ({ where }: { where: { id: string } }) => rows.get(where.id) ?? null),
       delete: jest.fn(async ({ where }: { where: { id: string } }) => { rows.delete(where.id); }),
@@ -24,15 +27,36 @@ function setup() {
     authSession: { ...tx.authSession, create: jest.fn(async ({ data }: { data: Row }) => { rows.set(data.id, data); }),
       deleteMany: jest.fn(async ({ where }: { where: { id: string } }) => { rows.delete(where.id); }) } };
   const settings: Record<string, unknown> = { AUTH_ENABLED: 'true', NODE_ENV: 'test', G1_WEB_ORIGIN: origin,
-    AUTH_SESSION_KEY: randomBytes(32).toString('base64') };
+    AUTH_SESSION_KEY: randomBytes(32).toString('base64'), SECURITY_EVENTS_ENABLED: securityEventsEnabled };
   const config = { get: (key: string) => settings[key], getOrThrow: (key: string) => settings[key] };
   const store = new SessionStore(prisma as never, config as never);
   const provider = { call: jest.fn(async () => null) };
   const service = new G7SessionService(config as never, provider as never, store, {} as never);
   const logout = (opaque: string) => service.logout({ headers: { cookie: `g1_session=${opaque}`, origin } },
     { append: jest.fn() });
-  return { rows, store, provider, logout };
+  return { rows, store, provider, logout, tx };
 }
+
+describe('security event checks when reading stored sessions', () => {
+  it.each([undefined, false, 'false'])('preserves the session when the flag is %s', async (flag) => {
+    const { rows, store, tx } = setup(flag);
+    const opaque = await store.create(session, new Date(Date.now() + 60000));
+
+    await expect(store.locked(opaque, async (stored) => ({ result: stored?.data }))).resolves.toEqual(session);
+    expect(tx.securityUserState.findUnique).not.toHaveBeenCalled();
+    expect(tx.authSession.delete).not.toHaveBeenCalled();
+    expect(rows.has(sessionHash(opaque))).toBe(true);
+  });
+
+  it.each([true, 'true'])('invalidates a blocked user session when the flag is %s', async (flag) => {
+    const { rows, store, tx } = setup(flag);
+    const opaque = await store.create(session, new Date(Date.now() + 60000));
+
+    await expect(store.locked(opaque, async (stored) => ({ result: stored }))).resolves.toBeNull();
+    expect(tx.securityUserState.findUnique).toHaveBeenCalledTimes(1);
+    expect(rows.has(sessionHash(opaque))).toBe(false);
+  });
+});
 
 describe('logout of stored sessions that cannot be read', () => {
   it('revokes a readable session remotely and reports nothing pending', async () => {

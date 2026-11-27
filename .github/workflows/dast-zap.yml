@@ -1,0 +1,206 @@
+name: DAST (OWASP ZAP Baseline)
+
+# Escaneo dinámico (DAST) H5 contra entorno propio de G1 con reporte archivado
+# Tarea: TASK-H5-CICD-006 (Issue #286)
+# Solo apunta a servicios propios de G1 (nunca a módulos de otros equipos).
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL HTTPS explícita del entorno de staging G1'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  owasp-zap-baseline:
+    name: OWASP ZAP Baseline (Staging propio)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pruebas
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: g1_auth_test
+          POSTGRES_PASSWORD: temporary_h5_ci_only
+          POSTGRES_DB: g1_auth_h4_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U g1_auth_test -d g1_auth_h4_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TARGET_URL: ${{ github.event.inputs.target_url || vars.BACKEND_STAGING_URL || '' }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js e instalar parser OpenAPI
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias para importar los contratos
+        run: npm ci --no-audit --no-fund
+
+      - name: Levantar entorno efímero propio de G1 (si BACKEND_STAGING_URL no está configurada)
+        if: env.TARGET_URL == ''
+        env:
+          NODE_ENV: test
+          PORT: '10000'
+          USE_MOCKS: 'true'
+          AUTH_ISSUER: https://security.example.test
+          AUTH_JWKS_URL: https://security.example.test/jwks
+          DATABASE_URL: postgresql://g1_auth_test:temporary_h5_ci_only@127.0.0.1:5432/g1_auth_h4_test?schema=public
+        run: |
+          echo "BACKEND_STAGING_URL no configurada; levantando instancia efímera propia de G1 en 127.0.0.1:10000 (nunca producción)."
+          npm run build
+          npx prisma db push --skip-generate
+          nohup node dist/main.js > /tmp/g1-dast-backend.log 2>&1 &
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/health || echo "000")
+            echo "Boot efímero intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "TARGET_URL=http://127.0.0.1:10000" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 3
+          done
+          cat /tmp/g1-dast-backend.log || true
+          echo "::error::No se pudo iniciar la instancia efímera de G1 en 127.0.0.1:10000."
+          exit 1
+
+      - name: Validar que TARGET_URL pertenezca únicamente al entorno propio de G1
+        run: |
+          if [ -z "$TARGET_URL" ]; then echo "::error::Configura BACKEND_STAGING_URL o indica target_url; no se usa fallback de producción."; exit 1; fi
+          host=$(node -e "const u = new URL(process.env.TARGET_URL); const isLocal = u.hostname === '127.0.0.1' || u.hostname === 'localhost'; const okProto = isLocal ? (u.protocol === 'http:' || u.protocol === 'https:') : u.protocol === 'https:'; if (!okProto || u.hostname === 'g1-marketplace-backend.onrender.com') process.exit(1); console.log(u.hostname)") || { echo "::error::TARGET_URL debe ser HTTPS (o 127.0.0.1 efímero) y no puede ser el host de producción."; exit 1; }
+          echo "Host objetivo DAST: $host"
+          case "$host" in
+            g1-marketplace-backend-*.onrender.com|127.0.0.1|localhost)
+              echo "OK: entorno propio de G1 verificado."
+              ;;
+            *)
+              echo "::error::Host '$host' no autorizado. DAST solo puede ejecutarse contra entornos propios de G1."
+              exit 1
+              ;;
+          esac
+
+      - name: Precalentar /health del entorno propio (evitar cold start durante ZAP)
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "${TARGET_URL%/}/health" || echo "000")
+            echo "Warmup intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::El entorno propio ${TARGET_URL%/}/health no respondió 200."
+          exit 1
+
+      - name: Ejecutar OWASP ZAP Baseline y clasificar hallazgos
+        run: |
+          mkdir -p zap-wrk
+          cp .zap/rules.tsv zap-wrk/rules.tsv
+          chmod 777 zap-wrk
+          set +e
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
+            -t ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t "${TARGET_URL%/}/docs" \
+              -c rules.tsv \
+              -r zap-report.html \
+              -J zap-report.json \
+              -w zap-report.md \
+              -m 3
+          rc=$?
+          set -e
+          echo "OWASP ZAP exit code: $rc (0=PASS, 2=WARN, 1=FAIL, 3=ERROR)"
+
+          if [ -f zap-wrk/zap-report.json ]; then
+            node -e '
+              const fs = require("fs");
+              const data = JSON.parse(fs.readFileSync("zap-wrk/zap-report.json", "utf8"));
+              const counts = { High: 0, Medium: 0, Low: 0, Informational: 0 };
+              const rows = [];
+              for (const site of data.site || []) {
+                for (const a of site.alerts || []) {
+                  const risk = (a.riskdesc || "").split(" ")[0] || "Informational";
+                  if (counts[risk] !== undefined) counts[risk]++;
+                  rows.push(`| ${a.pluginid} | ${risk} | ${a.name} | ${a.count} |`);
+                }
+              }
+              const summary = [
+                "### Resumen DAST — OWASP ZAP Baseline",
+                `- **Objetivo:** \`${process.env.TARGET_URL}\``,
+                `- **Conteo por riesgo:** High: **${counts.High}** · Medium: **${counts.Medium}** · Low: **${counts.Low}** · Informational: **${counts.Informational}**`,
+                "",
+                "| Plugin ID | Riesgo | Hallazgo | Ocurrencias |",
+                "| :--- | :---: | :--- | :---: |",
+                ...(rows.length ? rows : ["| - | - | Sin hallazgos | 0 |"])
+              ].join("\n");
+              console.log(summary);
+              if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + "\n");
+            '
+          fi
+
+          # 0 = sin alertas, 2 = solo WARN (clasificados). 1 = FAIL, 3+ = error de ejecución -> bloquean el job.
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then
+            echo "::error::OWASP ZAP falló con código $rc (alerta FAIL o error de ejecución)."
+            exit "$rc"
+          fi
+
+      - name: Importar contratos OpenAPI y ejecutar ZAP API Scan en modo seguro
+        run: |
+          mkdir -p zap-wrk/openapi
+          node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const yaml = require("js-yaml");
+            const source = "docs/contratos";
+            for (const name of fs.readdirSync(source).filter((f) => /\.(json|ya?ml)$/i.test(f))) {
+              const file = path.join(source, name);
+              const spec = name.endsWith(".json") ? JSON.parse(fs.readFileSync(file, "utf8")) : yaml.load(fs.readFileSync(file, "utf8"));
+              if (!spec || !spec.openapi || !spec.paths) continue;
+              spec.servers = [{ url: process.env.TARGET_URL }];
+              fs.writeFileSync(path.join("zap-wrk/openapi", name), name.endsWith(".json") ? JSON.stringify(spec) : yaml.dump(spec));
+            }
+          '
+          shopt -s nullglob
+          specs=(zap-wrk/openapi/*)
+          if [ ${#specs[@]} -eq 0 ]; then echo "::error::No hay especificaciones OpenAPI que escanear."; exit 1; fi
+          failed=0
+          for spec in "${specs[@]}"; do
+            name=$(basename "$spec")
+            echo "Importando y escaneando $name en modo seguro"
+            set +e
+            docker run --rm --network host \
+              -v "${{ github.workspace }}/zap-wrk:/zap/wrk:rw" \
+              -t ghcr.io/zaproxy/zaproxy:stable \
+              zap-api-scan.py -t "/zap/wrk/openapi/$name" -f openapi -S \
+                -r "/zap/wrk/zap-api-$name.html" -J "/zap/wrk/zap-api-$name.json"
+            rc=$?
+            set -e
+            if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then echo "::error::Falló al menos un escaneo ZAP API."; exit 1; fi
+
+      - name: Archivar reportes OWASP ZAP (HTML, JSON, Markdown)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-owasp-zap-dast-report
+          path: |
+            zap-wrk/zap-report.html
+            zap-wrk/zap-report.json
+            zap-wrk/zap-report.md
+            zap-wrk/zap-api-*.html
+            zap-wrk/zap-api-*.json
+          if-no-files-found: warn
+          retention-days: 30

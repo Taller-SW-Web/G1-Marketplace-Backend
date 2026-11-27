@@ -1,0 +1,21 @@
+<!--
+  Candidate only for API scope marketplace-api with public suffix /v1,
+  using the confirmed origin-root serviceUrl documented in H5-308-IMPORT-V1.md.
+  Apply only to the contracted 33-operation API; /health and /docs are excluded.
+  Not included in azure-apim/** and not validated against an APIM gateway.
+-->
+<policies>
+  <inbound>
+    <base />
+    <rewrite-uri template='@("/api" + context.Request.OriginalUrl.Path)' copy-unmatched-params="true" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
