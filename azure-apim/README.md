@@ -72,6 +72,8 @@ Usar `GET /v1/wishlist` sin JWT con la suscripción QA. Resultado esperado: **40
 ### C. Rewrite y correlación
 El smoke manual [45536575477](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/actions/runs/45536575477) obtuvo `503` en catálogo (esperado `200`) y `401` en wishlist (esperado `401`); ambos headers de correlación coincidieron. El responsable atribuyó el `503` a G6 (`CATALOG_UNAVAILABLE`), sin que el body se registrara en el smoke. Es evidencia de solo dos GET; no certifica las 34 operaciones. No repetir hasta que el responsable de G6 confirme disponibilidad.
 
+**Límite de la evidencia:** esta sección registra resultados previos; no autoriza ni ejecuta pruebas, ráfagas, smoke ni cambios en APIM. Cualquier revalidación requiere una ventana QA autorizada.
+
 > 📷 **Capturas para Issue #309:**
 > 1. Terminal mostrando la respuesta `HTTP 401` ante token inválido.
 > 2. Terminal mostrando la respuesta `HTTP 429` al superar la cuota.
