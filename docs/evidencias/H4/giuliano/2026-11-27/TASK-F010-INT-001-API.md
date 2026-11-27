@@ -20,7 +20,7 @@ Ambas solicitudes fueron GET de sólo lectura a `https://g1-marketplace-backend.
 | Página solicitada | Inicio UTC / `Date` HTTP | HTTP / source | Request ID BFF | Resultado |
 | --- | --- | --- | --- | --- |
 | `page=0` | 17:13:00 / 17:13:08 UTC | 200 / `REAL` | `aac3cd5f-4627-498c-9f41-dcdcde75c8cd` | `sort:null`; `page.number=0`, `size=1`, `totalElements=2`, `totalPages=2`; un producto: ID `8ad24563-c9da-4305-b650-1dd47a14fffb` (`g6-qa-marketplace-ord-002`). |
-| `page=1` | 17:13:15 / 17:13:18 UTC | 200 / `REAL` | `1657a01b-67dd-4041-98a5-4a1563d1ea85` | `sort:null`; `page.number=1`, `size=1`, `totalElements=2`, `totalPages=2`; un producto: ID `93f7f500-077d-432e-bce98-31cb9ee0d66d` (`g6-qa-marketplace-ord-001`). |
+| `page=1` | 17:13:15 / 17:13:18 UTC | 200 / `REAL` | `1657a01b-67dd-4041-98a5-4a1563d1ea85` | `sort:null`; `page.number=1`, `size=1`, `totalElements=2`, `totalPages=2`; un producto: ID `93f7f500-077d-432e-be98-31cb9ee0d66d` (`g6-qa-marketplace-ord-001`). |
 
 URLs sanitizadas solicitadas:
 
