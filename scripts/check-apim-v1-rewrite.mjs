@@ -14,7 +14,7 @@ assert.match(policy, /Candidate only for API scope marketplace-api with public s
 assert.match(policy, /confirmed origin-root serviceUrl documented in H5-308-IMPORT-V1\.md/u);
 
 const paths = [...openapi.matchAll(/^  "(\/v1[^"]+)":\s*$/gmu)].map((match) => match[1]);
-assert.equal(paths.length, 37, 'rewrite candidate should target the contracted /v1 path surface only');
+assert.equal(paths.length, 39, 'rewrite candidate should target the contracted /v1 path surface only');
 assert.ok(paths.every((path) => path === '/v1' || path.startsWith('/v1/')));
 assert.ok(!paths.includes('/v1/health'), '/v1/health must remain outside the contracted API');
 assert.ok(!paths.includes('/v1/docs') && !paths.some((path) => path.startsWith('/v1/docs/')), '/v1/docs must remain outside the contracted API');
