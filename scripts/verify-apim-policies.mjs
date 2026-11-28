@@ -34,6 +34,10 @@ async function main() {
   if (!['/docs/specs', '/health'].includes(cachePath)) throw new Error('APIM_CACHE_PATH debe ser /docs/specs o /health.');
   const base = new URL(process.env.APIM_BASE_URL ?? 'https://apim-g1-marketplace-20.azure-api.net/v1');
   if (base.username || base.password || base.search || base.hash) throw new Error('APIM_BASE_URL debe contener solo el origen y la ruta de la API.');
+  const isLocalHttp = base.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(base.hostname);
+  if (base.protocol !== 'https:' && !isLocalHttp) {
+    throw new Error('APIM_BASE_URL debe usar HTTPS para destinos remotos. HTTP solo se permite en loopback literal.');
+  }
   const baseUrl = base.href.replace(/\/$/, '');
   const call = (path) => callApim(baseUrl, path);
   const failures = [];

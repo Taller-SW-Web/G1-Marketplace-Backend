@@ -7,6 +7,8 @@
 
 ## 1. Script reproducible de verificación (`scripts/verify-apim-policies.mjs`)
 
+`APIM_BASE_URL` exige HTTPS para destinos remotos antes de enviar la clave. Los dobles HTTP locales pueden usar `127.0.0.1` o `[::1]`. El script rechaza redirecciones.
+
 El script lee `APIM_SUBSCRIPTION_KEY` del entorno y la envía como `api-key`, tal como anuncia el gateway. Comprueba primero `200` en `/health`. Después verifica el `401` de JWT y el eco de `X-Correlation-Id` en `/cart`, y busca `X-Cache: HIT` en solicitudes repetidas a `/docs/specs`. Con `APIM_RUN_RATE_LIMIT=true`, comprueba `429` con `Retry-After` y detiene la secuencia en la primera respuesta distinta de `200`. Cualquier comprobación habilitada que falle produce código de salida `1`. La salida incluye estados y cabeceras de evidencia sin imprimir claves ni cuerpos de respuesta.
 
 Ejecutar con una suscripción de QA provisionada por el equipo.
