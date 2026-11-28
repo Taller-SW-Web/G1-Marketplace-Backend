@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_TIMEOUT_MS = 60_000;
+const SYNTHETIC_ORDER_CODE = 'PED-2099-00000';
 
 function validateOrigin(rawUrl) {
   if (!rawUrl?.trim()) return null;
@@ -25,7 +26,6 @@ function validateOrigin(rawUrl) {
 }
 
 function buildModuleSpecs(env = process.env) {
-  const g2ProtectedPath = env.G2_SANDBOX_PROTECTED_PATH?.trim();
   return [
     {
       module: 'G6',
@@ -45,8 +45,8 @@ function buildModuleSpecs(env = process.env) {
       token: env.G7_SANDBOX_TOKEN,
       apiKey: env.G7_SANDBOX_API_KEY,
       checks: [
-        { id: 'G7-POS', label: 'JWKS / OIDC público', path: '/.well-known/jwks.json', expectedStatuses: [200] },
-        { id: 'G7-NEG', label: 'Ruta protegida sin JWT', path: '/api/v1/auth/me', expectedStatuses: [401, 403] },
+        { id: 'G7-POS', label: 'JWKS / OIDC público', path: '/api/v1/auth/.well-known/jwks.json', expectedStatuses: [200] },
+        { id: 'G7-NEG', label: 'Ruta protegida sin JWT', path: '/api/v1/auth/me', omitToken: true, expectedStatuses: [401] },
       ],
     },
     {
@@ -57,21 +57,18 @@ function buildModuleSpecs(env = process.env) {
       apiKey: env.G5_SANDBOX_API_KEY,
       checks: [
         { id: 'G5-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G5-NEG', label: 'Pedido protegido sin JWT', path: '/api/v1/pedidos/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
+        { id: 'G5-NEG', label: 'Pedido protegido sin JWT', path: `/api/v1/pedidos/${SYNTHETIC_ORDER_CODE}`, omitToken: true, expectedStatuses: [401, 403] },
       ],
     },
     {
       module: 'G2',
-      name: 'Notificaciones / Correos',
+      name: 'Despacho / Seguimiento',
       baseUrl: env.G2_SANDBOX_URL,
       token: env.G2_SANDBOX_TOKEN,
       apiKey: env.G2_SANDBOX_API_KEY,
-      unavailableReason: /^\/[a-zA-Z0-9_/-]+$/.test(g2ProtectedPath ?? '') && !g2ProtectedPath.startsWith('//')
-        ? null
-        : 'Configurar G2_SANDBOX_PROTECTED_PATH con la ruta GET protegida confirmada por G2',
       checks: [
         { id: 'G2-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G2-NEG', label: 'Recurso protegido sin JWT', path: g2ProtectedPath, expectedStatuses: [401, 403] },
+        { id: 'G2-NEG', label: 'Seguimiento RT-04 sin JWT', path: `/api/v1/seguimientos/pedidos/${SYNTHETIC_ORDER_CODE}`, omitToken: true, expectedStatuses: [401] },
       ],
     },
   ];
@@ -83,7 +80,7 @@ async function runCheck(baseUrl, check, { token, apiKey, correlationId, timeoutM
     Accept: 'application/json',
     'X-Correlation-Id': correlationId,
   };
-  if (token?.trim() && check.id.endsWith('-POS')) {
+  if (token?.trim() && !check.omitToken) {
     headers.Authorization = `Bearer ${token.trim()}`;
   }
   if (apiKey?.trim()) {
@@ -164,17 +161,6 @@ export async function runRealSandboxSuite({
         name: spec.name,
         source: 'NO_DISPONIBLE',
         reason: originCheck.error,
-        checks: [],
-      });
-      continue;
-    }
-    if (spec.unavailableReason) {
-      modules.push({
-        module: spec.module,
-        name: spec.name,
-        source: 'NO_DISPONIBLE',
-        status: 'NO_DISPONIBLE',
-        reason: spec.unavailableReason,
         checks: [],
       });
       continue;

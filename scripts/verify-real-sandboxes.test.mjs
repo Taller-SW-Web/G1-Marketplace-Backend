@@ -21,6 +21,7 @@ test('executes REAL checks, propagates X-Correlation-Id, and omits secrets/PII',
     assert.ok(correlationId.startsWith('h5-298-'));
 
     if (url.pathname.includes('/api/v1/productos') && url.searchParams.get('pagina') === '-1') {
+      assert.equal(init.headers.Authorization, `Bearer ${secretToken}`);
       return new Response(JSON.stringify({ code: 'INVALID' }), {
         status: 400,
         headers: { 'x-correlation-id': correlationId },
@@ -32,7 +33,7 @@ test('executes REAL checks, propagates X-Correlation-Id, and omits secrets/PII',
         headers: { 'x-correlation-id': correlationId },
       });
     }
-    if (url.pathname === '/.well-known/jwks.json') {
+    if (url.pathname === '/api/v1/auth/.well-known/jwks.json') {
       return new Response(JSON.stringify({ keys: [] }), {
         status: 200,
         headers: { 'x-request-id': correlationId },
@@ -92,28 +93,35 @@ test('handles transport timeout cleanly as NO_DISPONIBLE', async () => {
   assert.equal(g5.checks[0].status, 'TIMEOUT');
 });
 
-test('G2 requires a confirmed same-origin path and rejects 404 as evidence of authentication', async () => {
-  const env = { G2_SANDBOX_URL: 'https://g2.example.invalid', G2_SANDBOX_TOKEN: 'fixture-token' };
+test('protected checks use the documented paths without bearer and reject unexpected statuses', async () => {
+  const env = {
+    G7_SANDBOX_URL: 'https://g7.example.invalid', G7_SANDBOX_TOKEN: 'fixture-token',
+    G5_SANDBOX_URL: 'https://g5.example.invalid', G5_SANDBOX_TOKEN: 'fixture-token',
+    G2_SANDBOX_URL: 'https://g2.example.invalid', G2_SANDBOX_TOKEN: 'fixture-token',
+  };
   const requests = [];
   const fetchImpl = async (url, { headers }) => {
-    requests.push([url.pathname, headers.Authorization]);
-    return new Response(null, { status: url.pathname === '/health' ? 200 : 404 });
+    requests.push([url.hostname, url.pathname, headers.Authorization]);
+    if (url.pathname === '/health' || url.pathname.endsWith('/jwks.json')) return new Response(null, { status: 200 });
+    if (url.pathname === '/api/v1/auth/me') return new Response(null, { status: 403 });
+    if (url.pathname === '/api/v1/pedidos/PED-2099-00000') return new Response(null, { status: 401 });
+    return new Response(null, { status: 404 });
   };
 
-  for (const path of [undefined, '//other.example.invalid/resource']) {
-    const report = await runRealSandboxSuite({ env: { ...env, G2_SANDBOX_PROTECTED_PATH: path }, fetchImpl });
-    assert.equal(report.modules.find((mod) => mod.module === 'G2').status, 'NO_DISPONIBLE');
+  const report = await runRealSandboxSuite({ env, fetchImpl });
+  assert.deepEqual(requests, [
+    ['g7.example.invalid', '/api/v1/auth/.well-known/jwks.json', 'Bearer fixture-token'],
+    ['g7.example.invalid', '/api/v1/auth/me', undefined],
+    ['g5.example.invalid', '/health', 'Bearer fixture-token'],
+    ['g5.example.invalid', '/api/v1/pedidos/PED-2099-00000', undefined],
+    ['g2.example.invalid', '/health', 'Bearer fixture-token'],
+    ['g2.example.invalid', '/api/v1/seguimientos/pedidos/PED-2099-00000', undefined],
+  ]);
+  for (const [module, status, httpStatus] of [['G7', 'FAIL', 403], ['G5', 'PASS', 401], ['G2', 'FAIL', 404]]) {
+    const result = report.modules.find((mod) => mod.module === module);
+    assert.equal(result.status, status);
+    assert.equal(result.checks[1].httpStatus, httpStatus);
   }
-  assert.deepEqual(requests, []);
-
-  const report = await runRealSandboxSuite({
-    env: { ...env, G2_SANDBOX_PROTECTED_PATH: '/api/v1/fixture' },
-    fetchImpl,
-  });
-  const g2 = report.modules.find((mod) => mod.module === 'G2');
-  assert.deepEqual(requests, [['/health', 'Bearer fixture-token'], ['/api/v1/fixture', undefined]]);
-  assert.equal(g2.status, 'FAIL');
-  assert.equal(g2.checks[1].httpStatus, 404);
 });
 
 test('marks module as FAIL when one check returns unexpected HTTP and another times out (local HTTP double)', async () => {
