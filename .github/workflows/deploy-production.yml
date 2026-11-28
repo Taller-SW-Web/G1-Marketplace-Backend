@@ -22,6 +22,8 @@ permissions:
 jobs:
   deploy-production:
     name: Despliegue a producción (requiere aprobación)
+    # Solo desde main, también en ejecuciones manuales (workflow_dispatch).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
@@ -36,8 +38,10 @@ jobs:
             echo "::error::Falta el secreto RENDER_DEPLOY_HOOK_URL"
             exit 1
           fi
-          curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}" -o /dev/null
+          response=$(curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}")
           echo "Despliegue solicitado para ${GITHUB_SHA} (aprobado en el environment production)"
+          echo "Respuesta de Render (incluye el ID del despliegue): ${response}"
+          { echo "### Despliegue a producción (Backend)"; echo "- Commit: \`${GITHUB_SHA}\`"; echo "- Respuesta de Render: \`${response}\`"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verificar que el servicio responde (/health)
         run: |
