@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseExceptionFilter } from '@nestjs/core';
+import compression from 'compression';
 import { SaveWishlistItemDto, wishlistValidationError } from '../wishlist/product-id';
 import { ApiErrorFilter } from './api-error.filter';
 import { corsOptions } from './cors-options';
@@ -10,8 +11,20 @@ import { CreateDeliveryAddressDto } from '../checkout/dto/delivery-address.dto';
 import { CreateOrderRequestDto } from '../checkout/dto/contact.dto';
 import { ApplyBenefitDto, CreateQuoteDto, PrepareCheckoutDto } from '../checkout/dto/quote.dto';
 
+const PUBLIC_CATALOG_READ = /^\/api\/v1\/catalog\/(?:home|filters|products)(?:\?.*)?$/;
+
+export function isPublicCatalogRead(method: string, requestUrl: string | undefined): boolean {
+  return method === 'GET' && PUBLIC_CATALOG_READ.test(requestUrl ?? '');
+}
+
 export function configureApp(app: INestApplication): void {
   app.use(requestIdMiddleware);
+  app.use(compression({
+    threshold: 1024,
+    // Avoid compressing authenticated/session responses; only these public GETs are eligible.
+    filter: (request, response) => isPublicCatalogRead(request.method, request.url) &&
+      compression.filter(request, response),
+  }));
   app.use((req: { url: string }, res: { setHeader(name: string, value: string): void }, next: () => void) => {
     if (/^\/api\/v1\/(wishlist|orders|auth|password)(?:[/?]|$)/.test(req.url)) res.setHeader('Cache-Control', 'no-store, private');
     next();
