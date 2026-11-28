@@ -127,10 +127,14 @@ export class G6CheckoutProvider {
         !Number.isSafeInteger(payload.price_version) || (payload.price_version as number) < 0 ||
         !(payload.channel_id === null || payload.channel_id === 'MARKETPLACE') || !text(payload.vigencia_id) ||
         !(payload.origen === 'PRODUCTO' || payload.origen === 'SKU_OVERRIDE') || !text(payload.valid_from) ||
-        !Number.isFinite(Date.parse(payload.valid_from)) || Date.parse(payload.valid_from) > Date.now() ||
-        (payload.valid_until != null && (!text(payload.valid_until) || !Number.isFinite(Date.parse(payload.valid_until)) ||
-          Date.parse(payload.valid_until) <= Date.now()))) {
+        !Number.isFinite(Date.parse(payload.valid_from)) ||
+        (payload.valid_until != null && (!text(payload.valid_until) || !Number.isFinite(Date.parse(payload.valid_until))))) {
       throw unavailable('G6_PRICE_INVALID_RESPONSE', 502);
+    }
+    const now = Date.now();
+    if (Date.parse(payload.valid_from) > now) throw unavailable('G6_PRICE_NOT_YET_VALID', 409);
+    if (payload.valid_until != null && Date.parse(payload.valid_until as string) <= now) {
+      throw unavailable('G6_PRICE_EXPIRED', 409);
     }
     return {
       amount: payload.precio_oferta ?? payload.precio_regular,

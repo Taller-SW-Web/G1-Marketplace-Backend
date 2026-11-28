@@ -81,6 +81,47 @@ describe('G6CheckoutProvider (synthetic HTTP only)', () => {
     expect(new Headers(request.headers).get('X-Correlation-Id')).toMatch(/^[0-9a-f-]{36}$/i);
   });
 
+  it('rejects an expired price as a conflict, without treating it as a current quote', async () => {
+    fetchMock.mockImplementation(async (input: URL | RequestInfo) => String(input) === values.G7_TOKEN_URL
+      ? jsonResponse({ accessToken: token, tokenType: 'Bearer', expiresIn: 3600, scopes: [...CHECKOUT_G6_SCOPES] })
+      : jsonResponse({
+        sku: 'ADI-ENT22-AZU-M', currency: 'PEN', precio_regular: 89.9, precio_oferta: 79.9,
+        price_version: 4, channel_id: 'MARKETPLACE', vigencia_id: 'vigencia-expirada', origen: 'SKU_OVERRIDE',
+        valid_from: '2026-01-01T00:00:00.000Z', valid_until: new Date(Date.now() - 1000).toISOString(),
+      }));
+
+    await expect(provider.getPrice('ADI-ENT22-AZU-M')).rejects.toMatchObject({
+      status: 409, code: 'G6_PRICE_EXPIRED',
+    });
+  });
+
+  it.each([
+    [404, 409, 'G6_PRICE_NOT_AVAILABLE'],
+    [403, 503, 'G6_PRICE_UNAVAILABLE'],
+    [502, 503, 'G6_PRICE_UNAVAILABLE'],
+  ])('fails closed for G6 price HTTP %i', async (httpStatus, expectedStatus, code) => {
+    fetchMock.mockImplementation(async (input: URL | RequestInfo) => String(input) === values.G7_TOKEN_URL
+      ? jsonResponse({ accessToken: token, tokenType: 'Bearer', expiresIn: 3600, scopes: [...CHECKOUT_G6_SCOPES] })
+      : jsonResponse({ code: 'SYNTHETIC_PROVIDER_ERROR' }, httpStatus));
+
+    await expect(provider.getPrice('ADI-ENT22-AZU-M')).rejects.toMatchObject({
+      status: expectedStatus, code,
+    });
+  });
+
+  it('maps an upstream timeout to a bounded 504 without falling back to a fixture price', async () => {
+    fetchMock.mockImplementation(async (input: URL | RequestInfo) => {
+      if (String(input) === values.G7_TOKEN_URL) {
+        return jsonResponse({ accessToken: token, tokenType: 'Bearer', expiresIn: 3600, scopes: [...CHECKOUT_G6_SCOPES] });
+      }
+      throw Object.assign(new Error('synthetic timeout'), { name: 'TimeoutError' });
+    });
+
+    await expect(provider.getPrice('ADI-ENT22-AZU-M')).rejects.toMatchObject({
+      status: 504, code: 'G6_CHECKOUT_TIMEOUT',
+    });
+  });
+
   it('verifies the requested quantities using ENVIO_DOMICILIO without reserving stock', async () => {
     await expect(provider.verifyQuantities([{ sku: 'ADI-ENT22-AZU-M', quantity: 2 }])).resolves.toEqual({
       available: true, revalidatedAt: '2026-11-27T12:00:00.000Z',

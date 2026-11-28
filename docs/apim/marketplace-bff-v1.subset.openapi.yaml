@@ -552,12 +552,12 @@ paths:
         implementation: 'CheckoutController.createQuote -> CheckoutService.createQuote'
         authentication: 'AuthGuard; customerId y carrito se resuelven desde el contexto autenticado.'
         ownership: 'addressId debe pertenecer al titular; cartVersion debe coincidir con el carrito vigente.'
-        downstreamCompatibility: 'Carrito G1 y validación de dirección del titular por la fuente de direcciones configurada (G7 o doble local). Cotización comercial y de envío con fixture/doble; sin ruta externa G6 verificada para cotizar.'
+        downstreamCompatibility: 'Carrito G1 y validación de dirección del titular por la fuente configurada. Con CHECKOUT_G6_SOURCE=real (todos los gates explícitos), precio por SKU se consulta a G6; envío y beneficios continúan siendo fixture/MOCK y se exponen en sources. El total no es íntegramente REAL.'
         errorCodes:
           '400': [REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
           '401': [UNAUTHENTICATED]
           '404': [ADDRESS_NOT_FOUND]
-          '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE]
+          '409': [CART_NOT_FOUND, CART_CHANGED, CART_EMPTY, CART_OWNERSHIP_CONFLICT, NO_SHIPPING_COVERAGE, LINE_NOT_AVAILABLE, PRICE_CHANGED]
           '503': [ADDRESS_SERVICE_UNAVAILABLE, QUOTE_UNAVAILABLE]
         timeoutBehavior: 'Timeout de direcciones o cotización se normaliza a 503; no se acepta una cotización parcial.'
         runtimeEvidence: 'La compra histórica con Ventas REAL usó cotización MOCK aun con direcciones G7 REAL. Cotización REAL NOT_RUN.'
@@ -631,7 +631,7 @@ paths:
         authentication: 'AuthGuard; operación y carrito se asocian al titular autenticado.'
         ownership: 'Idempotency-Key se restringe al titular; quoteId/cartVersion se verifican contra el contexto vigente.'
         idempotency: 'UUID con variante RFC; repetición idéntica recupera la operación, reutilización incompatible devuelve 409.'
-        downstreamCompatibility: 'G6 Inventory/revalidation (MOCK only); G7 Security.'
+        downstreamCompatibility: 'G6 Inventory/revalidation (MOCK por defecto; G6 REAL requiere aprobaciones explícitas); respuesta expone revalidationSource y revalidatedAt. No reserva stock.'
         errorCodes:
           '400': [IDEMPOTENCY_KEY_REQUIRED, SIMULATION_NOT_CONFIRMED, REQUEST_VALIDATION_ERROR, CART_VERSION_REQUIRED]
           '401': [UNAUTHENTICATED]
@@ -2674,6 +2674,17 @@ components:
       properties:
         sku: { type: string, minLength: 1 }
         quantity: { type: integer, minimum: 1 }
+        productId: { type: string, minLength: 1 }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+    QuoteSources:
+      type: object
+      additionalProperties: false
+      required: [pricing, shipping, benefits, inventoryRevalidation]
+      properties:
+        pricing: { type: string, enum: [G6_REAL, G5_FIXTURE, MOCK] }
+        shipping: { type: string, enum: [G5_FIXTURE, MOCK] }
+        benefits: { type: string, enum: [G5_FIXTURE, MOCK] }
+        inventoryRevalidation: { type: string, enum: [G6_REAL, G5_FIXTURE, MOCK] }
     SelectedBenefit:
       type: object
       additionalProperties: false
@@ -2712,6 +2723,7 @@ components:
             addressId: { type: string, minLength: 1 }
             cartVersion: { type: integer, minimum: 0 }
             selectedBenefit: { $ref: '#/components/schemas/SelectedBenefit' }
+            sources: { $ref: '#/components/schemas/QuoteSources' }
     CheckoutOperation:
       type: object
       required: [checkoutOperationId, state]
@@ -2723,6 +2735,7 @@ components:
         total: { $ref: '#/components/schemas/Money' }
         createdAt: { type: string, format: date-time }
         revalidatedAt: { type: string, format: date-time }
+        revalidationSource: { type: string, enum: [G6_REAL, G5_FIXTURE, MOCK] }
         simulationConsent: { type: string, enum: [RECORDED] }
         failureCode: { type: string }
         recoveryRequired: { type: boolean }

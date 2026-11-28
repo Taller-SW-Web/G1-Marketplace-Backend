@@ -1107,6 +1107,8 @@ export class CheckoutService {
       QUOTE_UNAVAILABLE: { status: 503, code: 'QUOTE_UNAVAILABLE' },
       QUOTE_TIMEOUT: { status: 503, code: 'QUOTE_UNAVAILABLE' },
       G6_PRICE_NOT_AVAILABLE: { status: 409, code: 'LINE_NOT_AVAILABLE' },
+      G6_PRICE_EXPIRED: { status: 409, code: 'PRICE_CHANGED' },
+      G6_PRICE_NOT_YET_VALID: { status: 409, code: 'PRICE_CHANGED' },
       G6_PRICE_FIXTURE_MISMATCH: { status: 409, code: 'PRICE_CHANGED' },
       COUPON_NOT_APPLICABLE: { status: 422, code: 'COUPON_NOT_APPLICABLE' },
       BENEFITS_UNAVAILABLE: { status: 503, code: 'BENEFITS_UNAVAILABLE' },
