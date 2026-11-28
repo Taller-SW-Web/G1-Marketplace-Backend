@@ -23,6 +23,12 @@ import {
 } from './product-price.dto';
 import { PRICE_ERROR_CODES } from './product-price.errors';
 import { MOCK_PRICE_PRODUCTS_BY_SLUG } from './product-price.fixture';
+import {
+  assertOperationApproved,
+  getRealCommerceAdapter,
+  RealCommerceError,
+  resolveRealSku,
+} from './real-commerce';
 
 const MOCK_LATENCY_MS = 120;
 
@@ -56,8 +62,49 @@ function simulateLatency(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
 }
 
+/** Traduce el error neutro del cableado REAL a los códigos del contrato F-012. */
+function priceError(error: unknown): BffCatalogException {
+  if (error instanceof BffCatalogException) return error;
+  const kind = error instanceof RealCommerceError ? error.kind : 'UNAVAILABLE';
+  switch (kind) {
+    case 'INVALID_SLUG':
+      return new BffCatalogException(400, PRICE_ERROR_CODES.INVALID_PRODUCT_SLUG, 'Slug inválido');
+    case 'NOT_AVAILABLE':
+      return new BffCatalogException(404, PRICE_ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
+    case 'SELECTION_REQUIRED':
+      return new BffCatalogException(409, PRICE_ERROR_CODES.PRODUCT_VARIANT_SELECTION_REQUIRED,
+        'Selecciona una variante para consultar el precio');
+    case 'SKU_MISMATCH':
+      return new BffCatalogException(409, PRICE_ERROR_CODES.SKU_NOT_BELONG_TO_PRODUCT,
+        'El SKU no corresponde al producto');
+    case 'TIMEOUT':
+      return new BffCatalogException(504, PRICE_ERROR_CODES.PRICING_TIMEOUT,
+        'La consulta de precio tardó demasiado');
+    case 'INVALID':
+      return new BffCatalogException(502, PRICE_ERROR_CODES.PRICING_INVALID_RESPONSE,
+        'Respuesta de precios fuera de contrato');
+    default:
+      return new BffCatalogException(503, PRICE_ERROR_CODES.PRICING_UNAVAILABLE,
+        'No pudimos consultar el precio en este momento');
+  }
+}
+
 @Injectable()
 export class ProductPriceService {
+  /**
+   * Precio REAL desde G6. Sigue fallando cerrado (503) mientras las variables de
+   * aprobación del adaptador no estén activas.
+   */
+  private async getRealPrice(slug: string, sku?: string): Promise<ProductPriceResponseDTO> {
+    try {
+      assertOperationApproved('price');
+      const resolved = await resolveRealSku(slug, sku);
+      return await getRealCommerceAdapter().getPrice(resolved);
+    } catch (error) {
+      throw priceError(error);
+    }
+  }
+
   /**
    * Obtiene el precio vigente de un producto/SKU.
    *
@@ -69,14 +116,7 @@ export class ProductPriceService {
     slug: string,
     sku?: string,
   ): Promise<ProductPriceResponseDTO> {
-    if (isRealCatalogSource()) {
-      // El adaptador real no se activa hasta homologar I-01 / OPEN-03.
-      throw new BffCatalogException(
-        503,
-        PRICE_ERROR_CODES.PRICING_UNAVAILABLE,
-        'I-01 gate not closed — pricing integration unavailable',
-      );
-    }
+    if (isRealCatalogSource()) return this.getRealPrice(slug, sku);
 
     await simulateLatency();
 
