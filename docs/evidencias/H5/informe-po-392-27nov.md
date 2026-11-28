@@ -121,3 +121,5 @@ Se mantienen **abiertas** con estado final publicado el 27/11: BE #26, #30, #38,
 - **No guardar variables en Render sin aviso** hasta el sábado: cada guardado reinicia el BFF y los fallos de validación dejan variables pendientes.
 - **La compra es MOCK.** La cadena real que se muestra es el PED-2026-90013.
 - **No rotar el secreto de G7** hasta después de la presentación.
+
+[Aprobación del PO del informe H5, 27/11/2026](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/pull/435#pullrequestreview-6093936125).

@@ -1,10 +1,10 @@
 # TASK-H5-MAIL-004 · Pruebas de correos en clientes (Mailpit) y en texto plano
 
-**Fecha de ejecución:** 24 de noviembre de 2026  
-**Responsable:** @DiesmEsp (Diego Espinoza)  
-**Revisor asignado:** @saire22 (Fernando Saire)  
-**Issue de origen:** [Backend #323](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/323)  
-**Issue vinculado:** [Frontend #156](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/156) (@GiulianoMaPe)  
+**Fecha de ejecución:** 24 de noviembre de 2026\
+**Responsable:** @DiesmEsp (Diego Espinoza)\
+**Revisor asignado:** @saire22 (Fernando Saire)\
+**Issue de origen:** [Backend #323](https://github.com/Taller-SW-Web/G1-Marketplace-Backend/issues/323)\
+**Issue vinculado:** [Frontend #156](https://github.com/Taller-SW-Web/G1-Marketplace-Frontend/issues/156) (@GiulianoMaPe)\
 **Especificación técnica:** `F-033 Generar plantilla de correo` · `C-001` · `C-002` · Gates `G-MAIL`, `I-02`, `I-05`
 
 ---
@@ -28,7 +28,7 @@ Ambos correos fueron transmitidos a través del servidor SMTP de **Mailpit** (le
 2. **Estado del Backend:** El backend de notificaciones no tiene aún activado el adaptador hacia un proveedor SMTP externo en producción ni la conexión con eventos reales de Ventas (`I-02`/`I-05`), los cuales se encuentran acotados bajo el gate `G-MAIL`.
 3. **Cumplimiento de políticas institucionales:**
    > *"No cerrar un gate con mocks ni sustituir evidencia por la asignación. Registrar bloqueos sólo en la frontera afectada; continuar diseño, implementación y pruebas propias."*
-   
+
    Por ende, se valida y acredita el gate **"Implementado con datos de prueba"**, dejando explícito que el gate **"Integrado con otro módulo"** permanece pendiente de la integración end-to-end con los servicios externos reales.
 
 ---
