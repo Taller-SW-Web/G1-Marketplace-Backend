@@ -83,7 +83,7 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
     await prisma.$connect();
     quotes = new QuotesService();
     gateway = {
-      revalidate: jest.fn().mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString() }),
+      revalidate: jest.fn().mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString(), source: 'MOCK' }),
     };
     service = new CheckoutService(prisma, gateway as unknown as MarketplaceGateway, quotes);
   });
@@ -91,7 +91,7 @@ describe('CheckoutOperation PostgreSQL 16 integration (provider MOCK)', () => {
   beforeEach(async () => {
     await clean();
     jest.clearAllMocks();
-    gateway.revalidate.mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString() });
+    gateway.revalidate.mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString(), source: 'MOCK' });
     cartA = await createCart(customerA);
     cartB = await createCart(customerB);
     quotes.replace(customerA, preparedQuote('Q-INTEGRATION-A'));

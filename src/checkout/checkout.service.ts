@@ -74,6 +74,7 @@ interface PreparedContext {
     discount: Money;
     shipping: CheckoutQuote['shipping'];
     selectedBenefit?: CheckoutQuote['selectedBenefit'];
+    revalidationSource?: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK';
   };
   revalidatedAt?: string;
 }
@@ -291,7 +292,7 @@ export class CheckoutService {
     }
     if (operation.state === CheckoutOperationState.PREPARED) return this.operationView(operation);
 
-    let revalidation: { available: boolean; revalidatedAt: string };
+    let revalidation: { available: boolean; revalidatedAt: string; source: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK' };
     try {
       revalidation = await this.gateway.revalidate(context.lines, customerId, context.quoteId);
     } catch (error) {
@@ -335,6 +336,14 @@ export class CheckoutService {
         data: {
           state: CheckoutOperationState.PREPARED,
           revalidatedAt: new Date(revalidation.revalidatedAt),
+          preparedQuoteSnapshot: this.preparedContextData({
+            ...context,
+            revalidatedAt: revalidation.revalidatedAt,
+            quoteSnapshot: context.quoteSnapshot ? {
+              ...context.quoteSnapshot,
+              revalidationSource: revalidation.source,
+            } : undefined,
+          }).preparedQuoteSnapshot,
         },
       });
       if (!finalized.count) {
@@ -351,7 +360,7 @@ export class CheckoutService {
       if (!prepared) this.fail(409, 'PREPARATION_CONTEXT_UNAVAILABLE');
       return prepared;
     });
-    return this.operationView(operation, revalidation.revalidatedAt);
+    return this.operationView(operation, revalidation.revalidatedAt, revalidation.source);
   }
 
   async createOrder(
@@ -825,6 +834,12 @@ export class CheckoutService {
     };
   }
 
+  private readRevalidationSource(value: Prisma.JsonValue | null | undefined): CheckoutOperationView['revalidationSource'] {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+    const source = (value as Record<string, unknown>).revalidationSource;
+    return source === 'G6_REAL' || source === 'G5_FIXTURE' || source === 'MOCK' ? source : undefined;
+  }
+
   private async pollG5Order(orderId: string, accessToken?: string, budgetDeadline?: number): Promise<SalesOrder> {
     const deadline = Math.min(Date.now() + orderPollMaxMs(), budgetDeadline ?? Number.POSITIVE_INFINITY);
     let lastOrder: SalesOrder | undefined;
@@ -877,6 +892,9 @@ export class CheckoutService {
         discount: snapshot.discount,
         shipping: shipping as CheckoutQuote['shipping'],
         ...(selectedBenefit ? { selectedBenefit: selectedBenefit as CheckoutQuote['selectedBenefit'] } : {}),
+        ...(snapshot.revalidationSource === 'G6_REAL' || snapshot.revalidationSource === 'G5_FIXTURE' || snapshot.revalidationSource === 'MOCK'
+          ? { revalidationSource: snapshot.revalidationSource }
+          : {}),
       },
     };
   }
@@ -1033,7 +1051,8 @@ export class CheckoutService {
     externalOrderId: string | null;
     failureCode: string | null;
     revalidatedAt?: Date | null;
-  }, revalidatedAt?: string): CheckoutOperationView & { simulationConsent?: string; revalidatedAt?: string } {
+    preparedQuoteSnapshot?: Prisma.JsonValue | null;
+  }, revalidatedAt?: string, revalidationSource?: CheckoutOperationView['revalidationSource']): CheckoutOperationView & { simulationConsent?: string } {
     const state =
       operation.state === CheckoutOperationState.PREPARING ? 'PREPARED' : operation.state;
     return {
@@ -1046,6 +1065,9 @@ export class CheckoutService {
             simulationConsent: 'RECORDED',
             ...((revalidatedAt ?? operation.revalidatedAt?.toISOString())
               ? { revalidatedAt: revalidatedAt ?? operation.revalidatedAt!.toISOString() }
+              : {}),
+            ...((revalidationSource ?? this.readRevalidationSource(operation.preparedQuoteSnapshot))
+              ? { revalidationSource: revalidationSource ?? this.readRevalidationSource(operation.preparedQuoteSnapshot) }
               : {}),
           }
         : {}),
@@ -1084,6 +1106,10 @@ export class CheckoutService {
       LINE_NOT_AVAILABLE: { status: 409, code: 'LINE_NOT_AVAILABLE' },
       QUOTE_UNAVAILABLE: { status: 503, code: 'QUOTE_UNAVAILABLE' },
       QUOTE_TIMEOUT: { status: 503, code: 'QUOTE_UNAVAILABLE' },
+      G6_PRICE_NOT_AVAILABLE: { status: 409, code: 'LINE_NOT_AVAILABLE' },
+      G6_PRICE_EXPIRED: { status: 409, code: 'PRICE_CHANGED' },
+      G6_PRICE_NOT_YET_VALID: { status: 409, code: 'PRICE_CHANGED' },
+      G6_PRICE_FIXTURE_MISMATCH: { status: 409, code: 'PRICE_CHANGED' },
       COUPON_NOT_APPLICABLE: { status: 422, code: 'COUPON_NOT_APPLICABLE' },
       BENEFITS_UNAVAILABLE: { status: 503, code: 'BENEFITS_UNAVAILABLE' },
       BENEFITS_TIMEOUT: { status: 503, code: 'BENEFITS_UNAVAILABLE' },

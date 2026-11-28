@@ -21,6 +21,7 @@ import { record } from '../../auth/g7.client';
 import { G5CheckoutFixture, G5_FIXTURE_ENV, parseG5CheckoutFixture } from '../../config/checkout-g5-fixture';
 import { ProviderError } from './provider-error';
 import { G5SalesProvider, G5CreateOrderRequest } from './g5-sales.provider';
+import { G6CheckoutProvider } from './g6-checkout.provider';
 
 const PRISM_ADDRESS_BASE = 'http://localhost:4010';
 const FIXTURE_ADDRESS_BASE = 'http://security.mock';
@@ -36,6 +37,7 @@ export class MarketplaceGateway {
     private readonly http: HttpService,
     private readonly config: ConfigService,
     @Optional() private readonly g5Sales?: G5SalesProvider,
+    @Optional() private readonly g6Checkout?: G6CheckoutProvider,
   ) {}
 
   usesG5Sales(): boolean {
@@ -135,17 +137,43 @@ export class MarketplaceGateway {
     if (fixture) {
       this.assertFixtureLines(input.lines, fixture);
       const money = (cents: number): Money => ({ amount: cents / 100, currency: 'PEN' });
+      let unitPrice = money(fixture.unitPriceCents);
+      let pricingSource: NonNullable<CheckoutQuote['sources']>['pricing'] = 'G5_FIXTURE';
+      let inventorySource: NonNullable<CheckoutQuote['sources']>['inventoryRevalidation'] = 'G5_FIXTURE';
+      if (this.usesG6Checkout()) {
+        if (!this.g6Checkout) throw new ProviderError(503, 'G6_CHECKOUT_INTEGRATION_DISABLED');
+        const price = await this.g6Checkout.getPrice(fixture.sku);
+        if (Math.round(price.amount * 100) !== fixture.unitPriceCents || price.currency !== 'PEN') {
+          throw new ProviderError(409, 'G6_PRICE_FIXTURE_MISMATCH');
+        }
+        unitPrice = { amount: price.amount, currency: price.currency };
+        pricingSource = 'G6_REAL';
+        inventorySource = 'G6_REAL';
+      }
+      const subtotal = Math.round(unitPrice.amount * 100) / 100;
+      const shipping = money(fixture.shippingCents);
       return {
         quoteId: `${this.fixtureQuotePrefix(fixture)}${randomUUID()}`,
         expiresAt: new Date(Math.min(Date.now() + 300_000, Date.parse(fixture.expiresAt))).toISOString(),
-        subtotal: money(fixture.unitPriceCents), discount: money(0),
-        shipping: { ...money(fixture.shippingCents), estimatedDays: 2 },
-        total: money(fixture.unitPriceCents + fixture.shippingCents),
-        lines: [{ sku: fixture.sku, quantity: 1, productId: fixture.productId, unitPrice: money(fixture.unitPriceCents) }],
+        subtotal: { amount: subtotal, currency: 'PEN' }, discount: money(0),
+        shipping: { ...shipping, estimatedDays: 2 },
+        total: { amount: Math.round((subtotal + shipping.amount) * 100) / 100, currency: 'PEN' },
+        lines: [{ sku: fixture.sku, quantity: 1, productId: fixture.productId, unitPrice }],
         addressId: input.addressId, cartVersion: input.cartVersion,
+        sources: {
+          pricing: pricingSource,
+          shipping: 'G5_FIXTURE',
+          benefits: 'G5_FIXTURE',
+          inventoryRevalidation: inventorySource,
+        },
       };
     }
-    return this.request('post', 'http://catalog.mock/checkout-quotes', input);
+    if (this.usesG6Checkout()) throw new ProviderError(503, 'G6_CHECKOUT_SHIPPING_SOURCE_UNAVAILABLE');
+    const quote = await this.request<CheckoutQuote>('post', 'http://catalog.mock/checkout-quotes', input);
+    return {
+      ...quote,
+      sources: { pricing: 'MOCK', shipping: 'MOCK', benefits: 'MOCK', inventoryRevalidation: 'MOCK' },
+    };
   }
 
   async applyBenefit(quote: CheckoutQuote, couponCode?: string, customerId?: string): Promise<CheckoutQuote> {
@@ -158,15 +186,33 @@ export class MarketplaceGateway {
     return this.request('post', 'http://benefits.mock/apply', { quote, couponCode });
   }
 
-  async revalidate(lines: QuoteLine[], customerId?: string, quoteId?: string): Promise<{ available: boolean; revalidatedAt: string }> {
+  async revalidate(lines: QuoteLine[], customerId?: string, quoteId?: string): Promise<{
+    available: boolean;
+    revalidatedAt: string;
+    source: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK';
+  }> {
     const fixture = this.checkoutFixture(customerId);
+    if (this.usesG6Checkout()) {
+      if (!this.g6Checkout) throw new ProviderError(503, 'G6_CHECKOUT_INTEGRATION_DISABLED');
+      if (!fixture) throw new ProviderError(503, 'G6_CHECKOUT_FIXTURE_REQUIRED');
+      this.g5OrderPaymentMethod(customerId, quoteId);
+      this.assertFixtureLines(lines, fixture);
+      return { ...(await this.g6Checkout.verifyQuantities(lines)), source: 'G6_REAL' };
+    }
     if (fixture || quoteId?.startsWith(G5_FIXTURE_QUOTE_PREFIX)) {
       this.g5OrderPaymentMethod(customerId, quoteId);
       if (!fixture) throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
       this.assertFixtureLines(lines, fixture);
-      return { available: true, revalidatedAt: new Date().toISOString() };
+      return { available: true, revalidatedAt: new Date().toISOString(), source: 'G5_FIXTURE' };
     }
-    return this.request('post', 'http://inventory.mock/revalidate', { lines });
+    return {
+      ...await this.request<{ available: boolean; revalidatedAt: string }>('post', 'http://inventory.mock/revalidate', { lines }),
+      source: 'MOCK',
+    };
+  }
+
+  usesG6Checkout(): boolean {
+    return this.config.get<string>('CHECKOUT_G6_SOURCE', 'mock') === 'real';
   }
 
   g5OrderPaymentMethod(customerId?: string, quoteId?: string, requested?: string): string | undefined {
