@@ -1,0 +1,53 @@
+name: Deploy producción (aprobación manual)
+
+# Despliegue del Backend a producción con aprobación obligatoria.
+# El job usa el environment `production`, que exige la aprobación de los revisores
+# configurados en GitHub (Settings > Environments > production). Hasta que uno
+# apruebe, el job queda en «Waiting for review» y NO se despliega.
+# Requiere el secreto RENDER_DEPLOY_HOOK_URL y desactivar el Auto-Deploy en Render
+# (si no, Render despliega por su cuenta al fusionar a `main`, antes de la aprobación).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    name: Despliegue a producción (requiere aprobación)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://g1-marketplace-backend.onrender.com/health
+    steps:
+      - name: Solicitar el despliegue de este commit en Render
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Falta el secreto RENDER_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+          curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}" -o /dev/null
+          echo "Despliegue solicitado para ${GITHUB_SHA} (aprobado en el environment production)"
+
+      - name: Verificar que el servicio responde (/health)
+        run: |
+          # /health no expone el SHA: esto confirma disponibilidad; el SHA en ejecución se confirma en el panel de Render.
+          sleep 60
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://g1-marketplace-backend.onrender.com/health || true)
+            echo "intento $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "::error::/health no respondió 200"
+          exit 1
