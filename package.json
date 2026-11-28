@@ -60,6 +60,8 @@
     "integracion:real": "node scripts/g7-integration-real.mjs",
     "test:compra:kit": "node --test test/compra-real.test.mjs",
     "compra:real": "node scripts/compra-real.mjs",
+    "test:real:sandboxes": "node --test scripts/verify-real-sandboxes.test.mjs",
+    "check:real:sandboxes": "node scripts/verify-real-sandboxes.mjs",
     "perf:local": "node scripts/performance/http-benchmark.mjs"
   },
   "dependencies": {

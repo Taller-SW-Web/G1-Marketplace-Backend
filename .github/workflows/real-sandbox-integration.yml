@@ -1,0 +1,54 @@
+name: REAL Sandbox Integration (BE #298)
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout_ms:
+        description: Timeout por petición en ms
+        required: false
+        default: '15000'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  real-sandbox-integration:
+    name: Integración REAL Sandboxes (G6, G7, G5, G2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      G6_SANDBOX_URL: ${{ secrets.G6_SANDBOX_URL }}
+      G6_SANDBOX_TOKEN: ${{ secrets.G6_SANDBOX_TOKEN }}
+      G6_SANDBOX_API_KEY: ${{ secrets.G6_SANDBOX_API_KEY }}
+      G7_SANDBOX_URL: ${{ secrets.G7_SANDBOX_URL }}
+      G7_SANDBOX_TOKEN: ${{ secrets.G7_SANDBOX_TOKEN }}
+      G5_SANDBOX_URL: ${{ secrets.G5_SANDBOX_URL }}
+      G5_SANDBOX_TOKEN: ${{ secrets.G5_SANDBOX_TOKEN }}
+      G2_SANDBOX_URL: ${{ secrets.G2_SANDBOX_URL }}
+      G2_SANDBOX_TOKEN: ${{ secrets.G2_SANDBOX_TOKEN }}
+      REAL_SANDBOX_TIMEOUT_MS: ${{ inputs.timeout_ms }}
+      REAL_SANDBOX_REPORT_JSON: artifacts/real-sandbox-report.json
+      REAL_SANDBOX_REPORT_MD: artifacts/real-sandbox-report.md
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Ejecutar pruebas unitarias del runner
+        run: node --test scripts/verify-real-sandboxes.test.mjs
+      - name: Ejecutar verificación REAL sanitizada contra sandboxes
+        run: node scripts/verify-real-sandboxes.mjs
+      - name: Adjuntar resumen al Job Summary
+        if: always()
+        run: |
+          if [ -f "$REAL_SANDBOX_REPORT_MD" ]; then
+            cat "$REAL_SANDBOX_REPORT_MD" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Publicar reporte sanitizado como artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-sandbox-report-${{ github.run_id }}
+          path: artifacts/
+          retention-days: 14
