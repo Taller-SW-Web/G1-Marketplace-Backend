@@ -27,6 +27,8 @@ jobs:
       G5_SANDBOX_TOKEN: ${{ secrets.G5_SANDBOX_TOKEN }}
       G2_SANDBOX_URL: ${{ secrets.G2_SANDBOX_URL }}
       G2_SANDBOX_TOKEN: ${{ secrets.G2_SANDBOX_TOKEN }}
+      G2_SANDBOX_PROTECTED_PATH: ${{ vars.G2_SANDBOX_PROTECTED_PATH }}
+      REAL_SANDBOX_TIMEOUT_MS: ${{ inputs.timeout_ms }}
       REAL_SANDBOX_REPORT_JSON: artifacts/real-sandbox-report.json
       REAL_SANDBOX_REPORT_MD: artifacts/real-sandbox-report.md
     steps:

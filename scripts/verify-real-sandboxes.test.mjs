@@ -92,6 +92,30 @@ test('handles transport timeout cleanly as NO_DISPONIBLE', async () => {
   assert.equal(g5.checks[0].status, 'TIMEOUT');
 });
 
+test('G2 requires a confirmed same-origin path and rejects 404 as evidence of authentication', async () => {
+  const env = { G2_SANDBOX_URL: 'https://g2.example.invalid', G2_SANDBOX_TOKEN: 'fixture-token' };
+  const requests = [];
+  const fetchImpl = async (url, { headers }) => {
+    requests.push([url.pathname, headers.Authorization]);
+    return new Response(null, { status: url.pathname === '/health' ? 200 : 404 });
+  };
+
+  for (const path of [undefined, '//other.example.invalid/resource']) {
+    const report = await runRealSandboxSuite({ env: { ...env, G2_SANDBOX_PROTECTED_PATH: path }, fetchImpl });
+    assert.equal(report.modules.find((mod) => mod.module === 'G2').status, 'NO_DISPONIBLE');
+  }
+  assert.deepEqual(requests, []);
+
+  const report = await runRealSandboxSuite({
+    env: { ...env, G2_SANDBOX_PROTECTED_PATH: '/api/v1/fixture' },
+    fetchImpl,
+  });
+  const g2 = report.modules.find((mod) => mod.module === 'G2');
+  assert.deepEqual(requests, [['/health', 'Bearer fixture-token'], ['/api/v1/fixture', undefined]]);
+  assert.equal(g2.status, 'FAIL');
+  assert.equal(g2.checks[1].httpStatus, 404);
+});
+
 test('marks module as FAIL when one check returns unexpected HTTP and another times out (local HTTP double)', async () => {
   const { createServer } = await import('node:http');
   const server = createServer((req, res) => {

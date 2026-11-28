@@ -7,6 +7,7 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+const MAX_TIMEOUT_MS = 60_000;
 
 function validateOrigin(rawUrl) {
   if (!rawUrl?.trim()) return null;
@@ -24,6 +25,7 @@ function validateOrigin(rawUrl) {
 }
 
 function buildModuleSpecs(env = process.env) {
+  const g2ProtectedPath = env.G2_SANDBOX_PROTECTED_PATH?.trim();
   return [
     {
       module: 'G6',
@@ -64,9 +66,12 @@ function buildModuleSpecs(env = process.env) {
       baseUrl: env.G2_SANDBOX_URL,
       token: env.G2_SANDBOX_TOKEN,
       apiKey: env.G2_SANDBOX_API_KEY,
+      unavailableReason: /^\/[a-zA-Z0-9_/-]+$/.test(g2ProtectedPath ?? '') && !g2ProtectedPath.startsWith('//')
+        ? null
+        : 'Configurar G2_SANDBOX_PROTECTED_PATH con la ruta GET protegida confirmada por G2',
       checks: [
         { id: 'G2-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
-        { id: 'G2-NEG', label: 'Recurso protegido sin JWT', path: '/api/v1/notifications/00000000-0000-0000-0000-000000000000', expectedStatuses: [401, 403] },
+        { id: 'G2-NEG', label: 'Recurso protegido sin JWT', path: g2ProtectedPath, expectedStatuses: [401, 403] },
       ],
     },
   ];
@@ -163,6 +168,17 @@ export async function runRealSandboxSuite({
       });
       continue;
     }
+    if (spec.unavailableReason) {
+      modules.push({
+        module: spec.module,
+        name: spec.name,
+        source: 'NO_DISPONIBLE',
+        status: 'NO_DISPONIBLE',
+        reason: spec.unavailableReason,
+        checks: [],
+      });
+      continue;
+    }
 
     const checks = [];
     for (const check of spec.checks) {
@@ -227,7 +243,14 @@ export function formatMarkdownReport(report) {
 }
 
 async function main() {
-  const report = await runRealSandboxSuite();
+  const configuredTimeout = process.env.REAL_SANDBOX_TIMEOUT_MS?.trim();
+  const timeoutMs = configuredTimeout ? Number(configuredTimeout) : DEFAULT_TIMEOUT_MS;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS) {
+    console.error(`REAL_SANDBOX_TIMEOUT_MS debe ser un entero entre 1 y ${MAX_TIMEOUT_MS}.`);
+    process.exitCode = 1;
+    return;
+  }
+  const report = await runRealSandboxSuite({ timeoutMs });
   const markdown = formatMarkdownReport(report);
   console.log(markdown);
 
