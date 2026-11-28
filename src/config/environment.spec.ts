@@ -15,7 +15,14 @@ describe('Environment boundaries', () => {
   it('keeps sandbox off by default and supports existing CORS variable', () => {
     expect(validateEnvironment({ ...base, CORS_ORIGINS: 'http://localhost:3000' }))
       .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'],
-        CHECKOUT_SALES_SOURCE: 'mock', G5_SALES_INTEGRATION_APPROVED: 'false', G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false' });
+        CHECKOUT_SALES_SOURCE: 'mock', G5_SALES_INTEGRATION_APPROVED: 'false', G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false', CATALOG_CACHE_TTL_MS: 0 });
+  });
+  it('allows the public catalog cache to be disabled or bounded to five minutes', () => {
+    expect(validateEnvironment({ ...base, CATALOG_CACHE_TTL_MS: '0' }).CATALOG_CACHE_TTL_MS).toBe(0);
+    expect(validateEnvironment({ ...base, CATALOG_CACHE_TTL_MS: '300000' }).CATALOG_CACHE_TTL_MS).toBe(300000);
+    for (const ttl of ['abc', -1, 1, 999, 300001, 1.5]) {
+      expect(() => validateEnvironment({ ...base, CATALOG_CACHE_TTL_MS: ttl })).toThrow();
+    }
   });
   it.each(['production', '', undefined])('rejects sandbox for NODE_ENV=%s', (environment) => {
     expect(() => validateEnvironment({ ...base, NODE_ENV: environment, H3_SANDBOX_ENABLED: 'true', H3_JWT_SECRET: 'x'.repeat(32) })).toThrow();

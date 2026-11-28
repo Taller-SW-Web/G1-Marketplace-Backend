@@ -12,7 +12,9 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
   const mock = createMockProvider();
   const provider = { source: mock.source, home: jest.fn(), filters: jest.fn(), search: jest.fn() };
   const cartService = { getCurrentCart: jest.fn().mockResolvedValue({ cartId: null, version: 0, items: [] }) };
-  const originalEnv = { BFF_MODE: process.env.BFF_MODE, DATABASE_URL: process.env.DATABASE_URL, CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS };
+  const originalEnv = { BFF_MODE: process.env.BFF_MODE, DATABASE_URL: process.env.DATABASE_URL,
+    CATALOG_SOURCE: process.env.CATALOG_SOURCE, CORS_ORIGINS: process.env.CORS_ORIGINS,
+    CATALOG_CACHE_TTL_MS: process.env.CATALOG_CACHE_TTL_MS };
   const prisma = {
     $queryRaw: jest.fn().mockRejectedValue(new Error('private database failure')),
     cart: { count: jest.fn() }, wishlistItem: { count: jest.fn() },
@@ -23,6 +25,7 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     process.env.CATALOG_SOURCE = 'mock';
     process.env.BFF_MODE = 'mock';
     process.env.CORS_ORIGINS = 'http://localhost:3000,https://store.example';
+    process.env.CATALOG_CACHE_TTL_MS = '0';
     const { AppModule } = await import('../src/app.module');
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(CATALOG_PROVIDER).useValue(provider)
@@ -103,6 +106,16 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(provider.home).toHaveBeenCalledWith(result.headers['x-request-id']);
   });
 
+  it.each([
+    ['/api/v1/catalog/home', 'home'],
+    ['/api/v1/catalog/filters', 'filters'],
+    ['/api/v1/catalog/products?q=running', 'search'],
+  ] as const)('keeps %s no-store and calls the provider on every read at TTL zero', async (path, load) => {
+    await request(app.getHttpServer()).get(path).expect(200).expect('Cache-Control', 'no-store');
+    await request(app.getHttpServer()).get(path).expect(200).expect('Cache-Control', 'no-store');
+    expect(provider[load]).toHaveBeenCalledTimes(2);
+  });
+
   it('serves active filter masters publicly with no-store and shared correlation', async () => {
     const result = await request(app.getHttpServer()).get('/api/v1/catalog/filters')
       .set('X-Request-Id', 'h4-masters-01').expect(200);
@@ -128,6 +141,19 @@ describe('CatalogModule with the baseline AppModule (e2e)', () => {
     expect(result.body.data).toHaveLength(4);
     expect(result.body.page).toEqual({ number: 1, size: 4, totalElements: 16, totalPages: 4 });
     expect(provider.search).toHaveBeenCalledWith(expect.objectContaining({ q: 'running', page: 1, pageSize: 4 }), result.headers['x-request-id']);
+  });
+
+  it('compresses large public catalog responses but leaves small responses uncompressed', async () => {
+    const compressed = await request(app.getHttpServer())
+      .get('/api/v1/catalog/products?q=running&pageSize=16')
+      .set('Accept-Encoding', 'gzip').expect(200);
+    expect(compressed.headers['content-encoding']).toBe('gzip');
+    expect(compressed.headers.vary).toContain('Accept-Encoding');
+    expect(compressed.body.data).toHaveLength(16);
+
+    const small = await request(app.getHttpServer()).get('/api/v1/catalog/home')
+      .set('Accept-Encoding', 'gzip').expect(200);
+    expect(small.headers['content-encoding']).toBeUndefined();
   });
 
   it.each([
