@@ -33,6 +33,12 @@ export interface CheckoutQuote {
   lines: QuoteLine[];
   addressId: string;
   cartVersion: number;
+  sources?: {
+    pricing: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK';
+    shipping: 'G5_FIXTURE' | 'MOCK';
+    benefits: 'G5_FIXTURE' | 'MOCK';
+    inventoryRevalidation: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK';
+  };
   selectedBenefit?: {
     type: 'COUPON';
     id: string;
@@ -65,6 +71,7 @@ export interface CheckoutOperationView {
   total?: Money;
   createdAt?: string;
   revalidatedAt?: string;
+  revalidationSource?: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK';
   failureCode?: string;
   recoveryRequired?: boolean;
 }

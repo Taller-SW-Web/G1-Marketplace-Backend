@@ -1,7 +1,11 @@
 import { G5_FIXTURE_ENV, parseG5CheckoutFixture } from './checkout-g5-fixture';
 
 export function validateEnvironment(config: Record<string, unknown>): Record<string, unknown> {
-  for (const flag of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
+  for (const flag of [
+    'WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED',
+    'CHECKOUT_G6_INTEGRATION_APPROVED', 'CHECKOUT_G6_PRICE_APPROVED', 'CHECKOUT_G6_QUANTITY_APPROVED',
+    'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED',
+  ]) {
     if (!['true', 'false'].includes(String(config[flag] ?? 'false'))) throw new Error(`${flag} must be true or false`);
   }
   if (config.WISHLIST_SOURCE !== undefined && !['sandbox', 'real'].includes(String(config.WISHLIST_SOURCE))) {
@@ -172,6 +176,49 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     if (salesUrl.protocol !== 'https:' || salesUrl.username || salesUrl.password || salesUrl.pathname !== '/' ||
         salesUrl.search || salesUrl.hash) throw new Error('VENTAS_BASE_URL must be an HTTPS origin');
   }
+  const checkoutG6Source = String(config.CHECKOUT_G6_SOURCE ?? 'mock');
+  if (!['mock', 'real'].includes(checkoutG6Source)) throw new Error('CHECKOUT_G6_SOURCE must be mock or real');
+  const checkoutG6Flags = {
+    CHECKOUT_G6_INTEGRATION_APPROVED: String(config.CHECKOUT_G6_INTEGRATION_APPROVED ?? 'false'),
+    CHECKOUT_G6_PRICE_APPROVED: String(config.CHECKOUT_G6_PRICE_APPROVED ?? 'false'),
+    CHECKOUT_G6_QUANTITY_APPROVED: String(config.CHECKOUT_G6_QUANTITY_APPROVED ?? 'false'),
+  };
+  if (checkoutG6Source === 'real') {
+    if (useMocks === 'true' || Object.values(checkoutG6Flags).some((value) => value !== 'true')) {
+      throw new Error('G6 checkout requires USE_MOCKS=false and explicit approval for pricing and quantity verification');
+    }
+    if (config.CHECKOUT_G6_CONTRACT_VERSION !== '0.7.0-rc.3' ||
+        config.CHECKOUT_G6_CONTRACT_BLOB !== 'e094988f0f0d92a7a4241c1dc30a5e50d9ff709a') {
+      throw new Error('G6 checkout requires the pinned 0.7.0-rc.3 contract');
+    }
+    let productosUrl: URL;
+    try { productosUrl = new URL(String(config.PRODUCTOS_BASE_URL ?? '')); }
+    catch { throw new Error('PRODUCTOS_BASE_URL is required for G6 checkout'); }
+    const localProductos = nodeEnv !== 'production' && productosUrl.protocol === 'http:' &&
+      ['localhost', '127.0.0.1'].includes(productosUrl.hostname);
+    if ((productosUrl.protocol !== 'https:' && !localProductos) || productosUrl.username || productosUrl.password ||
+        productosUrl.pathname !== '/' || productosUrl.search || productosUrl.hash) {
+      throw new Error('PRODUCTOS_BASE_URL must be an HTTPS origin for G6 checkout');
+    }
+    let g7TokenUrl: URL;
+    try { g7TokenUrl = new URL(String(config.G7_TOKEN_URL ?? '')); }
+    catch { throw new Error('G7_TOKEN_URL is required for G6 checkout'); }
+    const localTokenIssuer = nodeEnv !== 'production' && g7TokenUrl.protocol === 'http:' &&
+      ['localhost', '127.0.0.1'].includes(g7TokenUrl.hostname);
+    if ((g7TokenUrl.protocol !== 'https:' && !localTokenIssuer) || g7TokenUrl.username || g7TokenUrl.password ||
+        g7TokenUrl.pathname !== '/api/v1/auth/token' || g7TokenUrl.search || g7TokenUrl.hash) {
+      throw new Error('G7_TOKEN_URL must target the G7 token endpoint over HTTPS');
+    }
+    if (String(config.WISHLIST_COMMERCE_AUTH_MODE ?? 'client-credentials') !== 'client-credentials' ||
+        typeof config.PRODUCTOS_CLIENT_SECRET !== 'string' || config.PRODUCTOS_CLIENT_SECRET.length < 32 ||
+        config.PRODUCTOS_CLIENT_SECRET.length > 1024 || /[\r\n\0]/u.test(config.PRODUCTOS_CLIENT_SECRET)) {
+      throw new Error('G6 checkout requires private client-credentials configuration');
+    }
+    const productosTimeout = Number(config.PRODUCTOS_TIMEOUT_MS ?? 3000);
+    if (!Number.isInteger(productosTimeout) || productosTimeout < 100 || productosTimeout > 5000) {
+      throw new Error('PRODUCTOS_TIMEOUT_MS must be between 100 and 5000 for G6 checkout');
+    }
+  }
   const catalogCacheTtlMs = Number(config.CATALOG_CACHE_TTL_MS ?? 0);
   if (!Number.isInteger(catalogCacheTtlMs) || catalogCacheTtlMs < 0 || catalogCacheTtlMs > 300000 ||
       (catalogCacheTtlMs > 0 && catalogCacheTtlMs < 1000)) {
@@ -199,6 +246,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     SECURITY_EVENTS_BACKOFF_BASE_MS: securityEventsBackoffBaseMs,
     SECURITY_EVENTS_BACKOFF_MAX_MS: securityEventsBackoffMaxMs,
     CHECKOUT_SALES_SOURCE: checkoutSalesSource, G5_SALES_INTEGRATION_APPROVED: g5Approved,
+    CHECKOUT_G6_SOURCE: checkoutG6Source, ...checkoutG6Flags,
     G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: g5ProductFallback,
     ORDERS_SOURCE: ordersSource,
     CATALOG_CACHE_TTL_MS: catalogCacheTtlMs,

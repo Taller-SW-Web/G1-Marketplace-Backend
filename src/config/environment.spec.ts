@@ -4,7 +4,8 @@ import { validateTestDatabase } from '../../scripts/test-database';
 describe('Environment boundaries', () => {
   const base = { DATABASE_URL: 'postgresql://localhost/development', NODE_ENV: 'test' };
   it('rejects invalid integration flags and mixed real providers/sandbox identity', () => {
-    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
+    for (const key of ['WISHLIST_G6_APPROVED', 'WISHLIST_G6_QUANTITY_APPROVED', 'CHECKOUT_G6_INTEGRATION_APPROVED',
+      'CHECKOUT_G6_PRICE_APPROVED', 'CHECKOUT_G6_QUANTITY_APPROVED', 'CSAT_ENABLED', 'CSAT_INTEGRATION_APPROVED', 'CSAT_PROMPT_APPROVED']) {
       expect(() => validateEnvironment({ ...base, [key]: 'yes' })).toThrow();
     }
     expect(() => validateEnvironment({ ...base, WISHLIST_SOURCE: 'other' })).toThrow();
@@ -15,7 +16,9 @@ describe('Environment boundaries', () => {
   it('keeps sandbox off by default and supports existing CORS variable', () => {
     expect(validateEnvironment({ ...base, CORS_ORIGINS: 'http://localhost:3000' }))
       .toMatchObject({ H3_SANDBOX_ENABLED: false, CORS_ORIGINS: ['http://localhost:3000'],
-        CHECKOUT_SALES_SOURCE: 'mock', G5_SALES_INTEGRATION_APPROVED: 'false', G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false', CATALOG_CACHE_TTL_MS: 0 });
+        CHECKOUT_SALES_SOURCE: 'mock', CHECKOUT_G6_SOURCE: 'mock', CHECKOUT_G6_INTEGRATION_APPROVED: 'false',
+        CHECKOUT_G6_PRICE_APPROVED: 'false', CHECKOUT_G6_QUANTITY_APPROVED: 'false',
+        G5_SALES_INTEGRATION_APPROVED: 'false', G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'false', CATALOG_CACHE_TTL_MS: 0 });
   });
   it('allows the public catalog cache to be disabled or bounded to five minutes', () => {
     expect(validateEnvironment({ ...base, CATALOG_CACHE_TTL_MS: '0' }).CATALOG_CACHE_TTL_MS).toBe(0);
@@ -117,6 +120,31 @@ describe('Environment boundaries', () => {
     expect(() => validateEnvironment({ ...trial, G5_CONTRACT_PRODUCT_FALLBACK_ENABLED: 'true' })).toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
     expect(() => validateEnvironment({ ...trial, CHECKOUT_G5_TEST_FIXTURE: JSON.stringify({ ...fixture, unitPriceCents: -1 }) }))
       .toThrow(/CHECKOUT_G5_TEST_FIXTURE/);
+  });
+  it('keeps G6 checkout disabled by default and requires separate approval, contract pin and service credentials for REAL', () => {
+    const g6 = {
+      ...base,
+      CHECKOUT_G6_SOURCE: 'real',
+      CHECKOUT_G6_INTEGRATION_APPROVED: 'true',
+      CHECKOUT_G6_PRICE_APPROVED: 'true',
+      CHECKOUT_G6_QUANTITY_APPROVED: 'true',
+      CHECKOUT_G6_CONTRACT_VERSION: '0.7.0-rc.3',
+      CHECKOUT_G6_CONTRACT_BLOB: 'e094988f0f0d92a7a4241c1dc30a5e50d9ff709a',
+      PRODUCTOS_BASE_URL: 'https://g6.example.test',
+      G7_TOKEN_URL: 'https://g7.example.test/api/v1/auth/token',
+      PRODUCTOS_CLIENT_SECRET: 'synthetic-only-secret-value-long-enough-for-validation',
+      WISHLIST_COMMERCE_AUTH_MODE: 'client-credentials',
+    };
+    expect(() => validateEnvironment({ ...g6, USE_MOCKS: 'true' })).toThrow(/USE_MOCKS=false/);
+    expect(validateEnvironment({ ...g6, USE_MOCKS: 'false' })).toMatchObject({
+      CHECKOUT_G6_SOURCE: 'real',
+      CHECKOUT_G6_INTEGRATION_APPROVED: 'true',
+      CHECKOUT_G6_PRICE_APPROVED: 'true',
+      CHECKOUT_G6_QUANTITY_APPROVED: 'true',
+    });
+    expect(() => validateEnvironment({ ...g6, USE_MOCKS: 'false', CHECKOUT_G6_PRICE_APPROVED: 'false' })).toThrow(/explicit approval/);
+    expect(() => validateEnvironment({ ...g6, USE_MOCKS: 'false', CHECKOUT_G6_CONTRACT_BLOB: 'wrong' })).toThrow(/pinned/);
+    expect(() => validateEnvironment({ ...g6, USE_MOCKS: 'false', WISHLIST_COMMERCE_AUTH_MODE: 'service-token' })).toThrow(/client-credentials/);
   });
   it('rejects mixing real G7 sessions with mock identity', () => {
     expect(() => validateEnvironment({ ...g7, H3_AUTH_MOCK: 'true' })).toThrow();

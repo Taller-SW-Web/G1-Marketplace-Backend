@@ -102,7 +102,7 @@ describe('CheckoutService', () => {
       createAddress: jest.fn(),
       createQuote: jest.fn().mockResolvedValue(quote),
       applyBenefit: jest.fn(),
-      revalidate: jest.fn().mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString() }),
+    revalidate: jest.fn().mockResolvedValue({ available: true, revalidatedAt: new Date().toISOString(), source: 'MOCK' }),
       createOrder: jest.fn(),
       getOrder: jest.fn(),
       getOrderByIdempotencyKey: jest.fn().mockResolvedValue({
@@ -485,10 +485,10 @@ describe('CheckoutService', () => {
   it('does not finish preparation against a quote replaced during revalidation', async () => {
     quotes.replace(customerId, quote);
     const preparing = { ...baseOperation(), state: CheckoutOperationState.PREPARING };
-    let releaseRevalidation!: (value: { available: boolean; revalidatedAt: string }) => void;
+    let releaseRevalidation!: (value: { available: boolean; revalidatedAt: string; source: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK' }) => void;
     let markRevalidationStarted!: () => void;
     const revalidationStarted = new Promise<void>((resolve) => { markRevalidationStarted = resolve; });
-    const delayedRevalidation = new Promise<{ available: boolean; revalidatedAt: string }>((resolve) => {
+    const delayedRevalidation = new Promise<{ available: boolean; revalidatedAt: string; source: 'G6_REAL' | 'G5_FIXTURE' | 'MOCK' }>((resolve) => {
       releaseRevalidation = resolve;
     });
     gateway.revalidate.mockImplementation(() => {
@@ -520,7 +520,7 @@ describe('CheckoutService', () => {
     await revalidationStarted;
 
     await service.createQuote(customerId, 'valid-test-token', { addressId: 'ADR-2', cartVersion: 8 });
-    releaseRevalidation({ available: true, revalidatedAt: new Date().toISOString() });
+    releaseRevalidation({ available: true, revalidatedAt: new Date().toISOString(), source: 'MOCK' });
 
     await expect(preparingRequest).rejects.toMatchObject({
       status: 409,
@@ -652,6 +652,7 @@ describe('CheckoutService', () => {
     expect(gateway.revalidate).toHaveBeenCalledTimes(2);
     expect(retried.state).toBe('PREPARED');
     expect(retried.revalidatedAt).toEqual(expect.any(String));
+    expect(retried.revalidationSource).toBe('MOCK');
   });
 
   it('keeps an order SUBMITTED while Sales reports CREADO and persists its ID without contact data', async () => {
