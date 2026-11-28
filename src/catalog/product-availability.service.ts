@@ -24,6 +24,7 @@ import {
 import { AVAILABILITY_ERROR_CODES } from './product-availability.errors';
 import { MOCK_AVAILABILITY_BY_SLUG } from './product-availability.fixture';
 import { mockSkusForProduct } from './mock-sku';
+import { getRealCommerceAdapter, RealCommerceError, resolveRealSku } from './real-commerce';
 
 const MOCK_LATENCY_MS = 120;
 
@@ -51,8 +52,55 @@ function simulateLatency(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
 }
 
+/** Traduce el error neutro del cableado REAL a los códigos del contrato F-014. */
+function availabilityError(error: unknown): BffCatalogException {
+  if (error instanceof BffCatalogException) return error;
+  const kind = error instanceof RealCommerceError ? error.kind : 'UNAVAILABLE';
+  switch (kind) {
+    case 'INVALID_SLUG':
+    case 'NOT_AVAILABLE':
+      return new BffCatalogException(404, AVAILABILITY_ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
+    case 'SELECTION_REQUIRED':
+      return new BffCatalogException(409, AVAILABILITY_ERROR_CODES.PRODUCT_VARIANT_SELECTION_REQUIRED,
+        'Selecciona una variante para consultar la disponibilidad');
+    case 'SKU_MISMATCH':
+      return new BffCatalogException(409, AVAILABILITY_ERROR_CODES.SKU_NOT_BELONG_TO_PRODUCT,
+        'El SKU no corresponde al producto');
+    case 'TIMEOUT':
+      return new BffCatalogException(504, AVAILABILITY_ERROR_CODES.INVENTORY_TIMEOUT,
+        'La consulta de disponibilidad tardó demasiado');
+    case 'INVALID':
+      return new BffCatalogException(502, AVAILABILITY_ERROR_CODES.INVENTORY_INVALID_RESPONSE,
+        'Respuesta de inventario fuera de contrato');
+    default:
+      // Un fallo de Inventario NUNCA se traduce a OUT_OF_STOCK (API-CA-F014-01).
+      return new BffCatalogException(503, AVAILABILITY_ERROR_CODES.INVENTORY_UNAVAILABLE,
+        'No pudimos consultar la disponibilidad en este momento');
+  }
+}
+
 @Injectable()
 export class ProductAvailabilityService {
+  /**
+   * Disponibilidad REAL desde G6. Sigue fallando cerrado (503) mientras las
+   * variables de aprobación del adaptador no estén activas.
+   */
+  private async getRealAvailability(slug: string, sku?: string): Promise<ProductAvailabilityResponseDTO> {
+    try {
+      const resolved = await resolveRealSku(slug, sku);
+      return await getRealCommerceAdapter().getAvailability(resolved);
+    } catch (error) {
+      // El adaptador lanza excepciones de precio al construirse mal: se remapean a inventario.
+      if (error instanceof BffCatalogException) {
+        const code = (error.getResponse() as { error?: { code?: string } }).error?.code;
+        if (code === 'PRICING_UNAVAILABLE') throw availabilityError(new RealCommerceError('UNAVAILABLE'));
+        if (code === 'PRICING_TIMEOUT') throw availabilityError(new RealCommerceError('TIMEOUT'));
+        if (code === 'PRICING_INVALID_RESPONSE') throw availabilityError(new RealCommerceError('INVALID'));
+      }
+      throw availabilityError(error);
+    }
+  }
+
   /**
    * Obtiene la disponibilidad comercial de un producto/SKU.
    *
@@ -64,13 +112,7 @@ export class ProductAvailabilityService {
     slug: string,
     sku?: string,
   ): Promise<ProductAvailabilityResponseDTO> {
-    if (isRealCatalogSource()) {
-      throw new BffCatalogException(
-        503,
-        AVAILABILITY_ERROR_CODES.INVENTORY_UNAVAILABLE,
-        'I-01 gate not closed — inventory integration unavailable',
-      );
-    }
+    if (isRealCatalogSource()) return this.getRealAvailability(slug, sku);
 
     await simulateLatency();
 
