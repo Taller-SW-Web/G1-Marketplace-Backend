@@ -77,4 +77,14 @@ describe('MarketplaceGateway checkout with G6 commerce (synthetic provider)', ()
     verifyQuantities.mockResolvedValue({ available: false, revalidatedAt: new Date().toISOString() });
     await expect(gateway.revalidate(input.lines, customerId, quote.quoteId)).resolves.toMatchObject({ available: false, source: 'G6_REAL' });
   });
+
+  it('does not call G6 to revalidate a prepared quote after its fixture is removed', async () => {
+    const quote = await gateway.createQuote(input, customerId);
+    delete values.CHECKOUT_G5_TEST_FIXTURE;
+
+    await expect(gateway.revalidate(input.lines, customerId, quote.quoteId)).rejects.toMatchObject({
+      status: 503, code: 'G6_CHECKOUT_FIXTURE_REQUIRED',
+    });
+    expect(verifyQuantities).not.toHaveBeenCalled();
+  });
 });

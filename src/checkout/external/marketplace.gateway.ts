@@ -194,11 +194,9 @@ export class MarketplaceGateway {
     const fixture = this.checkoutFixture(customerId);
     if (this.usesG6Checkout()) {
       if (!this.g6Checkout) throw new ProviderError(503, 'G6_CHECKOUT_INTEGRATION_DISABLED');
-      if (fixture || quoteId?.startsWith(G5_FIXTURE_QUOTE_PREFIX)) {
-        this.g5OrderPaymentMethod(customerId, quoteId);
-        if (!fixture) throw new ProviderError(409, 'SALES_ORDER_CONTEXT_INCOMPLETE');
-        this.assertFixtureLines(lines, fixture);
-      }
+      if (!fixture) throw new ProviderError(503, 'G6_CHECKOUT_FIXTURE_REQUIRED');
+      this.g5OrderPaymentMethod(customerId, quoteId);
+      this.assertFixtureLines(lines, fixture);
       return { ...(await this.g6Checkout.verifyQuantities(lines)), source: 'G6_REAL' };
     }
     if (fixture || quoteId?.startsWith(G5_FIXTURE_QUOTE_PREFIX)) {
