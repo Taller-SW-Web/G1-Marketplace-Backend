@@ -102,6 +102,9 @@ test('protected checks use the documented paths without bearer and reject unexpe
   const requests = [];
   const fetchImpl = async (url, { headers }) => {
     requests.push([url.hostname, url.pathname, headers.Authorization]);
+    if (url.hostname === 'g2.example.invalid' && url.pathname === '/actuator/health') {
+      return new Response(null, { status: 200 });
+    }
     if (url.pathname === '/health' || url.pathname.endsWith('/jwks.json')) return new Response(null, { status: 200 });
     if (url.pathname === '/api/v1/auth/me') return new Response(null, { status: 403 });
     if (url.pathname === '/api/v1/pedidos/PED-2099-00000') return new Response(null, { status: 401 });
@@ -114,9 +117,10 @@ test('protected checks use the documented paths without bearer and reject unexpe
     ['g7.example.invalid', '/api/v1/auth/me', undefined],
     ['g5.example.invalid', '/health', 'Bearer fixture-token'],
     ['g5.example.invalid', '/api/v1/pedidos/PED-2099-00000', undefined],
-    ['g2.example.invalid', '/health', 'Bearer fixture-token'],
+    ['g2.example.invalid', '/actuator/health', 'Bearer fixture-token'],
     ['g2.example.invalid', '/api/v1/seguimientos/pedidos/PED-2099-00000', undefined],
   ]);
+  assert.equal(report.modules.find((mod) => mod.module === 'G2').checks[0].status, 'PASS');
   for (const [module, status, httpStatus] of [['G7', 'FAIL', 403], ['G5', 'PASS', 401], ['G2', 'FAIL', 404]]) {
     const result = report.modules.find((mod) => mod.module === module);
     assert.equal(result.status, status);

@@ -67,7 +67,7 @@ function buildModuleSpecs(env = process.env) {
       token: env.G2_SANDBOX_TOKEN,
       apiKey: env.G2_SANDBOX_API_KEY,
       checks: [
-        { id: 'G2-POS', label: 'Health / disponibilidad sandbox', path: '/health', expectedStatuses: [200, 204] },
+        { id: 'G2-POS', label: 'Health / disponibilidad sandbox', path: '/actuator/health', expectedStatuses: [200, 204] },
         { id: 'G2-NEG', label: 'Seguimiento RT-04 sin JWT', path: `/api/v1/seguimientos/pedidos/${SYNTHETIC_ORDER_CODE}`, omitToken: true, expectedStatuses: [401] },
       ],
     },
