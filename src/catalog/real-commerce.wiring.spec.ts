@@ -15,9 +15,15 @@ import * as realCommerce from './real-commerce';
 
 jest.mock('./real-commerce', () => {
   const actual = jest.requireActual('./real-commerce');
-  return { ...actual, resolveRealSku: jest.fn(), getRealCommerceAdapter: jest.fn() };
+  return {
+    ...actual,
+    assertOperationApproved: jest.fn(),
+    resolveRealSku: jest.fn(),
+    getRealCommerceAdapter: jest.fn(),
+  };
 });
 
+const assertOperationApproved = realCommerce.assertOperationApproved as jest.Mock;
 const resolveRealSku = realCommerce.resolveRealSku as jest.Mock;
 const getRealCommerceAdapter = realCommerce.getRealCommerceAdapter as jest.Mock;
 const { RealCommerceError } = jest.requireActual('./real-commerce') as typeof realCommerce;
@@ -48,6 +54,7 @@ describe('ProductPriceService (F-012 · REAL)', () => {
 
   beforeEach(() => {
     process.env.BFF_MODE = 'real';
+    assertOperationApproved.mockReset();
     resolveRealSku.mockReset().mockResolvedValue(RESOLVED);
     adapter.getPrice.mockReset().mockResolvedValue(PRICE);
     getRealCommerceAdapter.mockReset().mockReturnValue(adapter);
@@ -95,6 +102,28 @@ describe('ProductPriceService (F-012 · REAL)', () => {
     });
     await expectStatus(service.getPrice('ent22-inka-athletics', 'ADI-ENT22-AZU-M'), 503, PRICE_ERROR_CODES.PRICING_UNAVAILABLE);
   });
+
+  it('sin aprobación de la operación responde 503 SIN resolver el SKU ni llamar a G6', async () => {
+    assertOperationApproved.mockImplementation(() => {
+      throw new RealCommerceError('UNAVAILABLE');
+    });
+    await expectStatus(service.getPrice('ent22-inka-athletics', 'ADI-ENT22-AZU-M'), 503, PRICE_ERROR_CODES.PRICING_UNAVAILABLE);
+    expect(assertOperationApproved).toHaveBeenCalledWith('price');
+    expect(resolveRealSku).not.toHaveBeenCalled();
+    expect(adapter.getPrice).not.toHaveBeenCalled();
+  });
+});
+
+describe('assertOperationApproved (cierre previo a cualquier llamada)', () => {
+  const { assertOperationApproved: real } = jest.requireActual('./real-commerce') as typeof realCommerce;
+
+  it('exige la aprobación global y la de cada operación', () => {
+    expect(() => real('price', {})).toThrow();
+    expect(() => real('price', { CATALOG_INTEGRATION_APPROVED: 'true' })).toThrow();
+    expect(() => real('availability', { CATALOG_INTEGRATION_APPROVED: 'true', PRODUCTOS_PRICE_INTEGRATION_APPROVED: 'true' })).toThrow();
+    expect(() => real('price', { CATALOG_INTEGRATION_APPROVED: 'true', PRODUCTOS_PRICE_INTEGRATION_APPROVED: 'true' })).not.toThrow();
+    expect(() => real('availability', { CATALOG_INTEGRATION_APPROVED: 'true', PRODUCTOS_AVAILABILITY_INTEGRATION_APPROVED: 'true' })).not.toThrow();
+  });
 });
 
 describe('ProductAvailabilityService (F-014 · REAL)', () => {
@@ -103,6 +132,7 @@ describe('ProductAvailabilityService (F-014 · REAL)', () => {
 
   beforeEach(() => {
     process.env.BFF_MODE = 'real';
+    assertOperationApproved.mockReset();
     resolveRealSku.mockReset().mockResolvedValue(RESOLVED);
     adapter.getAvailability.mockReset().mockResolvedValue(AVAILABILITY);
     getRealCommerceAdapter.mockReset().mockReturnValue(adapter);

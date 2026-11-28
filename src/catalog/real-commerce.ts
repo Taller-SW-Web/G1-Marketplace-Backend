@@ -46,6 +46,21 @@ const CONFIG_KEYS = [
 
 let cached: { key: string; adapter: G6CommerceAdapter } | undefined;
 
+/**
+ * Cierre por defecto: se comprueba ANTES de cualquier llamada a G6 (incluida la de
+ * variantes). Sin aprobación global y por operación no sale ninguna petición.
+ */
+export function assertOperationApproved(
+  kind: 'price' | 'availability',
+  env: CatalogEnvironment = process.env,
+): void {
+  const gate = kind === 'price' ? 'PRODUCTOS_PRICE_INTEGRATION_APPROVED' : 'PRODUCTOS_AVAILABILITY_INTEGRATION_APPROVED';
+  const values = env as Record<string, string | undefined>;
+  if (values.CATALOG_INTEGRATION_APPROVED !== 'true' || values[gate] !== 'true') {
+    throw new RealCommerceError('UNAVAILABLE');
+  }
+}
+
 /** Adaptador memoizado por configuración efectiva (reutiliza el token de G7 entre peticiones). */
 export function getRealCommerceAdapter(env: CatalogEnvironment = process.env): G6CommerceAdapter {
   const key = JSON.stringify(CONFIG_KEYS.map((name) => (env as Record<string, string | undefined>)[name] ?? ''));

@@ -24,7 +24,12 @@ import {
 import { AVAILABILITY_ERROR_CODES } from './product-availability.errors';
 import { MOCK_AVAILABILITY_BY_SLUG } from './product-availability.fixture';
 import { mockSkusForProduct } from './mock-sku';
-import { getRealCommerceAdapter, RealCommerceError, resolveRealSku } from './real-commerce';
+import {
+  assertOperationApproved,
+  getRealCommerceAdapter,
+  RealCommerceError,
+  resolveRealSku,
+} from './real-commerce';
 
 const MOCK_LATENCY_MS = 120;
 
@@ -87,6 +92,7 @@ export class ProductAvailabilityService {
    */
   private async getRealAvailability(slug: string, sku?: string): Promise<ProductAvailabilityResponseDTO> {
     try {
+      assertOperationApproved('availability');
       const resolved = await resolveRealSku(slug, sku);
       return await getRealCommerceAdapter().getAvailability(resolved);
     } catch (error) {

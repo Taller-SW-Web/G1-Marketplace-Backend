@@ -23,7 +23,12 @@ import {
 } from './product-price.dto';
 import { PRICE_ERROR_CODES } from './product-price.errors';
 import { MOCK_PRICE_PRODUCTS_BY_SLUG } from './product-price.fixture';
-import { getRealCommerceAdapter, RealCommerceError, resolveRealSku } from './real-commerce';
+import {
+  assertOperationApproved,
+  getRealCommerceAdapter,
+  RealCommerceError,
+  resolveRealSku,
+} from './real-commerce';
 
 const MOCK_LATENCY_MS = 120;
 
@@ -92,6 +97,7 @@ export class ProductPriceService {
    */
   private async getRealPrice(slug: string, sku?: string): Promise<ProductPriceResponseDTO> {
     try {
+      assertOperationApproved('price');
       const resolved = await resolveRealSku(slug, sku);
       return await getRealCommerceAdapter().getPrice(resolved);
     } catch (error) {
