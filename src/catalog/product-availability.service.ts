@@ -63,6 +63,7 @@ function availabilityError(error: unknown): BffCatalogException {
   const kind = error instanceof RealCommerceError ? error.kind : 'UNAVAILABLE';
   switch (kind) {
     case 'INVALID_SLUG':
+      return new BffCatalogException(400, AVAILABILITY_ERROR_CODES.INVALID_PRODUCT_SLUG, 'Slug inválido');
     case 'NOT_AVAILABLE':
       return new BffCatalogException(404, AVAILABILITY_ERROR_CODES.PRODUCT_NOT_AVAILABLE, 'Producto no encontrado');
     case 'SELECTION_REQUIRED':
